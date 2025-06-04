@@ -13,8 +13,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	"github.com/russ/kogaro/internal/controllers"
-	"github.com/russ/kogaro/internal/validators"
+	"github.com/topiaruss/kogaro/internal/controllers"
+	"github.com/topiaruss/kogaro/internal/validators"
 )
 
 var (
@@ -31,7 +31,7 @@ func main() {
 	var enableLeaderElection bool
 	var probeAddr string
 	var scanInterval time.Duration
-	
+
 	// Validation flags
 	var enableIngressValidation bool
 	var enableConfigMapValidation bool
@@ -45,14 +45,14 @@ func main() {
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.DurationVar(&scanInterval, "scan-interval", 5*time.Minute, "Interval between cluster scans for reference validation")
-	
+
 	// Validation configuration flags
 	flag.BoolVar(&enableIngressValidation, "enable-ingress-validation", true, "Enable validation of Ingress references (IngressClass, Services)")
 	flag.BoolVar(&enableConfigMapValidation, "enable-configmap-validation", true, "Enable validation of ConfigMap references in Pods")
 	flag.BoolVar(&enableSecretValidation, "enable-secret-validation", true, "Enable validation of Secret references (volumes, env, TLS)")
 	flag.BoolVar(&enablePVCValidation, "enable-pvc-validation", true, "Enable validation of PVC and StorageClass references")
 	flag.BoolVar(&enableServiceAccountValidation, "enable-serviceaccount-validation", false, "Enable validation of ServiceAccount references (may be noisy)")
-	
+
 	opts := zap.Options{
 		Development: true,
 	}
@@ -80,7 +80,7 @@ func main() {
 		EnableIngressValidation:        enableIngressValidation,
 		EnableConfigMapValidation:      enableConfigMapValidation,
 		EnableSecretValidation:         enableSecretValidation,
-		EnablePVCValidation:           enablePVCValidation,
+		EnablePVCValidation:            enablePVCValidation,
 		EnableServiceAccountValidation: enableServiceAccountValidation,
 	}
 	validator := validators.NewReferenceValidator(mgr.GetClient(), setupLog, validationConfig)

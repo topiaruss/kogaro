@@ -1,3 +1,9 @@
+// Package validators provides Kubernetes resource reference validation functionality.
+//
+// This package implements comprehensive validation of resource references within
+// a Kubernetes cluster, detecting dangling references that could cause silent
+// failures in applications. It supports validation of Ingress, ConfigMap, Secret,
+// PVC, and ServiceAccount references with configurable validation rules.
 package validators
 
 import (
@@ -5,13 +11,13 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	networkingv1 "k8s.io/api/networking/v1"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 var (
@@ -22,7 +28,7 @@ var (
 		},
 		[]string{"resource_type", "validation_type", "namespace"},
 	)
-	
+
 	validationRuns = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "kogaro_validation_runs_total",
@@ -40,10 +46,10 @@ type ValidationError struct {
 }
 
 type ValidationConfig struct {
-	EnableIngressValidation     bool
-	EnableConfigMapValidation   bool
-	EnableSecretValidation      bool
-	EnablePVCValidation         bool
+	EnableIngressValidation        bool
+	EnableConfigMapValidation      bool
+	EnableSecretValidation         bool
+	EnablePVCValidation            bool
 	EnableServiceAccountValidation bool
 }
 
@@ -63,7 +69,7 @@ func NewReferenceValidator(client client.Client, log logr.Logger, config Validat
 
 func (v *ReferenceValidator) ValidateCluster(ctx context.Context) error {
 	validationRuns.Inc()
-	
+
 	var allErrors []ValidationError
 
 	// Validate Ingress references
@@ -120,7 +126,7 @@ func (v *ReferenceValidator) ValidateCluster(ctx context.Context) error {
 			"validation_type", validationErr.ValidationType,
 			"message", validationErr.Message,
 		)
-		
+
 		validationErrors.WithLabelValues(
 			validationErr.ResourceType,
 			validationErr.ValidationType,
@@ -173,14 +179,14 @@ func (v *ReferenceValidator) validateIngressReferences(ctx context.Context) ([]V
 			if rule.HTTP != nil {
 				for _, path := range rule.HTTP.Paths {
 					serviceName := path.Backend.Service.Name
-					
+
 					// Check if the service exists
 					var service corev1.Service
 					err := v.client.Get(ctx, types.NamespacedName{
 						Name:      serviceName,
 						Namespace: ingress.Namespace,
 					}, &service)
-					
+
 					if err != nil {
 						errors = append(errors, ValidationError{
 							ResourceType:   "Ingress",
@@ -415,7 +421,7 @@ func (v *ReferenceValidator) validateServiceAccountReferences(ctx context.Contex
 		if saName == "" {
 			saName = "default"
 		}
-		
+
 		if err := v.validateServiceAccountExists(ctx, saName, pod.Namespace); err != nil {
 			errors = append(errors, ValidationError{
 				ResourceType:   "Pod",

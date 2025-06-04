@@ -20,7 +20,7 @@ GOVET=$(GOCMD) vet
 .PHONY: all build clean test deps fmt vet docker run help
 
 # Default target
-all: clean fmt vet test build
+all: clean fmt fmt-imports vet lint test build
 
 # Build the binary
 build:
@@ -41,6 +41,19 @@ test-coverage:
 	$(GOTEST) -v -coverprofile=coverage.out ./...
 	$(GOCMD) tool cover -html=coverage.out -o coverage.html
 
+# Run tests with race detection
+test-race:
+	$(GOTEST) -v -race ./...
+
+# Run short tests only
+test-short:
+	$(GOTEST) -v -short ./...
+
+# Run tests and show coverage percentage
+test-coverage-report:
+	$(GOTEST) -v -coverprofile=coverage.out ./...
+	$(GOCMD) tool cover -func=coverage.out
+
 # Download dependencies
 deps:
 	$(GOMOD) download
@@ -49,6 +62,10 @@ deps:
 # Format code
 fmt:
 	$(GOFMT) -s -w .
+
+# Format imports (requires goimports)
+fmt-imports:
+	goimports -w .
 
 # Vet code
 vet:
@@ -99,8 +116,12 @@ help:
 	@echo "  clean         - Clean build artifacts"
 	@echo "  test          - Run tests"
 	@echo "  test-coverage - Run tests with coverage report"
+	@echo "  test-race     - Run tests with race detection"
+	@echo "  test-short    - Run short tests only"
+	@echo "  test-coverage-report - Run tests and show coverage percentage"
 	@echo "  deps          - Download and tidy dependencies"
 	@echo "  fmt           - Format code"
+	@echo "  fmt-imports   - Format imports (requires goimports)"
 	@echo "  vet           - Vet code"
 	@echo "  lint          - Lint code (requires golangci-lint)"
 	@echo "  docker        - Build Docker image"

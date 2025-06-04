@@ -1,5 +1,12 @@
 # Kogaro - Kubernetes Configuration Hygiene Agent
 
+[![CI](https://github.com/topiaruss/kogaro/workflows/CI/badge.svg)](https://github.com/topiaruss/kogaro/actions)
+[![Go Report Card](https://goreportcard.com/badge/github.com/topiaruss/kogaro)](https://goreportcard.com/report/github.com/topiaruss/kogaro)
+[![codecov](https://codecov.io/gh/topiaruss/kogaro/branch/main/graph/badge.svg)](https://codecov.io/gh/topiaruss/kogaro)
+[![GoDoc](https://pkg.go.dev/badge/github.com/topiaruss/kogaro.svg)](https://pkg.go.dev/github.com/topiaruss/kogaro)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub release](https://img.shields.io/github/release/topiaruss/kogaro.svg)](https://github.com/topiaruss/kogaro/releases)
+
 Kogaro is a runtime Kubernetes agent that continuously validates resource references and identifies configuration hygiene issues that can cause silent failures.
 
 ## Problem Statement
@@ -11,7 +18,7 @@ Kubernetes resources often reference other resources (IngressClasses, ConfigMaps
 - **Manual changes**: Direct cluster modifications bypassing CI/CD
 - **Cleanup issues**: Dependencies deleted while references remain
 
-These issues often manifest as silent failures that are difficult to diagnose.
+These issues often manifest as silent failures that are difficult to diagnose, or they are lost in the avalanche of logs.
 
 ## Features
 
@@ -71,7 +78,7 @@ kubectl logs -n kogaro-system -l app=kogaro -f
 
 ```bash
 # Clone the repository
-git clone https://github.com/russ/kogaro.git
+git clone https://github.com/topiaruss/kogaro.git
 cd kogaro
 
 # Install dependencies

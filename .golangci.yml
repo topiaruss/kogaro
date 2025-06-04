@@ -1,0 +1,70 @@
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+
+linters-settings:
+  goimports:
+    local-prefixes: github.com/topiaruss/kogaro
+  
+  gofmt:
+    simplify: true
+  
+  govet:
+    check-shadowing: true
+  
+  misspell:
+    locale: US
+  
+  revive:
+    rules:
+      - name: exported
+      - name: package-comments
+      - name: var-naming
+      - name: function-naming
+      - name: if-return
+      - name: increment-decrement
+      - name: error-return
+      - name: error-naming
+
+linters:
+  enable:
+    - gofmt
+    - goimports
+    - govet
+    - revive
+    - misspell
+    - ineffassign
+    - deadcode
+    - varcheck
+    - structcheck
+    - errcheck
+    - gosimple
+    - staticcheck
+    - unused
+    - typecheck
+    - gosec
+    - unconvert
+    - dupl
+    - goconst
+    - gocyclo
+  
+  disable:
+    - funlen # Allow longer functions for validation logic
+    - lll    # Allow longer lines for test table data
+
+issues:
+  exclude-rules:
+    # Exclude certain linters from running on tests files
+    - path: _test\.go
+      linters:
+        - gosec
+        - dupl
+    
+    # Exclude package comment requirement for main
+    - path: main\.go
+      linters:
+        - revive
+      text: "package-comments"
+
+  max-issues-per-linter: 0
+  max-same-issues: 0

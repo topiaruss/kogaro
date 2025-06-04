@@ -1,0 +1,17 @@
+apiVersion: v2
+name: kogaro
+description: A Helm chart for Kogaro - Kubernetes Configuration Hygiene Agent
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - kubernetes
+  - validation
+  - hygiene
+  - monitoring
+home: https://github.com/topiaruss/kogaro
+sources:
+  - https://github.com/topiaruss/kogaro
+maintainers:
+  - name: topiaruss
+    url: https://github.com/topiaruss

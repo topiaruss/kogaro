@@ -1,3 +1,8 @@
+// Package controllers implements Kubernetes controllers for resource validation.
+//
+// This package provides the ValidationController which runs periodic scans
+// of the Kubernetes cluster to validate resource references using the
+// controller-runtime framework.
 package controllers
 
 import (
@@ -9,7 +14,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/russ/kogaro/internal/validators"
+	"github.com/topiaruss/kogaro/internal/validators"
 )
 
 type ValidationController struct {
@@ -30,14 +35,14 @@ func (r *ValidationController) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	// Run the validation scan
 	log.Info("starting cluster validation scan")
-	
+
 	if err := r.Validator.ValidateCluster(ctx); err != nil {
 		log.Error(err, "failed to validate cluster")
 		return ctrl.Result{RequeueAfter: r.ScanInterval}, err
 	}
 
 	log.Info("cluster validation scan completed successfully")
-	
+
 	// Requeue after the scan interval
 	return ctrl.Result{RequeueAfter: r.ScanInterval}, nil
 }
@@ -45,7 +50,7 @@ func (r *ValidationController) Reconcile(ctx context.Context, req ctrl.Request) 
 // Start begins the periodic validation process
 func (r *ValidationController) Start(ctx context.Context) error {
 	log := r.Log.WithName("periodic-validator")
-	
+
 	ticker := time.NewTicker(r.ScanInterval)
 	defer ticker.Stop()
 
