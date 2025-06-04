@@ -6,7 +6,10 @@
       "Bash(git commit:*)",
       "Bash(helm lint:*)",
       "Bash(kubectl get pods:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(go get:*)"
     ],
     "deny": []
   }
