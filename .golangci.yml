@@ -37,7 +37,6 @@ linters:
     - gosimple
     - staticcheck
     - unused
-    - typecheck
     - gosec
     - unconvert
     - dupl
