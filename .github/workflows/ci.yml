@@ -59,9 +59,9 @@ jobs:
         go-version: 1.22
 
     - name: golangci-lint
-      uses: golangci/golangci-lint-action@v4
+      uses: golangci/golangci-lint-action@v6
       with:
-        version: v1.55
+        version: latest
 
   build:
     runs-on: ubuntu-latest
