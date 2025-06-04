@@ -9,9 +9,6 @@ linters-settings:
   gofmt:
     simplify: true
   
-  govet:
-    check-shadowing: true
-  
   misspell:
     locale: US
   
@@ -30,6 +27,7 @@ linters:
     - gofmt
     - goimports
     - govet
+    - shadow
     - revive
     - misspell
     - ineffassign
