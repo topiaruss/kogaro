@@ -1,11 +1,12 @@
 replicaCount: 1
 
 image:
-  repository: kogaro
+  repository: registry.ogaro.com/kogaro
   pullPolicy: IfNotPresent
-  tag: ""
+  tag: "0.1.1"
 
-imagePullSecrets: []
+imagePullSecrets: 
+  - name: ogaro-registry
 nameOverride: ""
 fullnameOverride: ""
 

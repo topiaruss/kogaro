@@ -12,16 +12,16 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
 var (
-	validationErrors = promauto.NewCounterVec(
+	validationErrors = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "kogaro_validation_errors_total",
 			Help: "Total number of validation errors found",
@@ -29,13 +29,19 @@ var (
 		[]string{"resource_type", "validation_type", "namespace"},
 	)
 
-	validationRuns = promauto.NewCounter(
+	validationRuns = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: "kogaro_validation_runs_total",
 			Help: "Total number of validation runs performed",
 		},
 	)
 )
+
+func init() {
+	// Register metrics with controller-runtime metrics registry
+	metrics.Registry.MustRegister(validationErrors)
+	metrics.Registry.MustRegister(validationRuns)
+}
 
 type ValidationError struct {
 	ResourceType   string

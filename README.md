@@ -51,7 +51,9 @@ These issues often manifest as silent failures that are difficult to diagnose, o
 - **Structured Logging**: Detailed logs of all validation issues found
 - **Health Checks**: Kubernetes-native health and readiness probes
 
-## Installation
+## Quick Start
+
+For detailed deployment instructions, see the [Deployment Guide](docs/DEPLOYMENT-GUIDE.md).
 
 ### Prerequisites
 
@@ -59,19 +61,19 @@ These issues often manifest as silent failures that are difficult to diagnose, o
 - Kubernetes cluster access
 - kubectl configured
 
-### Quick Start
+### Installation
 
 #### Deploy to Cluster
 
 ```bash
-# Apply the deployment manifests
-kubectl apply -f config/deployment.yaml
+# Install with Helm
+helm install kogaro charts/kogaro --namespace kogaro-system --create-namespace
 
 # Check deployment status
 kubectl get pods -n kogaro-system
 
 # View logs
-kubectl logs -n kogaro-system -l app=kogaro -f
+kubectl logs -n kogaro-system -l app.kubernetes.io/name=kogaro -f
 ```
 
 #### Local Development
@@ -180,12 +182,16 @@ spec:
 validation error found: resource_type=Pod resource_name=my-pod validation_type=dangling_configmap_envfrom message="ConfigMap 'app-settings' referenced in envFrom does not exist"
 ```
 
+## Documentation
+
+- **[Deployment Guide](docs/DEPLOYMENT-GUIDE.md)** - Comprehensive deployment and configuration instructions
+- **[Contributing Guide](CONTRIBUTING.md)** - Development setup and contribution guidelines
+- **[Security Policy](SECURITY.md)** - Security considerations and vulnerability reporting
+
 ## Future Enhancements
 
-- **Secret references validation**
 - **HPA target validation** 
 - **RBAC reference validation**
-- **PVC/StorageClass validation**
 - **Custom resource validations**
 - **Webhook for admission control**
 - **Slack/email alerting**

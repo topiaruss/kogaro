@@ -77,8 +77,16 @@ lint:
 
 # Build Docker image
 docker:
-	docker build -t $(DOCKER_IMAGE):$(VERSION) .
+	docker build --platform linux/amd64 -t $(DOCKER_IMAGE):$(VERSION) .
 	docker tag $(DOCKER_IMAGE):$(VERSION) $(DOCKER_IMAGE):latest
+
+# Build Docker image for multiple platforms
+docker-buildx:
+	docker buildx build --platform linux/amd64,linux/arm64 -t $(DOCKER_IMAGE):$(VERSION) .
+
+# Build and push Docker image
+docker-push:
+	docker buildx build --platform linux/amd64,linux/arm64 -t $(DOCKER_IMAGE):$(VERSION) --push .
 
 # Run locally
 run:
