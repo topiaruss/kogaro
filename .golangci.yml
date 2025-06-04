@@ -20,7 +20,6 @@ linters-settings:
       - name: exported
       - name: package-comments
       - name: var-naming
-      - name: function-naming
       - name: if-return
       - name: increment-decrement
       - name: error-return
@@ -34,9 +33,6 @@ linters:
     - revive
     - misspell
     - ineffassign
-    - deadcode
-    - varcheck
-    - structcheck
     - errcheck
     - gosimple
     - staticcheck
