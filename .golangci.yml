@@ -1,4 +1,4 @@
-version: 2
+version: "2"
 
 run:
   timeout: 5m
@@ -48,8 +48,12 @@ linters:
     - lll    # Allow longer lines for test table data
 
 issues:
+  exclude-dirs:
+    - vendor
+  exclude-files:
+    - ".*_test.go"
   exclude-rules:
-    # Exclude certain linters from running on tests files
+    # Exclude certain linters from running on test files
     - path: _test\.go
       linters:
         - gosec
