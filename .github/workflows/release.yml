@@ -104,6 +104,34 @@ jobs:
         echo "=== values.yaml tag ==="
         grep "tag:" charts/kogaro/values.yaml
 
+    - name: Check if gh-pages branch exists
+      id: check_pages
+      run: |
+        if git ls-remote --exit-code --heads origin gh-pages; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Initialize gh-pages branch if needed
+      if: steps.check_pages.outputs.exists == 'false'
+      run: |
+        echo "Creating gh-pages branch..."
+        git checkout --orphan gh-pages
+        git rm -rf .
+        
+        # Create initial index.yaml
+        cat > index.yaml << EOF
+        apiVersion: v1
+        entries: {}
+        generated: "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+        EOF
+        
+        git add index.yaml
+        git commit -m "Initialize GitHub Pages with empty Helm repository"
+        git push origin gh-pages
+        git checkout main
+
     - name: Package and release chart
       uses: helm/chart-releaser-action@v1.6.0
       env:

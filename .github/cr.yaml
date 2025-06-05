@@ -8,5 +8,9 @@ skip-existing: true
 package-path: .cr-release-packages
 # Index path
 index-path: .cr-index
+# GitHub Pages settings
+pages-branch: gh-pages
+pages-index-path: index.yaml
+push: true
 # Release name template  
 release-name-template: "helm-chart-{{ .Version }}"

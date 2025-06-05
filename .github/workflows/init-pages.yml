@@ -1,0 +1,88 @@
+name: Initialize GitHub Pages
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/init-pages.yml'
+
+jobs:
+  setup-pages:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Configure Git
+      run: |
+        git config user.name "$GITHUB_ACTOR"
+        git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+    - name: Check if gh-pages branch exists
+      id: check_branch
+      run: |
+        if git ls-remote --exit-code --heads origin gh-pages; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Create gh-pages branch with initial index
+      if: steps.check_branch.outputs.exists == 'false'
+      run: |
+        # Create orphan branch
+        git checkout --orphan gh-pages
+        
+        # Remove all files
+        git rm -rf .
+        
+        # Create initial index.yaml for Helm repository
+        cat > index.yaml << EOF
+        apiVersion: v1
+        entries: {}
+        generated: "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+        EOF
+        
+        # Create a README for the Helm repository
+        cat > README.md << EOF
+        # Kogaro Helm Chart Repository
+        
+        This is the Helm chart repository for Kogaro - Kubernetes Configuration Hygiene Agent.
+        
+        ## Usage
+        
+        \`\`\`bash
+        helm repo add kogaro https://topiaruss.github.io/kogaro
+        helm repo update
+        helm install kogaro kogaro/kogaro --namespace kogaro-system --create-namespace
+        \`\`\`
+        
+        ## Charts
+        
+        - **kogaro**: Kubernetes Configuration Hygiene Agent
+        
+        For more information, visit: https://github.com/topiaruss/kogaro
+        EOF
+        
+        # Add and commit
+        git add index.yaml README.md
+        git commit -m "Initialize GitHub Pages with empty Helm repository"
+        
+        # Push the new branch
+        git push origin gh-pages
+        
+        echo "Created gh-pages branch with initial Helm repository structure"
+    
+    - name: Update existing gh-pages branch
+      if: steps.check_branch.outputs.exists == 'true'
+      run: |
+        echo "gh-pages branch already exists, skipping initialization"
