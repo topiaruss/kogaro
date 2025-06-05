@@ -53,6 +53,7 @@ test-short:
 test-coverage-report:
 	$(GOTEST) -v -coverprofile=coverage.out ./...
 	$(GOCMD) tool cover -func=coverage.out
+	$(GOCMD) tool cover -html=coverage.out -o coverage.html
 
 # Download dependencies
 deps:
