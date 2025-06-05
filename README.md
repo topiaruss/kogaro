@@ -63,17 +63,37 @@ For detailed deployment instructions, see the [Deployment Guide](docs/DEPLOYMENT
 
 ### Installation
 
-#### Deploy to Cluster
+#### Option 1: Helm Repository (Recommended)
 
 ```bash
-# Install with Helm
-helm install kogaro charts/kogaro --namespace kogaro-system --create-namespace
+# Add the Kogaro Helm repository
+helm repo add kogaro https://topiaruss.github.io/kogaro
+helm repo update
+
+# Install Kogaro
+helm install kogaro kogaro/kogaro --namespace kogaro-system --create-namespace
 
 # Check deployment status
 kubectl get pods -n kogaro-system
 
 # View logs
 kubectl logs -n kogaro-system -l app.kubernetes.io/name=kogaro -f
+```
+
+#### Option 2: Direct from Source
+
+```bash
+# Clone and install directly
+git clone https://github.com/topiaruss/kogaro.git
+cd kogaro
+helm install kogaro charts/kogaro --namespace kogaro-system --create-namespace
+```
+
+#### Option 3: Docker Image
+
+```bash
+# Run directly with Docker (for testing)
+docker run --rm topiaruss/kogaro:latest --help
 ```
 
 #### Local Development

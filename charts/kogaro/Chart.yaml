@@ -1,17 +1,29 @@
 apiVersion: v2
 name: kogaro
-description: A Helm chart for Kogaro - Kubernetes Configuration Hygiene Agent
+description: Kubernetes Configuration Hygiene Agent - validates resource references and detects configuration issues
 type: application
-version: 0.1.0
-appVersion: "0.1.0"
+version: 0.1.1
+appVersion: "0.1.1"
 keywords:
   - kubernetes
   - validation
   - hygiene
   - monitoring
+  - controller
+  - observability
 home: https://github.com/topiaruss/kogaro
 sources:
   - https://github.com/topiaruss/kogaro
 maintainers:
   - name: topiaruss
     url: https://github.com/topiaruss
+annotations:
+  category: Monitoring
+  artifacthub.io/license: MIT
+  artifacthub.io/links: |
+    - name: Chart Source
+      url: https://github.com/topiaruss/kogaro/tree/main/charts/kogaro
+    - name: Documentation
+      url: https://github.com/topiaruss/kogaro/blob/main/docs/DEPLOYMENT-GUIDE.md
+  artifacthub.io/operator: "false"
+  artifacthub.io/prerelease: "false"
