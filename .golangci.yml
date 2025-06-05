@@ -2,27 +2,6 @@ version: "2"
 
 run:
   timeout: 5m
-  modules-download-mode: readonly
-
-linters-settings:
-  goimports:
-    local-prefixes: github.com/topiaruss/kogaro
-  
-  gofmt:
-    simplify: true
-  
-  misspell:
-    locale: US
-  
-  revive:
-    rules:
-      - name: exported
-      - name: package-comments
-      - name: var-naming
-      - name: if-return
-      - name: increment-decrement
-      - name: error-return
-      - name: error-naming
 
 linters:
   enable:
@@ -44,26 +23,9 @@ linters:
     - gocyclo
   
   disable:
-    - funlen # Allow longer functions for validation logic
-    - lll    # Allow longer lines for test table data
+    - funlen
+    - lll
 
 issues:
-  exclude-dirs:
-    - vendor
-  exclude-files:
-    - ".*_test.go"
-  exclude-rules:
-    # Exclude certain linters from running on test files
-    - path: _test\.go
-      linters:
-        - gosec
-        - dupl
-    
-    # Exclude package comment requirement for main
-    - path: main\.go
-      linters:
-        - revive
-      text: "package-comments"
-
   max-issues-per-linter: 0
   max-same-issues: 0
