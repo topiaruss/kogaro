@@ -70,8 +70,17 @@ For detailed deployment instructions, see the [Deployment Guide](docs/DEPLOYMENT
 helm repo add kogaro https://topiaruss.github.io/kogaro
 helm repo update
 
-# Install Kogaro
-helm install kogaro kogaro/kogaro --namespace kogaro-system --create-namespace
+# Install Kogaro with default settings
+helm install kogaro kogaro/kogaro \
+  --namespace kogaro-system \
+  --create-namespace
+
+# Or install with custom configuration
+helm install kogaro kogaro/kogaro \
+  --namespace kogaro-system \
+  --create-namespace \
+  --set validation.enableServiceAccountValidation=true \
+  --set validation.scanInterval=10m
 
 # Check deployment status
 kubectl get pods -n kogaro-system

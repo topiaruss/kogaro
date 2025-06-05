@@ -3,7 +3,7 @@
 # Variables
 BINARY_NAME=kogaro
 BUILD_DIR=bin
-DOCKER_IMAGE=kogaro
+DOCKER_IMAGE=topiaruss/kogaro
 VERSION?=$(shell git describe --tags --always --dirty)
 LDFLAGS=-ldflags "-X main.Version=$(VERSION)"
 

@@ -1,0 +1,12 @@
+# Chart Releaser configuration
+owner: topiaruss
+git-repo: kogaro
+charts-repo-url: https://topiaruss.github.io/kogaro
+# Skip existing releases (useful for reruns)
+skip-existing: true
+# Package path for charts
+package-path: .cr-release-packages
+# Index path
+index-path: .cr-index
+# Release name template  
+release-name-template: "helm-chart-{{ .Version }}"

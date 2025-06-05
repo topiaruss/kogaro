@@ -60,6 +60,10 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
     
     steps:
     - name: Checkout
@@ -75,18 +79,36 @@ jobs:
     - name: Install Helm
       uses: azure/setup-helm@v4
       with:
-        version: '3.12.1'
+        version: '3.13.1'
 
-    - name: Update chart version
+    - name: Extract version from tag
+      id: version
       run: |
         VERSION=${GITHUB_REF#refs/tags/v}
-        sed -i "s/version: .*/version: $VERSION/" charts/kogaro/Chart.yaml
-        sed -i "s/appVersion: .*/appVersion: $VERSION/" charts/kogaro/Chart.yaml
-        sed -i "s/tag: .*/tag: \"$VERSION\"/" charts/kogaro/values.yaml
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "Version: $VERSION"
 
-    - name: Run chart-releaser
+    - name: Update chart version and values
+      run: |
+        VERSION=${{ steps.version.outputs.VERSION }}
+        echo "Updating Chart.yaml with version: $VERSION"
+        sed -i "s/version: .*/version: $VERSION/" charts/kogaro/Chart.yaml
+        sed -i "s/appVersion: .*/appVersion: \"$VERSION\"/" charts/kogaro/Chart.yaml
+        
+        echo "Updating values.yaml with image tag: $VERSION"
+        sed -i "s/tag: .*/tag: \"$VERSION\"/" charts/kogaro/values.yaml
+        
+        # Show the changes
+        echo "=== Chart.yaml ==="
+        grep -E "(version|appVersion):" charts/kogaro/Chart.yaml
+        echo "=== values.yaml tag ==="
+        grep "tag:" charts/kogaro/values.yaml
+
+    - name: Package and release chart
       uses: helm/chart-releaser-action@v1.6.0
       env:
         CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+        CR_RELEASE_NAME_TEMPLATE: "helm-chart-{{ .Version }}"
       with:
         charts_dir: charts
+        config: .github/cr.yaml
