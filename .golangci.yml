@@ -6,12 +6,10 @@ run:
 linters:
   enable:
     - govet
-    - shadow
     - revive
     - misspell
     - ineffassign
     - errcheck
-    - gosimple
     - staticcheck
     - unused
     - gosec
