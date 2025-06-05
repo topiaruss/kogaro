@@ -43,6 +43,7 @@ func init() {
 	metrics.Registry.MustRegister(validationRuns)
 }
 
+// ValidationError represents a validation failure found during cluster scanning
 type ValidationError struct {
 	ResourceType   string
 	ResourceName   string
@@ -51,6 +52,7 @@ type ValidationError struct {
 	Message        string
 }
 
+// ValidationConfig defines which types of validation checks to perform
 type ValidationConfig struct {
 	EnableIngressValidation        bool
 	EnableConfigMapValidation      bool
@@ -59,12 +61,14 @@ type ValidationConfig struct {
 	EnableServiceAccountValidation bool
 }
 
+// ReferenceValidator validates Kubernetes resource references across the cluster
 type ReferenceValidator struct {
 	client client.Client
 	log    logr.Logger
 	config ValidationConfig
 }
 
+// NewReferenceValidator creates a new ReferenceValidator with the given client, logger and config
 func NewReferenceValidator(client client.Client, log logr.Logger, config ValidationConfig) *ReferenceValidator {
 	return &ReferenceValidator{
 		client: client,
@@ -73,6 +77,7 @@ func NewReferenceValidator(client client.Client, log logr.Logger, config Validat
 	}
 }
 
+// ValidateCluster performs comprehensive validation of resource references across the entire cluster
 func (v *ReferenceValidator) ValidateCluster(ctx context.Context) error {
 	validationRuns.Inc()
 

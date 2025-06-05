@@ -17,6 +17,7 @@ import (
 	"github.com/topiaruss/kogaro/internal/validators"
 )
 
+// ValidationController manages periodic validation of Kubernetes resource references
 type ValidationController struct {
 	Client       client.Client
 	Scheme       *runtime.Scheme
@@ -25,11 +26,13 @@ type ValidationController struct {
 	ScanInterval time.Duration
 }
 
+// SetupWithManager registers the ValidationController with the manager
 func (r *ValidationController) SetupWithManager(mgr ctrl.Manager) error {
 	// Start the periodic validation as a runnable
 	return mgr.Add(r)
 }
 
+// Reconcile handles reconciliation requests (not used in this implementation)
 func (r *ValidationController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := r.Log.WithValues("validation", req.NamespacedName)
 

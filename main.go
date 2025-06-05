@@ -1,3 +1,8 @@
+// Package main provides the Kogaro Kubernetes configuration hygiene validation agent.
+//
+// Kogaro is a Kubernetes controller that continuously monitors cluster resources
+// to detect and report configuration hygiene issues such as dangling references
+// to non-existent ConfigMaps, Secrets, PVCs, and other resources.
 package main
 
 import (
