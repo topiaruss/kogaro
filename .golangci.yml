@@ -5,7 +5,6 @@ run:
 
 linters:
   enable:
-    - gofmt
     - goimports
     - govet
     - shadow
