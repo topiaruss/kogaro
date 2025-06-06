@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: prometheus-monitoring-test-kube-prome-prometheus-web-config
+  namespace: monitoring-test
+  labels:
+    managed-by: prometheus-operator
+type: Opaque
+stringData:
+  web-config.yaml: |
+    basic_auth_users:
+      prometheus-test: $apr1$9jnL2uDc$tvRmYFs/4CrSszxZmWix.

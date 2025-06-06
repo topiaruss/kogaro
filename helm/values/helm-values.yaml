@@ -1,0 +1,86 @@
+# Custom values for deploying to Kubernetes with external registry
+image:
+  repository: registry.ogaro.com/django-deepface-demo
+  tag: "latest"
+  pullPolicy: Always
+
+imagePullSecrets:
+  - name: registry-ogaro-com
+
+# Enable ingress for external access
+ingress:
+  enabled: true
+  className: ""
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "600"
+  hosts:
+    - host: deepface.ogaro.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: deepface-ogaro-com-tls
+      hosts:
+        - deepface.ogaro.com
+
+# Django configuration
+django:
+  debug: false
+  allowedHosts: "deepface.ogaro.com,localhost,127.0.0.1"
+  secretKey: ""  # Will be auto-generated
+  database:
+    external: true
+    password: "postgres123"
+
+# Gunicorn configuration for runtime model loading
+gunicorn:
+  workers: 3  # Reduced to lower memory usage
+  timeout: 300  # 5 minutes for model download on first request
+
+# PostgreSQL configuration
+postgresql:
+  enabled: false
+  auth:
+    postgresPassword: "postgres123"
+
+# Reduced resource limits to avoid scheduling issues
+resources:
+  limits:
+    cpu: 500m
+    memory: 4Gi  # Reduced to fit cluster capacity with 2 workers
+  requests:
+    cpu: 100m
+    memory: 1Gi  # Conservative request for scheduling
+
+# Extended probe timeouts for DeepFace loading
+livenessProbe:
+  httpGet:
+    path: /demo/
+    port: http
+  initialDelaySeconds: 120  # Wait 2 minutes before first check
+  periodSeconds: 30         # Check every 30 seconds
+  timeoutSeconds: 10        # Allow 10 seconds for response
+  failureThreshold: 5       # Allow 5 failures before restart
+
+readinessProbe:
+  httpGet:
+    path: /demo/
+    port: http
+  initialDelaySeconds: 60   # Wait 1 minute before first check
+  periodSeconds: 15         # Check every 15 seconds
+  timeoutSeconds: 10        # Allow 10 seconds for response
+  failureThreshold: 10      # Allow 10 failures before marking unready
+
+# Autoscaling disabled for demo
+autoscaling:
+  enabled: false
+
+# Storage for media files
+django:
+  media:
+    size: 5Gi
+    # storageClass: ""  # Use default storage class

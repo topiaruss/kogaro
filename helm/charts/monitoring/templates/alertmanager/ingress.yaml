@@ -1,0 +1,28 @@
+{{- if and .Values.alertmanager.enabled .Values.alertmanager.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: alertmanager
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    {{- with .Values.global.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.global.ingress.className }}
+  tls:
+  - hosts:
+    - {{ .Values.alertmanager.ingress.hostname | quote }}
+    secretName: {{ .Values.global.tls.secretName }}
+  rules:
+  - host: {{ .Values.alertmanager.ingress.hostname | quote }}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ .Release.Name }}-kube-prometheus-alertmanager
+            port:
+              number: 9093
+{{- end }} 

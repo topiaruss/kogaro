@@ -1,0 +1,54 @@
+# Global settings
+# NOTE: These resource settings are configured for a test environment.
+# For production use, you should increase the resource limits and requests
+# to ensure stable operation under load.
+global:
+  domain: "ogaro.com"  # Change this to your domain
+  tls:
+    enabled: true
+    secretName: "kogaro-monitoring-tls"
+
+# Prometheus configuration
+prometheus:
+  enabled: true
+  prometheusSpec:
+    resources:
+      limits:
+        cpu: 125m
+        memory: 256Mi
+      requests:
+        cpu: 25m
+        memory: 100Mi
+    retention: 15d
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 5Gi
+
+# Grafana configuration
+grafana:
+  enabled: true
+  resources:
+    limits:
+      cpu: 100m
+      memory: 200Mi
+    requests:
+      cpu: 50m
+      memory: 100Mi
+
+# Alertmanager configuration
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    resources:
+      limits:
+        cpu: 25m
+        memory: 50Mi
+      requests:
+        cpu: 12m
+        memory: 25Mi
+    retention: 120h 

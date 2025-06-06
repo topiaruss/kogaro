@@ -1,0 +1,64 @@
+# Basic configuration for kube-prometheus-stack
+prometheus:
+  enabled: true
+  prometheusSpec:
+    retention: 15d
+    resources:
+      requests:
+        memory: 400Mi
+        cpu: 100m
+      limits:
+        memory: 1Gi
+        cpu: 500m
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 10Gi
+
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    retention: 120h
+    resources:
+      requests:
+        memory: 100Mi
+        cpu: 50m
+      limits:
+        memory: 200Mi
+        cpu: 100m
+
+grafana:
+  enabled: true
+  adminPassword: "admin"  # Change this in production
+  service:
+    type: ClusterIP
+  resources:
+    requests:
+      memory: 100Mi
+      cpu: 50m
+    limits:
+      memory: 200Mi
+      cpu: 100m
+
+# Enable node exporter for system metrics
+nodeExporter:
+  enabled: true
+
+# Enable kube-state-metrics for Kubernetes metrics
+kubeStateMetrics:
+  enabled: true
+
+# Additional ServiceMonitor for Django application
+additionalServiceMonitors:
+  - name: django-app
+    jobLabel: django-app
+    selector:
+      matchLabels:
+        app: django-app
+    endpoints:
+      - port: metrics
+        interval: 15s
+        path: /metrics 
