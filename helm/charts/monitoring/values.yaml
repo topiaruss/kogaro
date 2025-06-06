@@ -1,16 +1,38 @@
 # Global settings
-# NOTE: These resource settings are configured for a test environment.
-# For production use, you should increase the resource limits and requests
-# to ensure stable operation under load.
+# Monitoring stack configuration for production environment.
 global:
-  domain: "ogaro.com"  # Change this to your domain
+  domain: "ogaro.com"
   tls:
     enabled: true
     secretName: "kogaro-monitoring-tls"
+    hosts:
+      - alertmanager.ogaro.com
+      - grafana.ogaro.com
+      - prometheus.ogaro.com
+  ingress:
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+      nginx.ingress.kubernetes.io/proxy-body-size: "0"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    className: ingress-nginx
 
 # Prometheus configuration
 prometheus:
   enabled: true
+  ingress:
+    enabled: true
+    hosts:
+      - prometheus.ogaro.com
+    tls:
+      - secretName: kogaro-monitoring-tls
+        hosts:
+          - prometheus.ogaro.com
+    annotations:
+      nginx.ingress.kubernetes.io/auth-realm: "Authentication Required - Prometheus"
+      nginx.ingress.kubernetes.io/auth-secret: "prometheus-basic-auth"
+      nginx.ingress.kubernetes.io/auth-type: "basic"
   prometheusSpec:
     resources:
       limits:
@@ -32,6 +54,14 @@ prometheus:
 # Grafana configuration
 grafana:
   enabled: true
+  ingress:
+    enabled: true
+    hosts:
+      - grafana.ogaro.com
+    tls:
+      - secretName: kogaro-monitoring-tls
+        hosts:
+          - grafana.ogaro.com
   resources:
     limits:
       cpu: 100m
@@ -43,6 +73,18 @@ grafana:
 # Alertmanager configuration
 alertmanager:
   enabled: true
+  ingress:
+    enabled: true
+    hosts:
+      - alertmanager.ogaro.com
+    tls:
+      - secretName: kogaro-monitoring-tls
+        hosts:
+          - alertmanager.ogaro.com
+    annotations:
+      nginx.ingress.kubernetes.io/auth-realm: "Authentication Required - Alertmanager"
+      nginx.ingress.kubernetes.io/auth-secret: "alertmanager-basic-auth"
+      nginx.ingress.kubernetes.io/auth-type: "basic"
   alertmanagerSpec:
     resources:
       limits:

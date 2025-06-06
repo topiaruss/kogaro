@@ -15,10 +15,10 @@ spec:
   ingressClassName: {{ .Values.global.ingress.className }}
   tls:
   - hosts:
-    - {{ .Values.prometheus.ingress.hostname | quote }}
+    - {{ (index .Values.prometheus.ingress.hosts 0) | quote }}
     secretName: {{ .Values.global.tls.secretName }}
   rules:
-  - host: {{ .Values.prometheus.ingress.hostname | quote }}
+  - host: {{ (index .Values.prometheus.ingress.hosts 0) | quote }}
     http:
       paths:
       - path: /

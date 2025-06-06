@@ -22,9 +22,26 @@ To deploy the complete monitoring stack:
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo update
 
+# Create the monitoring namespace
+kubectl create namespace monitoring
+
+# Create basic auth secrets (required before installation)
+echo "admin:$(openssl passwd -apr1 'your-password')" > auth
+kubectl create secret generic prometheus-basic-auth --from-file=auth -n monitoring
+kubectl create secret generic alertmanager-basic-auth --from-file=auth -n monitoring
+rm auth
+
 # Install the monitoring stack
 helm install monitoring ./charts/monitoring
 ```
+
+### Important Notes
+- The basic auth secrets (`prometheus-basic-auth` and `alertmanager-basic-auth`) must be created before installing the chart
+- Without these secrets, you will see 503 errors when trying to access Prometheus and Alertmanager
+- If you see 503 errors after installation, check that the secrets exist:
+  ```bash
+  kubectl get secret -n monitoring | grep -E 'prometheus-basic-auth|alertmanager-basic-auth'
+  ```
 
 ### Production Integration
 
@@ -115,9 +132,44 @@ alertmanager:
 
 ## Security Considerations
 
+### Basic Authentication Setup
+The monitoring stack uses basic authentication for Prometheus and Alertmanager. These secrets need to be created manually before accessing the services.
+
+#### Required Secrets
+You need to create two basic auth secrets:
+1. `prometheus-basic-auth` for Prometheus
+2. `alertmanager-basic-auth` for Alertmanager
+
+To create these secrets, run:
+```bash
+# Create the auth file with your desired credentials
+echo "admin:$(openssl passwd -apr1 'your-password')" > auth
+
+# Create the secrets
+kubectl create secret generic prometheus-basic-auth --from-file=auth -n monitoring
+kubectl create secret generic alertmanager-basic-auth --from-file=auth -n monitoring
+
+# Clean up
+rm auth
+```
+
+#### Accessing the Services
+After creating the secrets, you can access:
+- Prometheus: https://prometheus.ogaro.com
+- Alertmanager: https://alertmanager.ogaro.com
+
+Both services will prompt for authentication with:
+- Username: `admin`
+- Password: `your-password`
+
+Note: Browsers will cache these credentials. To test the authentication:
+- Use an incognito/private window
+- Clear your browser cache
+- Or use a different browser
+
+### TLS Configuration
 1. **TLS**: All components are configured to use TLS by default
-2. **Authentication**: Basic authentication is enabled for Prometheus and Grafana
-3. **Network Policies**: Consider adding network policies to restrict access
+2. **Network Policies**: Consider adding network policies to restrict access
 
 ## Troubleshooting
 

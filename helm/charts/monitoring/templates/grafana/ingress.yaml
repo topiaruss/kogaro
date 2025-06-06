@@ -12,10 +12,10 @@ spec:
   ingressClassName: {{ .Values.global.ingress.className }}
   tls:
   - hosts:
-    - {{ .Values.grafana.ingress.hostname | quote }}
+    - {{ (index .Values.grafana.ingress.hosts 0) | quote }}
     secretName: {{ .Values.global.tls.secretName }}
   rules:
-  - host: {{ .Values.grafana.ingress.hostname | quote }}
+  - host: {{ (index .Values.grafana.ingress.hosts 0) | quote }}
     http:
       paths:
       - path: /
