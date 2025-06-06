@@ -52,8 +52,9 @@ Thumbs.db
 *.yaml.backup
 *.yml.backup
 
-.claude/
-private_docs/
+/.claude/
+/private_docs/
 
-kogaro
-kogaro-test
+# accidental binaries
+/kogaro
+/kogaro-test
