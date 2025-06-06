@@ -64,8 +64,8 @@ validation:
 metrics:
   enabled: true
   serviceMonitor:
-    enabled: false
-    interval: 30s
+    enabled: true
+    interval: 15s
     path: /metrics
 
 # RBAC configuration

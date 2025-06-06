@@ -1,0 +1,15 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "kogaro.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kogaro.labels" . | nindent 4 }}
+    release: monitoring
+spec:
+  endpoints:
+  - interval: {{ .Values.metrics.interval | default "15s" }}
+    port: metrics
+  selector:
+    matchLabels:
+      {{- include "kogaro.selectorLabels" . | nindent 6 }} 
