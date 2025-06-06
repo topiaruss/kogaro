@@ -50,6 +50,22 @@ spec:
             {{- if .Values.validation.minMemoryRequest }}
             - --min-memory-request={{ .Values.validation.minMemoryRequest }}
             {{- end }}
+            - --enable-security-validation={{ .Values.validation.enableSecurityValidation }}
+            - --enable-root-user-validation={{ .Values.validation.enableRootUserValidation }}
+            - --enable-security-context-validation={{ .Values.validation.enableSecurityContextValidation }}
+            - --enable-security-serviceaccount-validation={{ .Values.validation.enableSecurityServiceAccountValidation }}
+            - --enable-network-policy-validation={{ .Values.validation.enableNetworkPolicyValidation }}
+            {{- if .Values.validation.securitySensitiveNamespaces }}
+            - --security-sensitive-namespaces={{ .Values.validation.securitySensitiveNamespaces }}
+            {{- end }}
+            - --enable-networking-validation={{ .Values.validation.enableNetworkingValidation }}
+            - --enable-networking-service-validation={{ .Values.validation.enableNetworkingServiceValidation }}
+            - --enable-networking-ingress-validation={{ .Values.validation.enableNetworkingIngressValidation }}
+            - --enable-networking-policy-validation={{ .Values.validation.enableNetworkingPolicyValidation }}
+            {{- if .Values.validation.networkingPolicyRequiredNamespaces }}
+            - --networking-policy-required-namespaces={{ .Values.validation.networkingPolicyRequiredNamespaces }}
+            {{- end }}
+            - --warn-unexposed-pods={{ .Values.validation.warnUnexposedPods }}
           ports:
             - name: metrics
               containerPort: {{ .Values.service.metricsPort }}
