@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: privileged-deployment
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kogaro-testbed.labels" . | nindent 4 }}
+    test-case: "security-privileged-container"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: privileged-app
+  template:
+    metadata:
+      labels:
+        app: privileged-app
+    spec:
+      containers:
+      - name: privileged-container
+        image: busybox:latest
+        command: ["sleep", "3600"]
+        securityContext:
+          privileged: true  # Running in privileged mode - should trigger validation error
+          readOnlyRootFilesystem: false  # Writable root filesystem - should trigger validation error
+          capabilities:
+            add:
+              - NET_ADMIN  # Adding capabilities - should trigger validation error
+              - SYS_TIME   # Adding capabilities - should trigger validation error
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "5m"
+          limits:
+            memory: "64Mi"
+            cpu: "50m"

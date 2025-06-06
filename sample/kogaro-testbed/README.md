@@ -4,7 +4,7 @@ This Helm chart contains deliberately misconfigured resources designed to test K
 
 ## Test Cases Coverage
 
-This testbed validates all reference validation errors plus resource limits validation errors that Kogaro detects:
+This testbed validates all validation errors that Kogaro detects across three validator types:
 
 ### Reference Validation (11 error types)
 
@@ -95,6 +95,70 @@ This testbed validates all reference validation errors plus resource limits vali
 - **Test**: Containers where requests != limits (Burstable QoS)
 - **Expected Error**: `Container 'test-container': Burstable QoS: requests != limits, may face throttling under pressure`
 
+### Security Validation (9 error types)
+
+### 18. pod_running_as_root
+- **File**: `deployment-root-user.yaml`
+- **Test**: Pod SecurityContext specifies runAsUser: 0 (root)
+- **Expected Error**: `Pod SecurityContext specifies runAsUser: 0 (root)`
+
+### 19. pod_allows_root_user
+- **File**: `deployment-root-user.yaml`
+- **Test**: Pod SecurityContext does not enforce runAsNonRoot: true
+- **Expected Error**: `Pod SecurityContext does not enforce runAsNonRoot: true`
+
+### 20. container_running_as_root
+- **File**: `deployment-root-user.yaml`
+- **Test**: Container SecurityContext specifies runAsUser: 0 (root)
+- **Expected Error**: `Container 'root-container' (container) SecurityContext specifies runAsUser: 0 (root)`
+
+### 21. container_allows_privilege_escalation
+- **File**: `deployment-root-user.yaml`, `deployment-privileged-container.yaml`
+- **Test**: Container SecurityContext does not set allowPrivilegeEscalation: false
+- **Expected Error**: `Container 'root-container' (container) SecurityContext does not set allowPrivilegeEscalation: false`
+
+### 22. container_privileged_mode
+- **File**: `deployment-privileged-container.yaml`
+- **Test**: Container SecurityContext specifies privileged: true
+- **Expected Error**: `Container 'privileged-container' (container) SecurityContext specifies privileged: true`
+
+### 23. container_writable_root_filesystem
+- **File**: `deployment-privileged-container.yaml`
+- **Test**: Container SecurityContext does not set readOnlyRootFilesystem: true
+- **Expected Error**: `Container 'privileged-container' (container) SecurityContext does not set readOnlyRootFilesystem: true`
+
+### 24. container_additional_capabilities
+- **File**: `deployment-privileged-container.yaml`
+- **Test**: Container SecurityContext adds capabilities
+- **Expected Error**: `Container 'privileged-container' (container) SecurityContext adds capability: NET_ADMIN`
+
+### 25. missing_pod_security_context
+- **File**: `deployment-missing-security-context.yaml`
+- **Test**: Pod has no SecurityContext defined
+- **Expected Error**: `Pod has no SecurityContext defined`
+
+### 26. missing_container_security_context
+- **File**: `deployment-missing-security-context.yaml`
+- **Test**: Container has no SecurityContext defined
+- **Expected Error**: `Container 'no-security-container' (container) has no SecurityContext defined`
+
+### ServiceAccount Security (2 additional validation types when SA validation enabled)
+
+### 27. serviceaccount_cluster_role_binding
+- **File**: `serviceaccount-excessive-permissions.yaml`
+- **Test**: ServiceAccount has ClusterRoleBinding with cluster-admin role
+- **Expected Error**: `ServiceAccount has ClusterRoleBinding 'admin-service-account-binding' with role 'cluster-admin'`
+
+### 28. serviceaccount_excessive_permissions
+- **File**: `serviceaccount-excessive-permissions.yaml`
+- **Test**: ServiceAccount has potentially excessive RoleBinding with admin role
+- **Expected Error**: `ServiceAccount has potentially excessive RoleBinding 'admin-role-binding' with role 'admin'`
+
+### Security Best Practices Example
+- **File**: `deployment-secure-example.yaml`
+- **Test**: Demonstrates secure configuration with proper SecurityContext settings
+- **Expected**: No validation errors (secure configuration example)
+
 ## Additional Files (Legacy/Other Tests)
 
 - `deployment-missing-volume.yaml` - VolumeMount references missing volume (Kubernetes validation catches this)
@@ -119,7 +183,10 @@ kubectl get all,ingress,pvc -n kogaro-testbed
 
 ## Testing with Kogaro
 
-Once deployed, Kogaro should detect **11 reference validation errors** plus additional **resource limits validation errors** (depending on configuration):
+Once deployed, Kogaro should detect **28+ validation errors** across all three validator types:
+- **11 reference validation errors** (always enabled)
+- **6 resource limits validation errors** (enabled by default)  
+- **11+ security validation errors** (enabled by default, includes 9 core + 2 ServiceAccount when enabled)
 
 ```bash
 # Check Kogaro logs for validation errors

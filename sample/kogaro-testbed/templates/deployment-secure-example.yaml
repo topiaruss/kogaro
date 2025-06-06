@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: secure-deployment
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kogaro-testbed.labels" . | nindent 4 }}
+    test-case: "security-best-practices"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: secure-app
+  template:
+    metadata:
+      labels:
+        app: secure-app
+    spec:
+      # Secure Pod-level SecurityContext
+      securityContext:
+        runAsNonRoot: true  # Enforce non-root execution
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+      - name: secure-container
+        image: nginx:latest
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          allowPrivilegeEscalation: false  # Prevent privilege escalation
+          privileged: false  # Not privileged
+          readOnlyRootFilesystem: true  # Read-only root filesystem
+          capabilities:
+            drop:
+              - ALL  # Drop all capabilities for security
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: tmp-volume
+          mountPath: /tmp
+        - name: cache-volume
+          mountPath: /var/cache/nginx
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "10m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+      initContainers:
+      - name: secure-init-container
+        image: busybox:latest
+        command: ["echo", "Secure init container"]
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+      volumes:
+      - name: tmp-volume
+        emptyDir: {}
+      - name: cache-volume
+        emptyDir: {}

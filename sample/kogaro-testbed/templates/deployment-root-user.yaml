@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: root-user-deployment
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kogaro-testbed.labels" . | nindent 4 }}
+    test-case: "security-root-user"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: root-user-app
+  template:
+    metadata:
+      labels:
+        app: root-user-app
+    spec:
+      # Pod-level SecurityContext specifying root user
+      securityContext:
+        runAsUser: 0  # Running as root - should trigger validation error
+        runAsNonRoot: false  # Explicitly allowing root - should trigger validation error
+      containers:
+      - name: root-container
+        image: nginx:latest
+        securityContext:
+          runAsUser: 0  # Container also running as root - should trigger validation error
+          allowPrivilegeEscalation: true  # Allowing privilege escalation - should trigger validation error
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "10m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"

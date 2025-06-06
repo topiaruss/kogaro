@@ -8,6 +8,7 @@ package main
 import (
 	"flag"
 	"os"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -53,6 +54,14 @@ func main() {
 	var minCPURequest string
 	var minMemoryRequest string
 
+	// Security validation flags
+	var enableSecurityValidation bool
+	var enableRootUserValidation bool
+	var enableSecurityContextValidation bool
+	var enableSecurityServiceAccountValidation bool
+	var enableNetworkPolicyValidation bool
+	var securitySensitiveNamespaces string
+
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -74,6 +83,14 @@ func main() {
 	flag.BoolVar(&enableQoSValidation, "enable-qos-validation", true, "Enable QoS class analysis and validation")
 	flag.StringVar(&minCPURequest, "min-cpu-request", "", "Minimum CPU request threshold (e.g., '10m')")
 	flag.StringVar(&minMemoryRequest, "min-memory-request", "", "Minimum memory request threshold (e.g., '16Mi')")
+
+	// Security validation configuration flags
+	flag.BoolVar(&enableSecurityValidation, "enable-security-validation", true, "Enable security configuration validation")
+	flag.BoolVar(&enableRootUserValidation, "enable-root-user-validation", true, "Enable validation for containers running as root")
+	flag.BoolVar(&enableSecurityContextValidation, "enable-security-context-validation", true, "Enable validation for missing SecurityContext configurations")
+	flag.BoolVar(&enableSecurityServiceAccountValidation, "enable-security-serviceaccount-validation", true, "Enable validation for ServiceAccount excessive permissions")
+	flag.BoolVar(&enableNetworkPolicyValidation, "enable-network-policy-validation", true, "Enable validation for missing NetworkPolicies in sensitive namespaces")
+	flag.StringVar(&securitySensitiveNamespaces, "security-sensitive-namespaces", "", "Comma-separated list of security-sensitive namespaces that require NetworkPolicies")
 
 	opts := zap.Options{
 		Development: true,
@@ -142,6 +159,28 @@ func main() {
 
 		resourceLimitsValidator := validators.NewResourceLimitsValidator(mgr.GetClient(), setupLog, resourceLimitsConfig)
 		registry.Register(resourceLimitsValidator)
+	}
+
+	// Initialize and register the security validator if enabled
+	if enableSecurityValidation {
+		securityConfig := validators.SecurityConfig{
+			EnableRootUserValidation:       enableRootUserValidation,
+			EnableSecurityContextValidation: enableSecurityContextValidation,
+			EnableServiceAccountValidation:  enableSecurityServiceAccountValidation,
+			EnableNetworkPolicyValidation:   enableNetworkPolicyValidation,
+		}
+
+		// Parse security-sensitive namespaces if provided
+		if securitySensitiveNamespaces != "" {
+			namespaces := strings.Split(securitySensitiveNamespaces, ",")
+			for i, ns := range namespaces {
+				namespaces[i] = strings.TrimSpace(ns)
+			}
+			securityConfig.SecuritySensitiveNamespaces = namespaces
+		}
+
+		securityValidator := validators.NewSecurityValidator(mgr.GetClient(), setupLog, securityConfig)
+		registry.Register(securityValidator)
 	}
 
 	// Setup the validation controller

@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: no-security-context-deployment
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kogaro-testbed.labels" . | nindent 4 }}
+    test-case: "security-missing-context"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: no-security-context-app
+  template:
+    metadata:
+      labels:
+        app: no-security-context-app
+    spec:
+      # No Pod-level SecurityContext - should trigger validation error
+      containers:
+      - name: no-security-container
+        image: alpine:latest
+        command: ["sleep", "3600"]
+        # No container-level SecurityContext - should trigger validation error
+        resources:
+          requests:
+            memory: "16Mi"
+            cpu: "5m"
+          limits:
+            memory: "32Mi"
+            cpu: "25m"
+      initContainers:
+      - name: init-no-security
+        image: alpine:latest
+        command: ["echo", "init"]
+        # Init container also missing SecurityContext - should trigger validation error
