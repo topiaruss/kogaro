@@ -11,6 +11,126 @@ The monitoring stack includes:
 - Node Exporter for system metrics
 - Kube State Metrics for Kubernetes metrics
 
+## Prerequisites
+
+1. Create a `.env` file in the chart directory with the following variables:
+```bash
+MONITORING_USERNAME=your-username
+MONITORING_PASSWORD=your-password
+```
+
+## Installation
+
+### Quick Start
+
+The easiest way to deploy the monitoring stack is using the provided setup script:
+
+```bash
+# Make the script executable
+chmod +x setup-test-monitoring.sh
+
+# Run the setup script
+./setup-test-monitoring.sh
+```
+
+The script will:
+1. Create the monitoring namespace
+2. Set up basic authentication secrets
+3. Install the monitoring stack
+4. Wait for all components to be ready
+
+### Manual Installation
+
+If you prefer to install manually:
+
+```bash
+# Create the monitoring namespace
+kubectl create namespace monitoring
+
+# Create basic auth secrets
+echo "${MONITORING_USERNAME}:$(openssl passwd -apr1 '${MONITORING_PASSWORD}')" > auth
+kubectl create secret generic prometheus-basic-auth --from-file=auth -n monitoring
+kubectl create secret generic alertmanager-basic-auth --from-file=auth -n monitoring
+rm auth
+
+# Install the monitoring stack
+helm install monitoring . -n monitoring
+```
+
+## Accessing the Services
+
+After installation, you can access:
+- Prometheus: https://prometheus.ogaro.com
+- Alertmanager: https://alertmanager.ogaro.com
+- Grafana: https://grafana.ogaro.com
+
+Both Prometheus and Alertmanager require authentication using the credentials from your `.env` file.
+
+Note: Browsers will cache these credentials. To test the authentication:
+- Use an incognito/private window
+- Clear your browser cache
+- Or use a different browser
+
+## Security Considerations
+
+### Basic Authentication
+The monitoring stack uses basic authentication for Prometheus and Alertmanager. The credentials are managed through:
+1. A `.env` file containing the username and password
+2. Kubernetes secrets created during installation
+
+If you need to update the credentials:
+1. Update the `.env` file
+2. Delete the existing secrets:
+   ```bash
+   kubectl delete secret prometheus-basic-auth alertmanager-basic-auth -n monitoring
+   ```
+3. Recreate the secrets using the setup script or manual commands
+
+### TLS Configuration
+All components are configured to use TLS by default with certificates managed by cert-manager.
+
+## Troubleshooting
+
+### 503 Errors
+If you see 503 errors when accessing Prometheus or Alertmanager:
+1. Check that the basic auth secrets exist:
+   ```bash
+   kubectl get secret -n monitoring | grep -E 'prometheus-basic-auth|alertmanager-basic-auth'
+   ```
+2. Verify the `.env` file exists and contains valid credentials
+3. Recreate the secrets if needed
+
+### Pod Issues
+Check pod status and logs:
+```bash
+kubectl get pods -n monitoring
+kubectl logs -n monitoring <pod-name>
+```
+
+## Configuration
+
+### Global Settings
+
+```yaml
+global:
+  domain: "ogaro.com"
+  tls:
+    enabled: true
+    secretName: "kogaro-monitoring-tls"
+    hosts:
+      - alertmanager.ogaro.com
+      - grafana.ogaro.com
+      - prometheus.ogaro.com
+  ingress:
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+    className: ingress-nginx
+```
+
+### Component-Specific Settings
+
+Each component (Prometheus, Grafana, Alertmanager) can be configured independently in `values.yaml`. See the file for detailed configuration options.
+
 ## Usage
 
 ### Development/Testing Environment
@@ -93,95 +213,6 @@ For production environments, it's recommended to use your existing Prometheus se
            summary: "Kogaro validation errors detected"
            description: "Kogaro has detected {{ $value }} validation errors"
    ```
-
-## Configuration
-
-### Global Settings
-
-```yaml
-global:
-  domain: "your-domain.com"
-  tls:
-    enabled: true
-    secretName: "tls-secret"
-```
-
-### Component-Specific Settings
-
-Each component (Prometheus, Grafana, Alertmanager) can be configured independently:
-
-```yaml
-prometheus:
-  enabled: true
-  ingress:
-    enabled: true
-    hostname: "prometheus.your-domain.com"
-
-grafana:
-  enabled: true
-  ingress:
-    enabled: true
-    hostname: "grafana.your-domain.com"
-
-alertmanager:
-  enabled: true
-  ingress:
-    enabled: true
-    hostname: "alertmanager.your-domain.com"
-```
-
-## Security Considerations
-
-### Basic Authentication Setup
-The monitoring stack uses basic authentication for Prometheus and Alertmanager. These secrets need to be created manually before accessing the services.
-
-#### Required Secrets
-You need to create two basic auth secrets:
-1. `prometheus-basic-auth` for Prometheus
-2. `alertmanager-basic-auth` for Alertmanager
-
-To create these secrets, run:
-```bash
-# Create the auth file with your desired credentials
-echo "admin:$(openssl passwd -apr1 'your-password')" > auth
-
-# Create the secrets
-kubectl create secret generic prometheus-basic-auth --from-file=auth -n monitoring
-kubectl create secret generic alertmanager-basic-auth --from-file=auth -n monitoring
-
-# Clean up
-rm auth
-```
-
-#### Accessing the Services
-After creating the secrets, you can access:
-- Prometheus: https://prometheus.ogaro.com
-- Alertmanager: https://alertmanager.ogaro.com
-
-Both services will prompt for authentication with:
-- Username: `admin`
-- Password: `your-password`
-
-Note: Browsers will cache these credentials. To test the authentication:
-- Use an incognito/private window
-- Clear your browser cache
-- Or use a different browser
-
-### TLS Configuration
-1. **TLS**: All components are configured to use TLS by default
-2. **Network Policies**: Consider adding network policies to restrict access
-
-## Troubleshooting
-
-1. **Metrics Not Showing**
-   - Verify the ServiceMonitor is properly configured
-   - Check that the metrics port is correctly exposed
-   - Ensure Prometheus has the necessary RBAC permissions
-
-2. **Alerts Not Firing**
-   - Verify the PrometheusRule is properly configured
-   - Check Alertmanager configuration
-   - Ensure the alert expressions are correct
 
 ## Support
 
