@@ -22,7 +22,7 @@ type ValidationController struct {
 	Client       client.Client
 	Scheme       *runtime.Scheme
 	Log          logr.Logger
-	Validator    *validators.ReferenceValidator
+	Registry     *validators.ValidatorRegistry
 	ScanInterval time.Duration
 }
 
@@ -39,7 +39,7 @@ func (r *ValidationController) Reconcile(ctx context.Context, req ctrl.Request) 
 	// Run the validation scan
 	log.Info("starting cluster validation scan")
 
-	if err := r.Validator.ValidateCluster(ctx); err != nil {
+	if err := r.Registry.ValidateCluster(ctx); err != nil {
 		log.Error(err, "failed to validate cluster")
 		return ctrl.Result{RequeueAfter: r.ScanInterval}, err
 	}
@@ -59,7 +59,7 @@ func (r *ValidationController) Start(ctx context.Context) error {
 
 	// Run initial validation
 	log.Info("running initial cluster validation")
-	if err := r.Validator.ValidateCluster(ctx); err != nil {
+	if err := r.Registry.ValidateCluster(ctx); err != nil {
 		log.Error(err, "initial validation failed")
 	}
 
@@ -70,7 +70,7 @@ func (r *ValidationController) Start(ctx context.Context) error {
 			return nil
 		case <-ticker.C:
 			log.Info("running periodic cluster validation")
-			if err := r.Validator.ValidateCluster(ctx); err != nil {
+			if err := r.Registry.ValidateCluster(ctx); err != nil {
 				log.Error(err, "periodic validation failed")
 			}
 		}

@@ -31,12 +31,15 @@ func TestValidationController_Reconcile(t *testing.T) {
 		EnableConfigMapValidation: true,
 	}
 	validator := validators.NewReferenceValidator(fakeClient, logr.Discard(), config)
+	
+	registry := validators.NewValidatorRegistry(logr.Discard())
+	registry.Register(validator)
 
 	controller := &ValidationController{
 		Client:       fakeClient,
 		Scheme:       scheme,
 		Log:          logr.Discard(),
-		Validator:    validator,
+		Registry:     registry,
 		ScanInterval: 1 * time.Second,
 	}
 
@@ -66,12 +69,15 @@ func TestValidationController_Start(t *testing.T) {
 		EnableIngressValidation: true,
 	}
 	validator := validators.NewReferenceValidator(fakeClient, logr.Discard(), config)
+	
+	registry := validators.NewValidatorRegistry(logr.Discard())
+	registry.Register(validator)
 
 	controller := &ValidationController{
 		Client:       fakeClient,
 		Scheme:       scheme,
 		Log:          logr.Discard(),
-		Validator:    validator,
+		Registry:     registry,
 		ScanInterval: 100 * time.Millisecond, // Short interval for test
 	}
 

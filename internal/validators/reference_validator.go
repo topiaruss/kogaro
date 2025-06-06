@@ -68,6 +68,11 @@ type ReferenceValidator struct {
 	config ValidationConfig
 }
 
+// GetValidationType returns the validation type identifier for reference validation
+func (v *ReferenceValidator) GetValidationType() string {
+	return "reference_validation"
+}
+
 // NewReferenceValidator creates a new ReferenceValidator with the given client, logger and config
 func NewReferenceValidator(client client.Client, log logr.Logger, config ValidationConfig) *ReferenceValidator {
 	return &ReferenceValidator{

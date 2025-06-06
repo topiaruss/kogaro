@@ -80,6 +80,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Initialize the validator registry
+	registry := validators.NewValidatorRegistry(setupLog)
+
 	// Initialize the reference validator with configuration
 	validationConfig := validators.ValidationConfig{
 		EnableIngressValidation:        enableIngressValidation,
@@ -88,14 +91,17 @@ func main() {
 		EnablePVCValidation:            enablePVCValidation,
 		EnableServiceAccountValidation: enableServiceAccountValidation,
 	}
-	validator := validators.NewReferenceValidator(mgr.GetClient(), setupLog, validationConfig)
+	referenceValidator := validators.NewReferenceValidator(mgr.GetClient(), setupLog, validationConfig)
+	
+	// Register the reference validator
+	registry.Register(referenceValidator)
 
-	// Setup the reference validation controller
+	// Setup the validation controller
 	if err = (&controllers.ValidationController{
 		Client:       mgr.GetClient(),
 		Scheme:       mgr.GetScheme(),
 		Log:          ctrl.Log.WithName("controllers").WithName("ValidationController"),
-		Validator:    validator,
+		Registry:     registry,
 		ScanInterval: scanInterval,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ValidationController")
