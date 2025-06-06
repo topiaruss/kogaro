@@ -11,11 +11,22 @@ global:
       - prometheus.ogaro.com
   ingress:
     annotations:
-      cert-manager.io/cluster-issuer: letsencrypt-prod
-      nginx.ingress.kubernetes.io/proxy-body-size: "0"
+      # SSL/TLS Configuration
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+      
+      # Security Headers
+      nginx.ingress.kubernetes.io/configuration-snippet: |
+        more_set_headers "Strict-Transport-Security: max-age=31536000; includeSubDomains" always;
+        more_set_headers "X-Content-Type-Options: nosniff" always;
+        more_set_headers "X-Frame-Options: DENY" always;
+        more_set_headers "X-XSS-Protection: 1; mode=block" always;
+      
+      # Proxy Settings
+      nginx.ingress.kubernetes.io/proxy-body-size: "50m"
       nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
       nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
-      nginx.ingress.kubernetes.io/ssl-redirect: "true"
     className: ingress-nginx
 
 # Prometheus configuration
@@ -54,6 +65,10 @@ prometheus:
 # Grafana configuration
 grafana:
   enabled: true
+  service:
+    type: ClusterIP
+    port: 3000
+    targetPort: 3000
   ingress:
     enabled: true
     hosts:
