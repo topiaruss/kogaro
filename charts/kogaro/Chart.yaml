@@ -3,8 +3,8 @@ apiVersion: v2
 name: kogaro
 description: Kubernetes Configuration Hygiene Agent - validates resource references and detects configuration issues
 type: application
-version: 0.1.2
-appVersion: "0.1.2"
+version: 0.1.3
+appVersion: "0.1.3"
 keywords:
   - kubernetes
   - validation
