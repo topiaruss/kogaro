@@ -1,0 +1,36 @@
+{{- if .Values.enableNetworkingTests }}
+# This namespace has a NetworkPolicy but no default deny policy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-specific-only
+  namespace: {{ .Values.namespace | default "kogaro-testbed" }}
+  labels:
+    kogaro-test: "networkpolicy-coverage"
+    test-case: "missing-default-deny"
+spec:
+  podSelector:
+    matchLabels:
+      app: specific-app
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          role: allowed
+---
+# This pod should be covered by the policy
+apiVersion: v1
+kind: Pod
+metadata:
+  name: specific-app-pod
+  namespace: {{ .Values.namespace | default "kogaro-testbed" }}
+  labels:
+    kogaro-test: "networkpolicy-coverage"
+    app: specific-app
+spec:
+  containers:
+  - name: test-container
+    image: nginx:alpine
+{{- end }}

@@ -1,0 +1,53 @@
+{{- if .Values.enableNetworkingTests }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-port-mismatch
+  namespace: {{ .Values.namespace | default "kogaro-testbed" }}
+  labels:
+    kogaro-test: "ingress-connectivity"
+    test-case: "ingress-port-mismatch"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: port-mismatch.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: ingress-backend-service
+            port:
+              number: 9999  # This port doesn't exist on the service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingress-backend-service
+  namespace: {{ .Values.namespace | default "kogaro-testbed" }}
+  labels:
+    kogaro-test: "ingress-connectivity"
+spec:
+  selector:
+    app: ingress-backend
+  ports:
+  - port: 80  # Different from ingress port reference
+    targetPort: 8080
+    protocol: TCP
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ingress-backend-pod
+  namespace: {{ .Values.namespace | default "kogaro-testbed" }}
+  labels:
+    kogaro-test: "ingress-connectivity"
+    app: ingress-backend
+spec:
+  containers:
+  - name: test-container
+    image: nginx:alpine
+    ports:
+    - containerPort: 8080
+{{- end }}

@@ -159,6 +159,53 @@ This testbed validates all validation errors that Kogaro detects across three va
 - **Test**: Demonstrates secure configuration with proper SecurityContext settings
 - **Expected**: No validation errors (secure configuration example)
 
+### Networking Validation (8 error types)
+
+### 29. service_selector_mismatch
+- **File**: `service-no-endpoints.yaml`
+- **Test**: Service selector does not match any pods
+- **Expected Error**: `Service selector {app:nonexistent-app} does not match any pods`
+
+### 30. service_no_endpoints
+- **File**: `service-no-endpoints.yaml`
+- **Test**: Service has no ready endpoints despite matching pods
+- **Expected Error**: `Service has no ready endpoints despite matching pods`
+
+### 31. service_port_mismatch
+- **File**: `service-port-mismatch.yaml`
+- **Test**: Service targetPort does not match any container ports in matching pods
+- **Expected Error**: `Service port (target: 9999) does not match any container ports in matching pods`
+
+### 32. pod_no_service
+- **File**: `pod-unexposed.yaml`
+- **Test**: Pod is not exposed by any Service (warning when enabled)
+- **Expected Error**: `Pod is not exposed by any Service (consider if this is intentional)`
+
+### 33. network_policy_orphaned
+- **File**: `networkpolicy-orphaned.yaml`
+- **Test**: NetworkPolicy selector does not match any pods in namespace
+- **Expected Error**: `NetworkPolicy selector does not match any pods in namespace`
+
+### 34. missing_network_policy_default_deny
+- **File**: `networkpolicy-missing-default-deny.yaml`
+- **Test**: Namespace has NetworkPolicies but no default deny policy
+- **Expected Error**: `Namespace has NetworkPolicies but no default deny policy`
+
+### 35. ingress_service_missing
+- **File**: `ingress-missing-backend-service.yaml`
+- **Test**: Ingress references non-existent service
+- **Expected Error**: `Ingress references non-existent service 'nonexistent-service'`
+
+### 36. ingress_service_port_mismatch
+- **File**: `ingress-port-mismatch.yaml`
+- **Test**: Ingress references service port that doesn't exist
+- **Expected Error**: `Ingress references service 'ingress-backend-service' port that doesn't exist`
+
+### 37. ingress_no_backend_pods
+- **File**: `ingress-no-backend-pods.yaml`
+- **Test**: Ingress service has no ready backend pods
+- **Expected Error**: `Ingress service 'empty-backend-service' has no ready backend pods`
+
 ## Additional Files (Legacy/Other Tests)
 
 - `deployment-missing-volume.yaml` - VolumeMount references missing volume (Kubernetes validation catches this)
@@ -183,10 +230,11 @@ kubectl get all,ingress,pvc -n kogaro-testbed
 
 ## Testing with Kogaro
 
-Once deployed, Kogaro should detect **28+ validation errors** across all three validator types:
+Once deployed, Kogaro should detect **37+ validation errors** across all four validator types:
 - **11 reference validation errors** (always enabled)
 - **6 resource limits validation errors** (enabled by default)  
 - **11+ security validation errors** (enabled by default, includes 9 core + 2 ServiceAccount when enabled)
+- **9 networking validation errors** (enabled by default when enableNetworkingTests=true)
 
 ```bash
 # Check Kogaro logs for validation errors

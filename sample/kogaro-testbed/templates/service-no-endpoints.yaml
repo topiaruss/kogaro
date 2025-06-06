@@ -1,0 +1,33 @@
+{{- if .Values.enableNetworkingTests }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-no-endpoints
+  namespace: {{ .Values.namespace | default "kogaro-testbed" }}
+  labels:
+    kogaro-test: "service-connectivity"
+    test-case: "service-no-endpoints"
+spec:
+  selector:
+    app: nonexistent-app
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+---
+# This pod won't match the service selector, causing no endpoints
+apiVersion: v1
+kind: Pod
+metadata:
+  name: unmatched-pod
+  namespace: {{ .Values.namespace | default "kogaro-testbed" }}
+  labels:
+    kogaro-test: "service-connectivity"
+    app: different-app
+spec:
+  containers:
+  - name: test-container
+    image: nginx:alpine
+    ports:
+    - containerPort: 8080
+{{- end }}

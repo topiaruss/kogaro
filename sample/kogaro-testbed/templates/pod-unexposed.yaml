@@ -1,0 +1,19 @@
+{{- if .Values.enableNetworkingTests }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: unexposed-pod
+  namespace: {{ .Values.namespace | default "kogaro-testbed" }}
+  labels:
+    kogaro-test: "service-connectivity"
+    app: unexposed-app
+    test-case: "pod-unexposed"
+spec:
+  containers:
+  - name: test-container
+    image: nginx:alpine
+    ports:
+    - containerPort: 80
+# This pod is not exposed by any service, which should trigger a warning
+# when warnUnexposedPods is enabled
+{{- end }}

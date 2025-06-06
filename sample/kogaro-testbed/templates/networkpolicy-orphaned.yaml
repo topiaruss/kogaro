@@ -1,0 +1,21 @@
+{{- if .Values.enableNetworkingTests }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: orphaned-networkpolicy
+  namespace: {{ .Values.namespace | default "kogaro-testbed" }}
+  labels:
+    kogaro-test: "networkpolicy-coverage"
+    test-case: "networkpolicy-orphaned"
+spec:
+  podSelector:
+    matchLabels:
+      app: nonexistent-pods  # No pods match this selector
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          role: frontend
+{{- end }}

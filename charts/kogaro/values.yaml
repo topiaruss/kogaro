@@ -4,7 +4,7 @@ replicaCount: 1
 image:
   repository: topiaruss/kogaro
   pullPolicy: IfNotPresent
-  tag: "0.2.0"
+  tag: "0.3.0"
 
 imagePullSecrets: []
 # - name: myregistrykey
@@ -70,6 +70,23 @@ validation:
   # Minimum resource thresholds (optional)
   # minCPURequest: "10m"
   # minMemoryRequest: "16Mi"
+
+  # Security validation
+  enableSecurityValidation: true
+  enableRootUserValidation: true
+  enableSecurityContextValidation: true
+  enableSecurityServiceAccountValidation: true
+  enableNetworkPolicyValidation: true
+  # securitySensitiveNamespaces: "production,staging"
+
+  # Networking validation
+  enableNetworkingValidation: true
+  enableNetworkingServiceValidation: true
+  enableNetworkingIngressValidation: true
+  enableNetworkingPolicyValidation: true
+  # networkingPolicyRequiredNamespaces: "production,staging"
+  warnUnexposedPods: false
+
   scanInterval: "5m"
 
 # Metrics configuration

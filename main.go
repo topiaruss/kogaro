@@ -92,6 +92,22 @@ func main() {
 	flag.BoolVar(&enableNetworkPolicyValidation, "enable-network-policy-validation", true, "Enable validation for missing NetworkPolicies in sensitive namespaces")
 	flag.StringVar(&securitySensitiveNamespaces, "security-sensitive-namespaces", "", "Comma-separated list of security-sensitive namespaces that require NetworkPolicies")
 
+	// Networking validation flags
+	var enableNetworkingValidation bool
+	var enableNetworkingServiceValidation bool
+	var enableNetworkingIngressValidation bool
+	var enableNetworkingPolicyValidation bool
+	var networkingPolicyRequiredNamespaces string
+	var warnUnexposedPods bool
+
+	// Networking validation configuration flags
+	flag.BoolVar(&enableNetworkingValidation, "enable-networking-validation", true, "Enable networking connectivity validation")
+	flag.BoolVar(&enableNetworkingServiceValidation, "enable-networking-service-validation", true, "Enable validation for Service selector mismatches")
+	flag.BoolVar(&enableNetworkingIngressValidation, "enable-networking-ingress-validation", true, "Enable validation for Ingress connectivity issues")
+	flag.BoolVar(&enableNetworkingPolicyValidation, "enable-networking-policy-validation", true, "Enable validation for NetworkPolicy coverage")
+	flag.StringVar(&networkingPolicyRequiredNamespaces, "networking-policy-required-namespaces", "", "Comma-separated list of namespaces that require NetworkPolicies")
+	flag.BoolVar(&warnUnexposedPods, "warn-unexposed-pods", false, "Enable warnings for pods not exposed by any Service")
+
 	opts := zap.Options{
 		Development: true,
 	}
@@ -181,6 +197,28 @@ func main() {
 
 		securityValidator := validators.NewSecurityValidator(mgr.GetClient(), setupLog, securityConfig)
 		registry.Register(securityValidator)
+	}
+
+	// Initialize and register the networking validator if enabled
+	if enableNetworkingValidation {
+		networkingConfig := validators.NetworkingConfig{
+			EnableServiceValidation:      enableNetworkingServiceValidation,
+			EnableNetworkPolicyValidation: enableNetworkingPolicyValidation,
+			EnableIngressValidation:      enableNetworkingIngressValidation,
+			WarnUnexposedPods:           warnUnexposedPods,
+		}
+
+		// Parse networking policy required namespaces if provided
+		if networkingPolicyRequiredNamespaces != "" {
+			namespaces := strings.Split(networkingPolicyRequiredNamespaces, ",")
+			for i, ns := range namespaces {
+				namespaces[i] = strings.TrimSpace(ns)
+			}
+			networkingConfig.PolicyRequiredNamespaces = namespaces
+		}
+
+		networkingValidator := validators.NewNetworkingValidator(mgr.GetClient(), setupLog, networkingConfig)
+		registry.Register(networkingValidator)
 	}
 
 	// Setup the validation controller

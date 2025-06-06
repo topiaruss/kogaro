@@ -1,0 +1,40 @@
+{{- if .Values.enableNetworkingTests }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-no-backend-pods
+  namespace: {{ .Values.namespace | default "kogaro-testbed" }}
+  labels:
+    kogaro-test: "ingress-connectivity"
+    test-case: "ingress-no-backend-pods"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: no-backend-pods.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: empty-backend-service
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: empty-backend-service
+  namespace: {{ .Values.namespace | default "kogaro-testbed" }}
+  labels:
+    kogaro-test: "ingress-connectivity"
+spec:
+  selector:
+    app: empty-backend  # No pods match this selector
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+# No pods are created to match the service selector,
+# so the ingress has no backend pods
+{{- end }}

@@ -43,15 +43,6 @@ func init() {
 	metrics.Registry.MustRegister(validationRuns)
 }
 
-// ValidationError represents a validation failure found during cluster scanning
-type ValidationError struct {
-	ResourceType   string
-	ResourceName   string
-	Namespace      string
-	ValidationType string
-	Message        string
-}
-
 // ValidationConfig defines which types of validation checks to perform
 type ValidationConfig struct {
 	EnableIngressValidation        bool

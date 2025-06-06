@@ -1,1 +1,7 @@
 enabled: true
+
+# Enable networking validation test cases
+enableNetworkingTests: true
+
+# Namespace for test resources
+namespace: "kogaro-testbed"

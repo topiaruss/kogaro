@@ -1,0 +1,32 @@
+{{- if .Values.enableNetworkingTests }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-port-mismatch
+  namespace: {{ .Values.namespace | default "kogaro-testbed" }}
+  labels:
+    kogaro-test: "service-connectivity"
+    test-case: "service-port-mismatch"
+spec:
+  selector:
+    app: port-mismatch-app
+  ports:
+  - port: 80
+    targetPort: 9999  # This port doesn't exist in the pod
+    protocol: TCP
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: port-mismatch-pod
+  namespace: {{ .Values.namespace | default "kogaro-testbed" }}
+  labels:
+    kogaro-test: "service-connectivity"
+    app: port-mismatch-app
+spec:
+  containers:
+  - name: test-container
+    image: nginx:alpine
+    ports:
+    - containerPort: 8080  # Different from service targetPort
+{{- end }}

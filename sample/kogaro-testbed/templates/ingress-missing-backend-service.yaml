@@ -1,0 +1,23 @@
+{{- if .Values.enableNetworkingTests }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-missing-backend
+  namespace: {{ .Values.namespace | default "kogaro-testbed" }}
+  labels:
+    kogaro-test: "ingress-connectivity"
+    test-case: "ingress-missing-backend-service"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: missing-backend.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: nonexistent-service  # This service doesn't exist
+            port:
+              number: 80
+{{- end }}

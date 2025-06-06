@@ -5,6 +5,15 @@ import (
 	"context"
 )
 
+// ValidationError represents a validation failure found during cluster scanning
+type ValidationError struct {
+	ResourceType   string
+	ResourceName   string
+	Namespace      string
+	ValidationType string
+	Message        string
+}
+
 // Validator defines the interface that all validators must implement.
 // This allows for a pluggable architecture where different types of
 // validators can be easily added to the system.
