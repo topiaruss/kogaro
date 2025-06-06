@@ -1,0 +1,27 @@
+{{- if .Values.enabled }}
+# This example shows a misconfiguration that Kubernetes catches during validation
+# Commenting out as it prevents deployment - this is caught by K8s API server, not Kogaro
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: kogaro-volume-mismatch
+#   annotations:
+#     kogaro-test-case: "VolumeMount references missing volume"
+#     kogaro-expected-error: "Volume 'missing-volume' not defined"
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: kogaro-volume-mismatch
+#   template:
+#     metadata:
+#       labels:
+#         app: kogaro-volume-mismatch
+#     spec:
+#       containers:
+#       - name: test
+#         image: busybox
+#         volumeMounts:
+#         - mountPath: /mnt/missing
+#           name: missing-volume
+{{- end }}

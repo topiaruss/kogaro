@@ -1,0 +1,22 @@
+{{- if .Values.enabled }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kogaro-bad-configmap-volume
+  annotations:
+    kogaro-test-case: "Pod with ConfigMap volume reference to non-existent ConfigMap"
+    kogaro-expected-error: "ConfigMap 'missing-configmap' referenced in volume does not exist"
+spec:
+  containers:
+  - name: test-container
+    image: busybox:1.35
+    command: ['sleep', '3600']
+    volumeMounts:
+    - name: config-volume
+      mountPath: /etc/config
+  volumes:
+  - name: config-volume
+    configMap:
+      name: missing-configmap
+  restartPolicy: Never
+{{- end }}

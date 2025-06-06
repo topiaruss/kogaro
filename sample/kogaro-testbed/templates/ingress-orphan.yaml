@@ -1,0 +1,21 @@
+{{- if .Values.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kogaro-orphan-ingress
+  annotations:
+    kogaro-test-case: "Ingress with Service reference to non-existent Service"
+    kogaro-expected-error: "Service 'nonexistent-service' referenced in Ingress does not exist"
+spec:
+  rules:
+  - host: orphan.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: nonexistent-service
+            port:
+              number: 80
+{{- end }}

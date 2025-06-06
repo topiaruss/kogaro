@@ -1,0 +1,16 @@
+{{- if .Values.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kogaro-bad-pvc
+  annotations:
+    kogaro-test-case: "PVC with non-existent StorageClass"
+    kogaro-expected-error: "StorageClass 'nonexistent-storage' does not exist"
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nonexistent-storage
+  resources:
+    requests:
+      storage: 1Gi
+{{- end }}

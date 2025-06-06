@@ -1,0 +1,22 @@
+{{- if .Values.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kogaro-bad-ingressclass
+  annotations:
+    kogaro-test-case: "Ingress with non-existent IngressClass"
+    kogaro-expected-error: "IngressClass 'nonexistent-class' does not exist"
+spec:
+  ingressClassName: nonexistent-class
+  rules:
+  - host: badclass.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: kogaro-good-service
+            port:
+              number: 80
+{{- end }}

@@ -1,0 +1,28 @@
+{{- if .Values.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kogaro-bad-configmap-envfrom
+  labels:
+    app: kogaro-bad-configmap
+  annotations:
+    kogaro-test-case: "ConfigMap envFrom reference to non-existent ConfigMap"
+    kogaro-expected-error: "ConfigMap 'nonexistent-config' referenced in envFrom does not exist"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kogaro-bad-configmap
+  template:
+    metadata:
+      labels:
+        app: kogaro-bad-configmap
+    spec:
+      containers:
+      - name: bad-container
+        image: busybox:1.35
+        command: ['sleep', '3600']
+        envFrom:
+        - configMapRef:
+            name: nonexistent-config
+{{- end }}

@@ -1,0 +1,35 @@
+{{- if .Values.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: kogaro-good-service
+  annotations:
+    kogaro-test-case: "Valid service for other tests to reference"
+spec:
+  selector:
+    app: kogaro-good
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kogaro-good-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kogaro-good
+  template:
+    metadata:
+      labels:
+        app: kogaro-good
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.21-alpine
+        ports:
+        - containerPort: 80
+{{- end }}
