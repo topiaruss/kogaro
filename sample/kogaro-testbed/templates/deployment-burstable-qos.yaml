@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kogaro-testbed.fullname" . }}-burstable-qos
+  labels:
+    {{- include "kogaro-testbed.labels" . | nindent 4 }}
+    test-case: "burstable-qos"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "kogaro-testbed.selectorLabels" . | nindent 6 }}
+      test-case: "burstable-qos"
+  template:
+    metadata:
+      labels:
+        {{- include "kogaro-testbed.selectorLabels" . | nindent 8 }}
+        test-case: "burstable-qos"
+    spec:
+      containers:
+      - name: test-container
+        image: nginx:latest
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"     # Different from requests
+            memory: "512Mi" # Different from requests
+          # Should trigger: qos_class_issue (Burstable QoS: requests != limits)
+        ports:
+        - containerPort: 80

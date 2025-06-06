@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "kogaro-testbed.fullname" . }}-missing-resources
+  labels:
+    {{- include "kogaro-testbed.labels" . | nindent 4 }}
+    test-case: "statefulset-missing-resources"
+spec:
+  serviceName: {{ include "kogaro-testbed.fullname" . }}-missing-resources
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "kogaro-testbed.selectorLabels" . | nindent 6 }}
+      test-case: "statefulset-missing-resources"
+  template:
+    metadata:
+      labels:
+        {{- include "kogaro-testbed.selectorLabels" . | nindent 8 }}
+        test-case: "statefulset-missing-resources"
+    spec:
+      containers:
+      - name: test-container
+        image: nginx:latest
+        # Intentionally missing resource requests and limits
+        # Should trigger: missing_resource_requests, missing_resource_limits, qos_class_issue
+        ports:
+        - containerPort: 80

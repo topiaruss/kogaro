@@ -10,6 +10,7 @@ import (
 	"os"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -37,12 +38,20 @@ func main() {
 	var probeAddr string
 	var scanInterval time.Duration
 
-	// Validation flags
+	// Reference validation flags
 	var enableIngressValidation bool
 	var enableConfigMapValidation bool
 	var enableSecretValidation bool
 	var enablePVCValidation bool
 	var enableServiceAccountValidation bool
+
+	// Resource limits validation flags
+	var enableResourceLimitsValidation bool
+	var enableMissingRequestsValidation bool
+	var enableMissingLimitsValidation bool
+	var enableQoSValidation bool
+	var minCPURequest string
+	var minMemoryRequest string
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -51,12 +60,20 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.DurationVar(&scanInterval, "scan-interval", 5*time.Minute, "Interval between cluster scans for reference validation")
 
-	// Validation configuration flags
+	// Reference validation configuration flags
 	flag.BoolVar(&enableIngressValidation, "enable-ingress-validation", true, "Enable validation of Ingress references (IngressClass, Services)")
 	flag.BoolVar(&enableConfigMapValidation, "enable-configmap-validation", true, "Enable validation of ConfigMap references in Pods")
 	flag.BoolVar(&enableSecretValidation, "enable-secret-validation", true, "Enable validation of Secret references (volumes, env, TLS)")
 	flag.BoolVar(&enablePVCValidation, "enable-pvc-validation", true, "Enable validation of PVC and StorageClass references")
 	flag.BoolVar(&enableServiceAccountValidation, "enable-serviceaccount-validation", false, "Enable validation of ServiceAccount references (may be noisy)")
+
+	// Resource limits validation configuration flags
+	flag.BoolVar(&enableResourceLimitsValidation, "enable-resource-limits-validation", true, "Enable validation of resource requests and limits")
+	flag.BoolVar(&enableMissingRequestsValidation, "enable-missing-requests-validation", true, "Enable validation for missing resource requests")
+	flag.BoolVar(&enableMissingLimitsValidation, "enable-missing-limits-validation", true, "Enable validation for missing resource limits")
+	flag.BoolVar(&enableQoSValidation, "enable-qos-validation", true, "Enable QoS class analysis and validation")
+	flag.StringVar(&minCPURequest, "min-cpu-request", "", "Minimum CPU request threshold (e.g., '10m')")
+	flag.StringVar(&minMemoryRequest, "min-memory-request", "", "Minimum memory request threshold (e.g., '16Mi')")
 
 	opts := zap.Options{
 		Development: true,
@@ -95,6 +112,37 @@ func main() {
 	
 	// Register the reference validator
 	registry.Register(referenceValidator)
+
+	// Initialize and register the resource limits validator if enabled
+	if enableResourceLimitsValidation {
+		resourceLimitsConfig := validators.ResourceLimitsConfig{
+			EnableMissingRequestsValidation: enableMissingRequestsValidation,
+			EnableMissingLimitsValidation:   enableMissingLimitsValidation,
+			EnableQoSValidation:             enableQoSValidation,
+		}
+
+		// Parse minimum resource thresholds if provided
+		if minCPURequest != "" {
+			if cpuQuantity, err := resource.ParseQuantity(minCPURequest); err != nil {
+				setupLog.Error(err, "invalid min-cpu-request value", "value", minCPURequest)
+				os.Exit(1)
+			} else {
+				resourceLimitsConfig.MinCPURequest = &cpuQuantity
+			}
+		}
+
+		if minMemoryRequest != "" {
+			if memoryQuantity, err := resource.ParseQuantity(minMemoryRequest); err != nil {
+				setupLog.Error(err, "invalid min-memory-request value", "value", minMemoryRequest)
+				os.Exit(1)
+			} else {
+				resourceLimitsConfig.MinMemoryRequest = &memoryQuantity
+			}
+		}
+
+		resourceLimitsValidator := validators.NewResourceLimitsValidator(mgr.GetClient(), setupLog, resourceLimitsConfig)
+		registry.Register(resourceLimitsValidator)
+	}
 
 	// Setup the validation controller
 	if err = (&controllers.ValidationController{

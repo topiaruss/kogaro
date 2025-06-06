@@ -1,3 +1,4 @@
+---
 replicaCount: 1
 
 image:
@@ -6,7 +7,7 @@ image:
   tag: "0.1.1"
 
 imagePullSecrets: []
-  # - name: myregistrykey
+# - name: myregistrykey
 nameOverride: ""
 fullnameOverride: ""
 
@@ -53,11 +54,22 @@ affinity: {}
 
 # Validation configuration
 validation:
+  # Reference validation
   enableIngressValidation: true
   enableConfigMapValidation: true
   enableSecretValidation: true
   enablePVCValidation: true
   enableServiceAccountValidation: false
+
+  # Resource limits validation
+  enableResourceLimitsValidation: true
+  enableMissingRequestsValidation: true
+  enableMissingLimitsValidation: true
+  enableQoSValidation: true
+
+  # Minimum resource thresholds (optional)
+  # minCPURequest: "10m"
+  # minMemoryRequest: "16Mi"
   scanInterval: "5m"
 
 # Metrics configuration

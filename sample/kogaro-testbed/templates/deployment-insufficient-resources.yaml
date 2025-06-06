@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kogaro-testbed.fullname" . }}-insufficient-resources
+  labels:
+    {{- include "kogaro-testbed.labels" . | nindent 4 }}
+    test-case: "insufficient-resources"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "kogaro-testbed.selectorLabels" . | nindent 6 }}
+      test-case: "insufficient-resources"
+  template:
+    metadata:
+      labels:
+        {{- include "kogaro-testbed.selectorLabels" . | nindent 8 }}
+        test-case: "insufficient-resources"
+    spec:
+      containers:
+      - name: test-container
+        image: nginx:latest
+        resources:
+          requests:
+            cpu: "1m"      # Very low CPU request (if min threshold is 10m)
+            memory: "1Mi"  # Very low memory request (if min threshold is 16Mi)
+          # Missing limits
+          # Should trigger: insufficient_cpu_request, insufficient_memory_request, missing_resource_limits
+        ports:
+        - containerPort: 80

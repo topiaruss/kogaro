@@ -4,7 +4,9 @@ This Helm chart contains deliberately misconfigured resources designed to test K
 
 ## Test Cases Coverage
 
-This testbed validates all 11 error types that Kogaro currently detects:
+This testbed validates all reference validation errors plus resource limits validation errors that Kogaro detects:
+
+### Reference Validation (11 error types)
 
 ### 1. dangling_ingress_class
 - **File**: `ingress-missing-ingressclass.yaml`
@@ -61,6 +63,38 @@ This testbed validates all 11 error types that Kogaro currently detects:
 - **Test**: Pod references non-existent ServiceAccount `missing-sa`
 - **Expected Error**: `ServiceAccount 'missing-sa' does not exist`
 
+### Resource Limits Validation (6 error types)
+
+### 12. missing_resource_requests
+- **File**: `deployment-missing-resources.yaml`, `statefulset-missing-resources.yaml`
+- **Test**: Containers without resource requests defined
+- **Expected Error**: `Container 'test-container' has no resource requests defined`
+
+### 13. missing_resource_limits
+- **File**: `deployment-missing-resources.yaml`, `deployment-insufficient-resources.yaml`, `statefulset-missing-resources.yaml`
+- **Test**: Containers without resource limits defined
+- **Expected Error**: `Container 'test-container' has no resource limits defined`
+
+### 14. insufficient_cpu_request
+- **File**: `deployment-insufficient-resources.yaml` (when using `--min-cpu-request=10m`)
+- **Test**: Container CPU request below minimum threshold
+- **Expected Error**: `Container 'test-container' CPU request 1m is below minimum 10m`
+
+### 15. insufficient_memory_request
+- **File**: `deployment-insufficient-resources.yaml` (when using `--min-memory-request=16Mi`)
+- **Test**: Container memory request below minimum threshold
+- **Expected Error**: `Container 'test-container' memory request 1Mi is below minimum 16Mi`
+
+### 16. qos_class_issue (BestEffort)
+- **File**: `deployment-missing-resources.yaml`, `statefulset-missing-resources.yaml`
+- **Test**: Containers with no resource constraints (BestEffort QoS)
+- **Expected Error**: `Container 'test-container': BestEffort QoS: no resource constraints, can be killed first under pressure`
+
+### 17. qos_class_issue (Burstable)
+- **File**: `deployment-burstable-qos.yaml`
+- **Test**: Containers where requests != limits (Burstable QoS)
+- **Expected Error**: `Container 'test-container': Burstable QoS: requests != limits, may face throttling under pressure`
+
 ## Additional Files (Legacy/Other Tests)
 
 - `deployment-missing-volume.yaml` - VolumeMount references missing volume (Kubernetes validation catches this)
@@ -85,7 +119,7 @@ kubectl get all,ingress,pvc -n kogaro-testbed
 
 ## Testing with Kogaro
 
-Once deployed, Kogaro should detect exactly **11 validation errors** (one for each test case):
+Once deployed, Kogaro should detect **11 reference validation errors** plus additional **resource limits validation errors** (depending on configuration):
 
 ```bash
 # Check Kogaro logs for validation errors

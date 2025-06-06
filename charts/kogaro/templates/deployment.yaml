@@ -40,6 +40,16 @@ spec:
             - --enable-secret-validation={{ .Values.validation.enableSecretValidation }}
             - --enable-pvc-validation={{ .Values.validation.enablePVCValidation }}
             - --enable-serviceaccount-validation={{ .Values.validation.enableServiceAccountValidation }}
+            - --enable-resource-limits-validation={{ .Values.validation.enableResourceLimitsValidation }}
+            - --enable-missing-requests-validation={{ .Values.validation.enableMissingRequestsValidation }}
+            - --enable-missing-limits-validation={{ .Values.validation.enableMissingLimitsValidation }}
+            - --enable-qos-validation={{ .Values.validation.enableQoSValidation }}
+            {{- if .Values.validation.minCPURequest }}
+            - --min-cpu-request={{ .Values.validation.minCPURequest }}
+            {{- end }}
+            {{- if .Values.validation.minMemoryRequest }}
+            - --min-memory-request={{ .Values.validation.minMemoryRequest }}
+            {{- end }}
           ports:
             - name: metrics
               containerPort: {{ .Values.service.metricsPort }}
