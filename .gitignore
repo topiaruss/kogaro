@@ -50,4 +50,6 @@ Thumbs.db
 
 # Kubernetes
 *.yaml.backup
-*.yml.backup.claude/settings.local.json
+*.yml.backup
+
+.claude/
