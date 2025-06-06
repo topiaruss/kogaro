@@ -11,6 +11,87 @@ The monitoring stack includes:
 - Node Exporter for system metrics
 - Kube State Metrics for Kubernetes metrics
 
+## Development Tools
+
+### Pre-commit Hooks
+
+The repository includes pre-commit hooks to ensure code quality and prevent common issues. These hooks run automatically before each commit.
+
+#### Required Tools
+
+Install the required tools:
+
+```bash
+# Install Helm (if not already installed)
+brew install helm
+
+# Install kubeconform for Kubernetes manifest validation
+brew install kubeconform
+
+# Install yamllint for YAML file linting
+brew install yamllint
+```
+
+#### What the Hooks Check
+
+The pre-commit hooks perform the following checks:
+
+1. **Sensitive Data Detection**
+   - Scans for potential secrets, passwords, tokens, and keys
+   - Prevents accidental commit of sensitive information
+   - Checks for patterns like `password:`, `secret:`, `token:`, etc.
+
+2. **Helm Chart Validation**
+   - Runs `helm lint` on all charts
+   - Ensures charts follow Helm best practices
+   - Validates chart structure and dependencies
+
+3. **Kubernetes Manifest Validation**
+   - Uses `kubeconform` to validate rendered manifests
+   - Ensures compatibility with Kubernetes API
+   - Validates against the correct Kubernetes version
+
+4. **YAML Linting**
+   - Enforces consistent YAML formatting
+   - Checks for syntax errors
+   - Validates against YAML best practices
+
+#### Troubleshooting Pre-commit Hooks
+
+If a pre-commit hook fails:
+
+1. **Sensitive Data Found**
+   - Review the file for actual sensitive data
+   - If it's a false positive, consider adding the pattern to `.gitignore`
+   - If it's real sensitive data, remove it and use secrets management
+
+2. **Helm Lint Failures**
+   - Check the error message for specific issues
+   - Common issues include:
+     - Missing required fields
+     - Invalid template syntax
+     - Dependency issues
+
+3. **Kubernetes Validation Failures**
+   - Review the `kubeconform` output
+   - Check for API version mismatches
+   - Verify resource specifications
+
+4. **YAML Lint Errors**
+   - Fix formatting issues
+   - Ensure consistent indentation
+   - Check for syntax errors
+
+#### Bypassing Hooks (Not Recommended)
+
+In rare cases, you might need to bypass the hooks:
+
+```bash
+git commit -m "your message" --no-verify
+```
+
+⚠️ **Warning**: Only bypass hooks if you're absolutely sure it's necessary. The hooks are there to prevent common issues and maintain code quality.
+
 ## Prerequisites
 
 1. Create a `.env` file in the chart directory with the following variables:
@@ -154,66 +235,3 @@ rm auth
 # Install the monitoring stack
 helm install monitoring ./charts/monitoring
 ```
-
-### Important Notes
-- The basic auth secrets (`prometheus-basic-auth` and `alertmanager-basic-auth`) must be created before installing the chart
-- Without these secrets, you will see 503 errors when trying to access Prometheus and Alertmanager
-- If you see 503 errors after installation, check that the secrets exist:
-  ```bash
-  kubectl get secret -n monitoring | grep -E 'prometheus-basic-auth|alertmanager-basic-auth'
-  ```
-
-### Production Integration
-
-For production environments, it's recommended to use your existing Prometheus setup. Here's how to integrate Kogaro with your existing monitoring:
-
-1. **ServiceMonitor Configuration**
-   Add the following ServiceMonitor to your Prometheus configuration:
-
-   ```yaml
-   apiVersion: monitoring.coreos.com/v1
-   kind: ServiceMonitor
-   metadata:
-     name: kogaro
-     namespace: monitoring
-   spec:
-     selector:
-       matchLabels:
-         app: kogaro
-     endpoints:
-     - port: metrics
-       interval: 15s
-       path: /metrics
-   ```
-
-2. **Grafana Dashboard**
-   Import the Kogaro dashboard into your Grafana instance:
-   - Dashboard ID: [TBD]
-   - URL: [TBD]
-
-3. **Alertmanager Rules**
-   Add the following PrometheusRule to your configuration:
-
-   ```yaml
-   apiVersion: monitoring.coreos.com/v1
-   kind: PrometheusRule
-   metadata:
-     name: kogaro-alerts
-     namespace: monitoring
-   spec:
-     groups:
-     - name: kogaro
-       rules:
-       - alert: KogaroValidationErrors
-         expr: kogaro_validation_errors_total > 0
-         for: 5m
-         labels:
-           severity: warning
-         annotations:
-           summary: "Kogaro validation errors detected"
-           description: "Kogaro has detected {{ $value }} validation errors"
-   ```
-
-## Support
-
-For issues or questions, please open an issue in the Kogaro repository. 
