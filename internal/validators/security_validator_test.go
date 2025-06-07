@@ -687,11 +687,3 @@ func TestSecurityValidator_DaemonSetValidation(t *testing.T) {
 	}
 }
 
-// Helper functions for creating pointers
-func boolPtr(b bool) *bool {
-	return &b
-}
-
-func int64Ptr(i int64) *int64 {
-	return &i
-}

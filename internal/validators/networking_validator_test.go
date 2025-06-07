@@ -11,10 +11,12 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -74,16 +76,24 @@ func TestNetworkingValidator_ValidateServiceConnectivity(t *testing.T) {
 						},
 					},
 				},
-				&corev1.Endpoints{
+				&discoveryv1.EndpointSlice{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-service",
 						Namespace: "default",
 					},
-					Subsets: []corev1.EndpointSubset{
+					Endpoints: []discoveryv1.Endpoint{
 						{
-							Addresses: []corev1.EndpointAddress{
-								{IP: "10.0.0.1"},
+							Addresses: []string{"10.0.0.1"},
+							Conditions: discoveryv1.EndpointConditions{
+								Ready: ptr.To(true),
 							},
+						},
+					},
+					Ports: []discoveryv1.EndpointPort{
+						{
+							Name:     ptr.To("http"),
+							Port:     ptr.To(int32(80)),
+							Protocol: ptr.To(corev1.ProtocolTCP),
 						},
 					},
 				},
@@ -217,6 +227,7 @@ func TestNetworkingValidator_ValidateServiceConnectivity(t *testing.T) {
 			scheme := runtime.NewScheme()
 			_ = corev1.AddToScheme(scheme)
 			_ = networkingv1.AddToScheme(scheme)
+			_ = discoveryv1.AddToScheme(scheme)
 
 			fakeClient := fake.NewClientBuilder().
 				WithScheme(scheme).
@@ -464,21 +475,21 @@ func TestNetworkingValidator_ValidateIngressConnectivity(t *testing.T) {
 							{
 								IngressRuleValue: networkingv1.IngressRuleValue{
 									HTTP: &networkingv1.HTTPIngressRuleValue{
-									Paths: []networkingv1.HTTPIngressPath{
-										{
-											Path: "/",
-											Backend: networkingv1.IngressBackend{
-												Service: &networkingv1.IngressServiceBackend{
-													Name: "missing-service",
-													Port: networkingv1.ServiceBackendPort{
-														Number: 80,
+										Paths: []networkingv1.HTTPIngressPath{
+											{
+												Path: "/",
+												Backend: networkingv1.IngressBackend{
+													Service: &networkingv1.IngressServiceBackend{
+														Name: "missing-service",
+														Port: networkingv1.ServiceBackendPort{
+															Number: 80,
+														},
 													},
 												},
 											},
 										},
 									},
 								},
-							},
 							},
 						},
 					},
@@ -502,21 +513,21 @@ func TestNetworkingValidator_ValidateIngressConnectivity(t *testing.T) {
 							{
 								IngressRuleValue: networkingv1.IngressRuleValue{
 									HTTP: &networkingv1.HTTPIngressRuleValue{
-									Paths: []networkingv1.HTTPIngressPath{
-										{
-											Path: "/",
-											Backend: networkingv1.IngressBackend{
-												Service: &networkingv1.IngressServiceBackend{
-													Name: "test-service",
-													Port: networkingv1.ServiceBackendPort{
-														Number: 9999, // Port that doesn't exist
+										Paths: []networkingv1.HTTPIngressPath{
+											{
+												Path: "/",
+												Backend: networkingv1.IngressBackend{
+													Service: &networkingv1.IngressServiceBackend{
+														Name: "test-service",
+														Port: networkingv1.ServiceBackendPort{
+															Number: 9999, // Port that doesn't exist
+														},
 													},
 												},
 											},
 										},
 									},
 								},
-							},
 							},
 						},
 					},
@@ -551,21 +562,21 @@ func TestNetworkingValidator_ValidateIngressConnectivity(t *testing.T) {
 							{
 								IngressRuleValue: networkingv1.IngressRuleValue{
 									HTTP: &networkingv1.HTTPIngressRuleValue{
-									Paths: []networkingv1.HTTPIngressPath{
-										{
-											Path: "/",
-											Backend: networkingv1.IngressBackend{
-												Service: &networkingv1.IngressServiceBackend{
-													Name: "empty-service",
-													Port: networkingv1.ServiceBackendPort{
-														Number: 80,
+										Paths: []networkingv1.HTTPIngressPath{
+											{
+												Path: "/",
+												Backend: networkingv1.IngressBackend{
+													Service: &networkingv1.IngressServiceBackend{
+														Name: "empty-service",
+														Port: networkingv1.ServiceBackendPort{
+															Number: 80,
+														},
 													},
 												},
 											},
 										},
 									},
 								},
-							},
 							},
 						},
 					},
@@ -725,7 +736,3 @@ func TestNetworkingValidator_HelperFunctions(t *testing.T) {
 	})
 }
 
-// Helper function to create int32 pointers
-func intPtr(i int32) *int32 {
-	return &i
-}

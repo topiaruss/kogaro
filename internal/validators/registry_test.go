@@ -25,7 +25,7 @@ type MockValidator struct {
 	mu             sync.Mutex
 }
 
-func (m *MockValidator) ValidateCluster(ctx context.Context) error {
+func (m *MockValidator) ValidateCluster(_ context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.callCount++
@@ -198,7 +198,7 @@ func TestValidatorRegistry_GetValidators(t *testing.T) {
 	// Verify returned slice is a copy (modifications shouldn't affect registry)
 	originalLength := len(registry.GetValidators())
 	returnedValidators := registry.GetValidators()
-	returnedValidators = append(returnedValidators, &MockValidator{validationType: "external_validator"})
+	_ = append(returnedValidators, &MockValidator{validationType: "external_validator"})
 	
 	newLength := len(registry.GetValidators())
 	if originalLength != newLength {
