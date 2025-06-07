@@ -107,9 +107,10 @@ func (v *ReferenceValidator) ValidateCluster(ctx context.Context) error {
 		allErrors = append(allErrors, saErrors...)
 	}
 
-	// Log all validation errors
+	// Log all validation errors and update metrics
 	for _, validationErr := range allErrors {
 		v.log.Info("validation error found",
+			"validator_type", "reference",
 			"resource_type", validationErr.ResourceType,
 			"resource_name", validationErr.ResourceName,
 			"namespace", validationErr.Namespace,
@@ -124,7 +125,7 @@ func (v *ReferenceValidator) ValidateCluster(ctx context.Context) error {
 		).Inc()
 	}
 
-	v.log.Info("cluster validation completed", "total_errors", len(allErrors))
+	v.log.Info("validation completed", "validator_type", "reference", "total_errors", len(allErrors))
 	return nil
 }
 

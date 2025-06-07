@@ -56,6 +56,8 @@ func (v *ResourceLimitsValidator) GetValidationType() string {
 
 // ValidateCluster performs comprehensive validation of resource limits across the entire cluster
 func (v *ResourceLimitsValidator) ValidateCluster(ctx context.Context) error {
+	metrics.ValidationRuns.Inc()
+	
 	var allErrors []ValidationError
 
 	// Validate Deployments
@@ -90,7 +92,8 @@ func (v *ResourceLimitsValidator) ValidateCluster(ctx context.Context) error {
 
 	// Log all validation errors and update metrics
 	for _, validationErr := range allErrors {
-		v.log.Info("resource limits validation error found",
+		v.log.Info("validation error found",
+			"validator_type", "resource_limits",
 			"resource_type", validationErr.ResourceType,
 			"resource_name", validationErr.ResourceName,
 			"namespace", validationErr.Namespace,
@@ -105,7 +108,7 @@ func (v *ResourceLimitsValidator) ValidateCluster(ctx context.Context) error {
 		).Inc()
 	}
 
-	v.log.Info("resource limits validation completed", "total_errors", len(allErrors))
+	v.log.Info("validation completed", "validator_type", "resource_limits", "total_errors", len(allErrors))
 	return nil
 }
 

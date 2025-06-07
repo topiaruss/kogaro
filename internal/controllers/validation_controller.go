@@ -3,11 +3,13 @@
 //
 // Kogaro - Kubernetes Configuration Hygiene Agent
 
-// Package controllers implements Kubernetes controllers for resource validation.
+// Package controllers implements timer-based validation runnables.
 //
-// This package provides the ValidationController which runs periodic scans
-// of the Kubernetes cluster to validate resource references using the
-// controller-runtime framework.
+// This package provides the ValidationController which implements the
+// manager.Runnable interface to run periodic cluster-wide validation scans
+// using the controller-runtime framework. The controller uses a timer-based
+// approach rather than event-driven reconciliation since it needs to validate
+// the entire cluster state at regular intervals.
 package controllers
 
 import (
@@ -22,7 +24,8 @@ import (
 	"github.com/topiaruss/kogaro/internal/validators"
 )
 
-// ValidationController manages periodic validation of Kubernetes resource references
+// ValidationController manages periodic validation of Kubernetes resource references.
+// It implements the manager.Runnable interface to run as a timer-based background process.
 type ValidationController struct {
 	Client       client.Client
 	Scheme       *runtime.Scheme
@@ -31,33 +34,23 @@ type ValidationController struct {
 	ScanInterval time.Duration
 }
 
-// SetupWithManager registers the ValidationController with the manager
+// SetupWithManager registers the ValidationController with the manager as a runnable
 func (r *ValidationController) SetupWithManager(mgr ctrl.Manager) error {
-	// Start the periodic validation as a runnable
+	// Register this controller as a runnable for periodic execution
 	return mgr.Add(r)
 }
 
-// Reconcile handles reconciliation requests (not used in this implementation)
-func (r *ValidationController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := r.Log.WithValues("validation", req.NamespacedName)
-
-	// Run the validation scan
-	log.Info("starting cluster validation scan")
-
-	if err := r.Registry.ValidateCluster(ctx); err != nil {
-		log.Error(err, "failed to validate cluster")
-		return ctrl.Result{RequeueAfter: r.ScanInterval}, err
-	}
-
-	log.Info("cluster validation scan completed successfully")
-
-	// Requeue after the scan interval
-	return ctrl.Result{RequeueAfter: r.ScanInterval}, nil
+// NeedLeaderElection implements manager.LeaderElectionRunnable
+// Returns true to ensure only one instance runs cluster validation when leader election is enabled
+func (r *ValidationController) NeedLeaderElection() bool {
+	return true
 }
 
-// Start begins the periodic validation process
+// Start begins the periodic validation process.
+// This method implements the manager.Runnable interface.
 func (r *ValidationController) Start(ctx context.Context) error {
 	log := r.Log.WithName("periodic-validator")
+	log.Info("starting periodic validation controller", "scan_interval", r.ScanInterval)
 
 	ticker := time.NewTicker(r.ScanInterval)
 	defer ticker.Stop()
@@ -71,7 +64,7 @@ func (r *ValidationController) Start(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			log.Info("stopping periodic validation")
+			log.Info("stopping periodic validation controller")
 			return nil
 		case <-ticker.C:
 			log.Info("running periodic cluster validation")

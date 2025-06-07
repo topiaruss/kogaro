@@ -23,6 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/topiaruss/kogaro/internal/metrics"
+	"github.com/topiaruss/kogaro/internal/utils"
 )
 
 // SecurityConfig defines which security validation checks to perform
@@ -58,6 +59,8 @@ func (v *SecurityValidator) GetValidationType() string {
 
 // ValidateCluster performs comprehensive validation of security configurations across the entire cluster
 func (v *SecurityValidator) ValidateCluster(ctx context.Context) error {
+	metrics.ValidationRuns.Inc()
+	
 	var allErrors []ValidationError
 
 	// Validate root user and SecurityContext configurations
@@ -107,7 +110,8 @@ func (v *SecurityValidator) ValidateCluster(ctx context.Context) error {
 
 	// Log all validation errors and update metrics
 	for _, validationErr := range allErrors {
-		v.log.Info("security validation error found",
+		v.log.Info("validation error found",
+			"validator_type", "security",
 			"resource_type", validationErr.ResourceType,
 			"resource_name", validationErr.ResourceName,
 			"namespace", validationErr.Namespace,
@@ -122,7 +126,7 @@ func (v *SecurityValidator) ValidateCluster(ctx context.Context) error {
 		).Inc()
 	}
 
-	v.log.Info("security validation completed", "total_errors", len(allErrors))
+	v.log.Info("validation completed", "validator_type", "security", "total_errors", len(allErrors))
 	return nil
 }
 
@@ -184,7 +188,7 @@ func (v *SecurityValidator) validatePodSecurity(ctx context.Context) ([]Validati
 
 	for _, pod := range pods.Items {
 		// Skip pods managed by controllers (they're validated via their controllers)
-		if len(pod.OwnerReferences) > 0 {
+		if utils.HasOwnerReferences(pod) {
 			continue
 		}
 
@@ -473,7 +477,7 @@ func (v *SecurityValidator) validateNetworkPolicyCoverage(ctx context.Context) (
 
 	for _, ns := range namespaces.Items {
 		// Skip system namespaces
-		if v.isSystemNamespace(ns.Name) {
+		if utils.IsSystemNamespace(ns.Name) {
 			continue
 		}
 
@@ -492,21 +496,6 @@ func (v *SecurityValidator) validateNetworkPolicyCoverage(ctx context.Context) (
 	return errors, nil
 }
 
-func (v *SecurityValidator) isSystemNamespace(namespace string) bool {
-	systemNamespaces := []string{
-		"kube-system",
-		"kube-public",
-		"kube-node-lease",
-		"default",
-	}
-
-	for _, systemNS := range systemNamespaces {
-		if namespace == systemNS {
-			return true
-		}
-	}
-	return false
-}
 
 func (v *SecurityValidator) isProductionLikeNamespace(namespace string) bool {
 	productionIndicators := []string{

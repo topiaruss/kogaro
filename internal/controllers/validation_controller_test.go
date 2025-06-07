@@ -15,48 +15,17 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/topiaruss/kogaro/internal/validators"
 )
 
-func TestValidationController_Reconcile(t *testing.T) {
-	scheme := runtime.NewScheme()
-	_ = networkingv1.AddToScheme(scheme)
-	_ = corev1.AddToScheme(scheme)
-	_ = storagev1.AddToScheme(scheme)
-
-	fakeClient := fake.NewClientBuilder().
-		WithScheme(scheme).
-		Build()
-
-	config := validators.ValidationConfig{
-		EnableIngressValidation:   true,
-		EnableConfigMapValidation: true,
-	}
-	validator := validators.NewReferenceValidator(fakeClient, logr.Discard(), config)
+func TestValidationController_NeedLeaderElection(t *testing.T) {
+	controller := &ValidationController{}
 	
-	registry := validators.NewValidatorRegistry(logr.Discard())
-	registry.Register(validator)
-
-	controller := &ValidationController{
-		Client:       fakeClient,
-		Scheme:       scheme,
-		Log:          logr.Discard(),
-		Registry:     registry,
-		ScanInterval: 1 * time.Second,
-	}
-
-	// Test reconcile
-	result, err := controller.Reconcile(context.TODO(), ctrl.Request{})
-	if err != nil {
-		t.Fatalf("Reconcile() error = %v", err)
-	}
-
-	// Should requeue after scan interval
-	if result.RequeueAfter != controller.ScanInterval {
-		t.Errorf("Expected RequeueAfter = %v, got %v", controller.ScanInterval, result.RequeueAfter)
+	// Should require leader election for cluster-wide validation
+	if !controller.NeedLeaderElection() {
+		t.Error("Expected NeedLeaderElection() to return true")
 	}
 }
 

@@ -60,6 +60,8 @@ func (v *NetworkingValidator) GetValidationType() string {
 
 // ValidateCluster performs comprehensive validation of networking configurations across the entire cluster
 func (v *NetworkingValidator) ValidateCluster(ctx context.Context) error {
+	metrics.ValidationRuns.Inc()
+	
 	var allErrors []ValidationError
 
 	// Validate Service connectivity
@@ -91,7 +93,8 @@ func (v *NetworkingValidator) ValidateCluster(ctx context.Context) error {
 
 	// Log all validation errors and update metrics
 	for _, validationErr := range allErrors {
-		v.log.Info("networking validation error found",
+		v.log.Info("validation error found",
+			"validator_type", "networking",
 			"resource_type", validationErr.ResourceType,
 			"resource_name", validationErr.ResourceName,
 			"namespace", validationErr.Namespace,
@@ -106,7 +109,7 @@ func (v *NetworkingValidator) ValidateCluster(ctx context.Context) error {
 		).Inc()
 	}
 
-	v.log.Info("networking validation completed", "total_errors", len(allErrors))
+	v.log.Info("validation completed", "validator_type", "networking", "total_errors", len(allErrors))
 	return nil
 }
 
