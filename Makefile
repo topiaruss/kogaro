@@ -17,7 +17,10 @@ GOMOD=$(GOCMD) mod
 GOFMT=gofmt
 GOVET=$(GOCMD) vet
 
-.PHONY: all build clean test deps fmt vet docker run help
+# Version management
+VERSION_NUMBER := $(shell echo $(VERSION) | sed 's/^v//')
+
+.PHONY: all build clean test deps fmt vet docker run help release check-version check-clean
 
 # Default target
 all: clean fmt fmt-imports vet lint test build
@@ -112,11 +115,35 @@ generate:
 	$(GOCMD) generate ./...
 
 # Release build (optimized)
-release:
-	mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -a -installsuffix cgo -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 main.go
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -a -installsuffix cgo -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 main.go
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -a -installsuffix cgo -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe main.go
+release: check-version check-clean
+	@echo "Starting release process for version $(VERSION)"
+	@echo "1. Updating Helm chart version..."
+	@sed -i '' 's/^version: .*/version: $(VERSION_NUMBER)/' charts/kogaro/Chart.yaml
+	@sed -i '' 's/^appVersion: .*/appVersion: "$(VERSION_NUMBER)"/' charts/kogaro/Chart.yaml
+	@echo "2. Creating git tag..."
+	@git add charts/kogaro/Chart.yaml
+	@git commit -m "chore: bump version to $(VERSION_NUMBER)"
+	@git tag -a $(VERSION) -m "Release $(VERSION)"
+	@echo "3. Pushing changes..."
+	@git push origin main
+	@git push origin $(VERSION)
+	@echo "Release $(VERSION) initiated. GitHub Actions will handle the rest!"
+
+# Prerequisites
+.PHONY: check-version
+check-version:
+	@if [ "$(VERSION)" = "v0.0.0" ]; then \
+		echo "Error: No version specified. Use VERSION=vX.Y.Z"; \
+		exit 1; \
+	fi
+
+.PHONY: check-clean
+check-clean:
+	@if [ -n "$(shell git status --porcelain)" ]; then \
+		echo "Error: Working directory is not clean"; \
+		git status; \
+		exit 1; \
+	fi
 
 # Help
 help:

@@ -24,6 +24,13 @@ import (
 	"github.com/topiaruss/kogaro/internal/metrics"
 )
 
+const (
+	// DeploymentType represents a Kubernetes Deployment resource type
+	DeploymentType = "Deployment"
+	// StatefulSetType represents a Kubernetes StatefulSet resource type
+	StatefulSetType = "StatefulSet"
+)
+
 // ResourceLimitsConfig defines which resource limit validations to perform
 type ResourceLimitsConfig struct {
 	EnableMissingRequestsValidation bool
@@ -60,7 +67,7 @@ func (v *ResourceLimitsValidator) GetValidationType() string {
 // ValidateCluster performs comprehensive validation of resource limits across the entire cluster
 func (v *ResourceLimitsValidator) ValidateCluster(ctx context.Context) error {
 	metrics.ValidationRuns.Inc()
-	
+
 	var allErrors []ValidationError
 
 	// Validate Deployments
@@ -244,7 +251,7 @@ func (v *ResourceLimitsValidator) validateContainerResources(containers []corev1
 			if container.Resources.Limits == nil ||
 				(container.Resources.Limits.Cpu().IsZero() && container.Resources.Limits.Memory().IsZero()) {
 				// Check if container has resource requests to determine the error code context
-				hasRequests := container.Resources.Requests != nil && 
+				hasRequests := container.Resources.Requests != nil &&
 					(!container.Resources.Requests.Cpu().IsZero() || !container.Resources.Requests.Memory().IsZero())
 				errorCode := v.getResourceLimitsErrorCode("missing_resource_limits", resourceType, "", hasRequests)
 				errors = append(errors, NewValidationErrorWithCode(resourceType, resourceName, namespace, "missing_resource_limits", errorCode, fmt.Sprintf("Container '%s' has no resource limits defined", container.Name)).
@@ -263,7 +270,7 @@ func (v *ResourceLimitsValidator) validateContainerResources(containers []corev1
 			for _, issue := range qosIssues {
 				severity := SeverityWarning
 				var remediationHint string
-				
+
 				if strings.Contains(issue, "BestEffort") {
 					severity = SeverityError
 					remediationHint = "Add both resource requests and limits for predictable scheduling and resource management"
@@ -276,7 +283,7 @@ func (v *ResourceLimitsValidator) validateContainerResources(containers []corev1
 				} else {
 					remediationHint = "Review resource configuration for optimal QoS class assignment"
 				}
-				
+
 				errorCode := v.getResourceLimitsErrorCode("qos_class_issue", resourceType, issue, false)
 				errors = append(errors, NewValidationErrorWithCode(resourceType, resourceName, namespace, "qos_class_issue", errorCode, fmt.Sprintf("Container '%s': %s", container.Name, issue)).
 					WithSeverity(severity).
@@ -323,21 +330,21 @@ func (v *ResourceLimitsValidator) getResourceLimitsErrorCode(validationType, res
 	switch validationType {
 	case "missing_resource_requests":
 		switch resourceType {
-		case "Deployment":
+		case DeploymentType:
 			return "KOGARO-RES-001"
-		case "StatefulSet":
+		case StatefulSetType:
 			return "KOGARO-RES-002"
 		}
 	case "missing_resource_limits":
 		switch resourceType {
-		case "Deployment":
+		case DeploymentType:
 			if hasRequests {
 				// Has requests but missing limits
 				return "KOGARO-RES-004"
 			}
 			// Complete absence of resource constraints
 			return "KOGARO-RES-003"
-		case "StatefulSet":
+		case StatefulSetType:
 			return "KOGARO-RES-005"
 		}
 	case "insufficient_cpu_request":
@@ -348,9 +355,9 @@ func (v *ResourceLimitsValidator) getResourceLimitsErrorCode(validationType, res
 		// Determine QoS issue type from the issue detail
 		if strings.Contains(issueDetail, "BestEffort") {
 			switch resourceType {
-			case "Deployment":
+			case DeploymentType:
 				return "KOGARO-RES-008"
-			case "StatefulSet":
+			case StatefulSetType:
 				return "KOGARO-RES-009"
 			}
 		} else if strings.Contains(issueDetail, "Burstable") && strings.Contains(issueDetail, "requests != limits") {
