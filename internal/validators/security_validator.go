@@ -208,13 +208,12 @@ func (v *SecurityValidator) validatePodTemplateSecurity(template corev1.PodTempl
 	// Validate Pod-level SecurityContext
 	if v.config.EnableSecurityContextValidation {
 		if template.Spec.SecurityContext == nil {
-			errors = append(errors, ValidationError{
-				ResourceType:   resourceType,
-				ResourceName:   resourceName,
-				Namespace:      namespace,
-				ValidationType: "missing_pod_security_context",
-				Message:        "Pod has no SecurityContext defined",
-			})
+			errors = append(errors, NewValidationError(resourceType, resourceName, namespace, "missing_pod_security_context", "Pod has no SecurityContext defined").
+				WithSeverity(SeverityError).
+				WithRemediationHint("Add a SecurityContext with runAsNonRoot: true, runAsUser: 1000, runAsGroup: 3000, and fsGroup: 2000").
+				WithRelatedResources("SecurityContext/pod-security-context").
+				WithDetail("resource_type", resourceType).
+				WithDetail("recommended_user_id", "1000"))
 		} else {
 			// Check for Pod-level security settings
 			podSecurityErrors := v.validatePodSecurityContext(template.Spec.SecurityContext, resourceType, resourceName, namespace)
@@ -238,24 +237,24 @@ func (v *SecurityValidator) validatePodSecurityContext(securityContext *corev1.P
 	if v.config.EnableRootUserValidation {
 		// Check if Pod is running as root user
 		if securityContext.RunAsUser != nil && *securityContext.RunAsUser == 0 {
-			errors = append(errors, ValidationError{
-				ResourceType:   resourceType,
-				ResourceName:   resourceName,
-				Namespace:      namespace,
-				ValidationType: "pod_running_as_root",
-				Message:        "Pod SecurityContext specifies runAsUser: 0 (root)",
-			})
+			errors = append(errors, NewValidationError(resourceType, resourceName, namespace, "pod_running_as_root", "Pod SecurityContext specifies runAsUser: 0 (root)").
+				WithSeverity(SeverityError).
+				WithRemediationHint("Change runAsUser to a non-zero value (e.g., 1000) and set runAsNonRoot: true").
+				WithRelatedResources("SecurityContext/pod-security-context").
+				WithDetail("current_user_id", "0").
+				WithDetail("recommended_user_id", "1000").
+				WithDetail("security_risk", "root_access"))
 		}
 
 		// Check if Pod allows privilege escalation
 		if securityContext.RunAsNonRoot == nil || !*securityContext.RunAsNonRoot {
-			errors = append(errors, ValidationError{
-				ResourceType:   resourceType,
-				ResourceName:   resourceName,
-				Namespace:      namespace,
-				ValidationType: "pod_allows_root_user",
-				Message:        "Pod SecurityContext does not enforce runAsNonRoot: true",
-			})
+			errors = append(errors, NewValidationError(resourceType, resourceName, namespace, "pod_allows_root_user", "Pod SecurityContext does not enforce runAsNonRoot: true").
+				WithSeverity(SeverityError).
+				WithRemediationHint("Set runAsNonRoot: true in the pod SecurityContext to prevent containers from running as root").
+				WithRelatedResources("SecurityContext/pod-security-context").
+				WithDetail("current_setting", "runAsNonRoot not set or false").
+				WithDetail("recommended_setting", "runAsNonRoot: true").
+				WithDetail("security_risk", "privilege_escalation"))
 		}
 	}
 
@@ -273,13 +272,13 @@ func (v *SecurityValidator) validateContainersSecurity(containers []corev1.Conta
 	for _, container := range containers {
 		if v.config.EnableSecurityContextValidation {
 			if container.SecurityContext == nil {
-				errors = append(errors, ValidationError{
-					ResourceType:   resourceType,
-					ResourceName:   resourceName,
-					Namespace:      namespace,
-					ValidationType: "missing_container_security_context",
-					Message:        fmt.Sprintf("Container '%s' (%s) has no SecurityContext defined", container.Name, containerType),
-				})
+				errors = append(errors, NewValidationError(resourceType, resourceName, namespace, "missing_container_security_context", fmt.Sprintf("Container '%s' (%s) has no SecurityContext defined", container.Name, containerType)).
+					WithSeverity(SeverityError).
+					WithRemediationHint("Add a SecurityContext with allowPrivilegeEscalation: false, runAsNonRoot: true, readOnlyRootFilesystem: true, and drop all capabilities").
+					WithRelatedResources(fmt.Sprintf("Container/%s", container.Name)).
+					WithDetail("container_name", container.Name).
+					WithDetail("container_type", containerType).
+					WithDetail("recommended_settings", "allowPrivilegeEscalation: false, runAsNonRoot: true, readOnlyRootFilesystem: true"))
 			} else {
 				containerSecurityErrors := v.validateContainerSecurityContext(container.SecurityContext, container.Name, containerType, resourceType, resourceName, namespace)
 				errors = append(errors, containerSecurityErrors...)
@@ -296,46 +295,51 @@ func (v *SecurityValidator) validateContainerSecurityContext(securityContext *co
 	if v.config.EnableRootUserValidation {
 		// Check if container is running as root user
 		if securityContext.RunAsUser != nil && *securityContext.RunAsUser == 0 {
-			errors = append(errors, ValidationError{
-				ResourceType:   resourceType,
-				ResourceName:   resourceName,
-				Namespace:      namespace,
-				ValidationType: "container_running_as_root",
-				Message:        fmt.Sprintf("Container '%s' (%s) SecurityContext specifies runAsUser: 0 (root)", containerName, containerType),
-			})
+			errors = append(errors, NewValidationError(resourceType, resourceName, namespace, "container_running_as_root", fmt.Sprintf("Container '%s' (%s) SecurityContext specifies runAsUser: 0 (root)", containerName, containerType)).
+				WithSeverity(SeverityError).
+				WithRemediationHint("Set runAsUser to a non-zero value (e.g., 1000) in the container SecurityContext").
+				WithRelatedResources(fmt.Sprintf("Container/%s", containerName)).
+				WithDetail("container_name", containerName).
+				WithDetail("container_type", containerType).
+				WithDetail("current_user_id", "0").
+				WithDetail("recommended_user_id", "1000"))
 		}
 
 		// Check if container allows privilege escalation
 		if securityContext.AllowPrivilegeEscalation == nil || *securityContext.AllowPrivilegeEscalation {
-			errors = append(errors, ValidationError{
-				ResourceType:   resourceType,
-				ResourceName:   resourceName,
-				Namespace:      namespace,
-				ValidationType: "container_allows_privilege_escalation",
-				Message:        fmt.Sprintf("Container '%s' (%s) SecurityContext does not set allowPrivilegeEscalation: false", containerName, containerType),
-			})
+			errors = append(errors, NewValidationError(resourceType, resourceName, namespace, "container_allows_privilege_escalation", fmt.Sprintf("Container '%s' (%s) SecurityContext does not set allowPrivilegeEscalation: false", containerName, containerType)).
+				WithSeverity(SeverityError).
+				WithRemediationHint("Set allowPrivilegeEscalation: false in the container SecurityContext to prevent privilege escalation").
+				WithRelatedResources(fmt.Sprintf("Container/%s", containerName)).
+				WithDetail("container_name", containerName).
+				WithDetail("container_type", containerType).
+				WithDetail("current_setting", "allowPrivilegeEscalation not set or true").
+				WithDetail("recommended_setting", "allowPrivilegeEscalation: false"))
 		}
 
 		// Check if container is running in privileged mode
 		if securityContext.Privileged != nil && *securityContext.Privileged {
-			errors = append(errors, ValidationError{
-				ResourceType:   resourceType,
-				ResourceName:   resourceName,
-				Namespace:      namespace,
-				ValidationType: "container_privileged_mode",
-				Message:        fmt.Sprintf("Container '%s' (%s) SecurityContext specifies privileged: true", containerName, containerType),
-			})
+			errors = append(errors, NewValidationError(resourceType, resourceName, namespace, "container_privileged_mode", fmt.Sprintf("Container '%s' (%s) SecurityContext specifies privileged: true", containerName, containerType)).
+				WithSeverity(SeverityError).
+				WithRemediationHint("Remove privileged: true from the container SecurityContext or set privileged: false to disable privileged mode").
+				WithRelatedResources(fmt.Sprintf("Container/%s", containerName)).
+				WithDetail("container_name", containerName).
+				WithDetail("container_type", containerType).
+				WithDetail("security_risk", "full_system_access").
+				WithDetail("current_setting", "privileged: true"))
 		}
 
 		// Check if container has root filesystem read-only
 		if securityContext.ReadOnlyRootFilesystem == nil || !*securityContext.ReadOnlyRootFilesystem {
-			errors = append(errors, ValidationError{
-				ResourceType:   resourceType,
-				ResourceName:   resourceName,
-				Namespace:      namespace,
-				ValidationType: "container_writable_root_filesystem",
-				Message:        fmt.Sprintf("Container '%s' (%s) SecurityContext does not set readOnlyRootFilesystem: true", containerName, containerType),
-			})
+			errors = append(errors, NewValidationError(resourceType, resourceName, namespace, "container_writable_root_filesystem", fmt.Sprintf("Container '%s' (%s) SecurityContext does not set readOnlyRootFilesystem: true", containerName, containerType)).
+				WithSeverity(SeverityError).
+				WithRemediationHint("Set readOnlyRootFilesystem: true in the container SecurityContext to prevent filesystem modifications").
+				WithRelatedResources(fmt.Sprintf("Container/%s", containerName)).
+				WithDetail("container_name", containerName).
+				WithDetail("container_type", containerType).
+				WithDetail("security_risk", "filesystem_tampering").
+				WithDetail("current_setting", "readOnlyRootFilesystem not set or false").
+				WithDetail("recommended_setting", "readOnlyRootFilesystem: true"))
 		}
 	}
 
@@ -343,13 +347,15 @@ func (v *SecurityValidator) validateContainerSecurityContext(securityContext *co
 		// Check for capabilities
 		if securityContext.Capabilities != nil && len(securityContext.Capabilities.Add) > 0 {
 			for _, capability := range securityContext.Capabilities.Add {
-				errors = append(errors, ValidationError{
-					ResourceType:   resourceType,
-					ResourceName:   resourceName,
-					Namespace:      namespace,
-					ValidationType: "container_additional_capabilities",
-					Message:        fmt.Sprintf("Container '%s' (%s) SecurityContext adds capability: %s", containerName, containerType, capability),
-				})
+				errors = append(errors, NewValidationError(resourceType, resourceName, namespace, "container_additional_capabilities", fmt.Sprintf("Container '%s' (%s) SecurityContext adds capability: %s", containerName, containerType, capability)).
+					WithSeverity(SeverityError).
+					WithRemediationHint("Remove additional capabilities from the container SecurityContext and use capabilities.drop: ['ALL'] to drop all capabilities").
+					WithRelatedResources(fmt.Sprintf("Container/%s", containerName)).
+					WithDetail("container_name", containerName).
+					WithDetail("container_type", containerType).
+					WithDetail("added_capability", string(capability)).
+					WithDetail("security_risk", "elevated_privileges").
+					WithDetail("recommended_action", "drop_all_capabilities"))
 			}
 		}
 	}
@@ -388,13 +394,14 @@ func (v *SecurityValidator) validateServiceAccountPermissions(ctx context.Contex
 		for _, crb := range clusterRoleBindings.Items {
 			for _, subject := range crb.Subjects {
 				if subject.Kind == "ServiceAccount" && subject.Name == sa.Name && subject.Namespace == sa.Namespace {
-					errors = append(errors, ValidationError{
-						ResourceType:   "ServiceAccount",
-						ResourceName:   sa.Name,
-						Namespace:      sa.Namespace,
-						ValidationType: "serviceaccount_cluster_role_binding",
-						Message:        fmt.Sprintf("ServiceAccount has ClusterRoleBinding '%s' with role '%s'", crb.Name, crb.RoleRef.Name),
-					})
+					errors = append(errors, NewValidationError("ServiceAccount", sa.Name, sa.Namespace, "serviceaccount_cluster_role_binding", fmt.Sprintf("ServiceAccount has ClusterRoleBinding '%s' with role '%s'", crb.Name, crb.RoleRef.Name)).
+						WithSeverity(SeverityError).
+						WithRemediationHint("Review if cluster-wide permissions are necessary. Consider using namespace-scoped RoleBindings instead of ClusterRoleBindings").
+						WithRelatedResources(fmt.Sprintf("ClusterRoleBinding/%s", crb.Name)).
+						WithDetail("cluster_role_binding", crb.Name).
+						WithDetail("cluster_role", crb.RoleRef.Name).
+						WithDetail("security_risk", "cluster_wide_permissions").
+						WithDetail("recommended_scope", "namespace_scoped"))
 				}
 			}
 		}
@@ -409,13 +416,14 @@ func (v *SecurityValidator) validateServiceAccountPermissions(ctx context.Contex
 				if subject.Kind == "ServiceAccount" && subject.Name == sa.Name {
 					// Flag some potentially dangerous role names
 					if v.isDangerousRole(rb.RoleRef.Name) {
-						errors = append(errors, ValidationError{
-							ResourceType:   "ServiceAccount",
-							ResourceName:   sa.Name,
-							Namespace:      sa.Namespace,
-							ValidationType: "serviceaccount_excessive_permissions",
-							Message:        fmt.Sprintf("ServiceAccount has potentially excessive RoleBinding '%s' with role '%s'", rb.Name, rb.RoleRef.Name),
-						})
+						errors = append(errors, NewValidationError("ServiceAccount", sa.Name, sa.Namespace, "serviceaccount_excessive_permissions", fmt.Sprintf("ServiceAccount has potentially excessive RoleBinding '%s' with role '%s'", rb.Name, rb.RoleRef.Name)).
+							WithSeverity(SeverityError).
+							WithRemediationHint("Create custom roles with minimal required permissions instead of using broad administrative roles").
+							WithRelatedResources(fmt.Sprintf("RoleBinding/%s", rb.Name)).
+							WithDetail("role_binding", rb.Name).
+							WithDetail("role_name", rb.RoleRef.Name).
+							WithDetail("security_risk", "excessive_permissions").
+							WithDetail("principle", "least_privilege"))
 					}
 				}
 			}
@@ -459,13 +467,13 @@ func (v *SecurityValidator) validateNetworkPolicyCoverage(ctx context.Context) (
 	// Check if security-sensitive namespaces have NetworkPolicies
 	for _, sensitiveNamespace := range v.config.SecuritySensitiveNamespaces {
 		if !namespacesWithPolicies[sensitiveNamespace] {
-			errors = append(errors, ValidationError{
-				ResourceType:   "Namespace",
-				ResourceName:   sensitiveNamespace,
-				Namespace:      sensitiveNamespace,
-				ValidationType: "missing_network_policy_security_sensitive",
-				Message:        fmt.Sprintf("Security-sensitive namespace '%s' has no NetworkPolicies defined", sensitiveNamespace),
-			})
+			errors = append(errors, NewValidationError("Namespace", sensitiveNamespace, sensitiveNamespace, "missing_network_policy_security_sensitive", fmt.Sprintf("Security-sensitive namespace '%s' has no NetworkPolicies defined", sensitiveNamespace)).
+				WithSeverity(SeverityError).
+				WithRemediationHint("Create NetworkPolicies to implement default-deny ingress/egress rules and explicitly allow required traffic").
+				WithRelatedResources("NetworkPolicy/default-deny-all").
+				WithDetail("namespace_type", "security_sensitive").
+				WithDetail("security_risk", "unrestricted_network_access").
+				WithDetail("recommended_policy", "default_deny_with_explicit_allow"))
 		}
 	}
 
@@ -483,13 +491,13 @@ func (v *SecurityValidator) validateNetworkPolicyCoverage(ctx context.Context) (
 
 		// Check if this looks like a production namespace without NetworkPolicies
 		if v.isProductionLikeNamespace(ns.Name) && !namespacesWithPolicies[ns.Name] {
-			errors = append(errors, ValidationError{
-				ResourceType:   "Namespace",
-				ResourceName:   ns.Name,
-				Namespace:      ns.Name,
-				ValidationType: "missing_network_policy_production",
-				Message:        fmt.Sprintf("Production-like namespace '%s' has no NetworkPolicies defined", ns.Name),
-			})
+			errors = append(errors, NewValidationError("Namespace", ns.Name, ns.Name, "missing_network_policy_production", fmt.Sprintf("Production-like namespace '%s' has no NetworkPolicies defined", ns.Name)).
+				WithSeverity(SeverityError).
+				WithRemediationHint("Implement NetworkPolicies for production workloads with default-deny rules and specific ingress/egress allowlists").
+				WithRelatedResources("NetworkPolicy/production-default-deny").
+				WithDetail("namespace_type", "production_like").
+				WithDetail("security_risk", "production_traffic_exposure").
+				WithDetail("compliance_requirement", "network_segmentation"))
 		}
 	}
 
