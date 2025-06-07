@@ -37,9 +37,10 @@ type ValidationConfig struct {
 
 // ReferenceValidator validates Kubernetes resource references across the cluster
 type ReferenceValidator struct {
-	client client.Client
-	log    logr.Logger
-	config ValidationConfig
+	client       client.Client
+	log          logr.Logger
+	config       ValidationConfig
+	sharedConfig SharedConfig
 }
 
 // GetValidationType returns the validation type identifier for reference validation
@@ -50,9 +51,10 @@ func (v *ReferenceValidator) GetValidationType() string {
 // NewReferenceValidator creates a new ReferenceValidator with the given client, logger and config
 func NewReferenceValidator(client client.Client, log logr.Logger, config ValidationConfig) *ReferenceValidator {
 	return &ReferenceValidator{
-		client: client,
-		log:    log.WithName("reference-validator"),
-		config: config,
+		client:       client,
+		log:          log.WithName("reference-validator"),
+		config:       config,
+		sharedConfig: DefaultSharedConfig(),
 	}
 }
 
@@ -399,7 +401,7 @@ func (v *ReferenceValidator) validateServiceAccountReferences(ctx context.Contex
 	for _, pod := range pods.Items {
 		saName := pod.Spec.ServiceAccountName
 		if saName == "" {
-			saName = "default"
+			saName = v.sharedConfig.DefaultSecurityContext.DefaultServiceAccountName
 		}
 
 		if err := v.validateServiceAccountExists(ctx, saName, pod.Namespace); err != nil {

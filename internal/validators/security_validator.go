@@ -475,7 +475,7 @@ func (v *SecurityValidator) validateNetworkPolicyCoverage(ctx context.Context) (
 
 	for _, ns := range namespaces.Items {
 		// Skip system namespaces
-		if utils.IsSystemNamespace(ns.Name) {
+		if v.sharedConfig.IsSecurityExcludedNamespace(ns.Name) {
 			continue
 		}
 

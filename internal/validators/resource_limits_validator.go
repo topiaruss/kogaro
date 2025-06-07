@@ -36,17 +36,19 @@ type ResourceLimitsConfig struct {
 
 // ResourceLimitsValidator validates resource requests and limits across workloads
 type ResourceLimitsValidator struct {
-	client client.Client
-	log    logr.Logger
-	config ResourceLimitsConfig
+	client       client.Client
+	log          logr.Logger
+	config       ResourceLimitsConfig
+	sharedConfig SharedConfig
 }
 
 // NewResourceLimitsValidator creates a new ResourceLimitsValidator with the given client, logger and config
 func NewResourceLimitsValidator(client client.Client, log logr.Logger, config ResourceLimitsConfig) *ResourceLimitsValidator {
 	return &ResourceLimitsValidator{
-		client: client,
-		log:    log.WithName("resource-limits-validator"),
-		config: config,
+		client:       client,
+		log:          log.WithName("resource-limits-validator"),
+		config:       config,
+		sharedConfig: DefaultSharedConfig(),
 	}
 }
 
@@ -204,11 +206,11 @@ func (v *ResourceLimitsValidator) validateContainerResources(containers []corev1
 				(container.Resources.Requests.Cpu().IsZero() && container.Resources.Requests.Memory().IsZero()) {
 				errors = append(errors, NewValidationError(resourceType, resourceName, namespace, "missing_resource_requests", fmt.Sprintf("Container '%s' has no resource requests defined", container.Name)).
 					WithSeverity(SeverityError).
-					WithRemediationHint("Add resource requests to prevent resource contention (e.g., cpu: 100m, memory: 128Mi)").
+					WithRemediationHint(fmt.Sprintf("Add resource requests to prevent resource contention (e.g., cpu: %s, memory: %s)", v.sharedConfig.DefaultResourceRecommendations.DefaultCPURequest, v.sharedConfig.DefaultResourceRecommendations.DefaultMemoryRequest)).
 					WithRelatedResources(fmt.Sprintf("Container/%s", container.Name)).
 					WithDetail("container_name", container.Name).
-					WithDetail("recommended_cpu", "100m").
-					WithDetail("recommended_memory", "128Mi"))
+					WithDetail("recommended_cpu", v.sharedConfig.DefaultResourceRecommendations.DefaultCPURequest).
+					WithDetail("recommended_memory", v.sharedConfig.DefaultResourceRecommendations.DefaultMemoryRequest))
 			} else {
 				// Check minimum CPU request
 				if v.config.MinCPURequest != nil && container.Resources.Requests.Cpu().Cmp(*v.config.MinCPURequest) < 0 {
@@ -240,11 +242,11 @@ func (v *ResourceLimitsValidator) validateContainerResources(containers []corev1
 				(container.Resources.Limits.Cpu().IsZero() && container.Resources.Limits.Memory().IsZero()) {
 				errors = append(errors, NewValidationError(resourceType, resourceName, namespace, "missing_resource_limits", fmt.Sprintf("Container '%s' has no resource limits defined", container.Name)).
 					WithSeverity(SeverityError).
-					WithRemediationHint("Add resource limits to prevent resource overconsumption (e.g., cpu: 500m, memory: 256Mi)").
+					WithRemediationHint(fmt.Sprintf("Add resource limits to prevent resource overconsumption (e.g., cpu: %s, memory: %s)", v.sharedConfig.DefaultResourceRecommendations.DefaultCPULimit, v.sharedConfig.DefaultResourceRecommendations.DefaultMemoryLimit)).
 					WithRelatedResources(fmt.Sprintf("Container/%s", container.Name)).
 					WithDetail("container_name", container.Name).
-					WithDetail("recommended_cpu_limit", "500m").
-					WithDetail("recommended_memory_limit", "256Mi"))
+					WithDetail("recommended_cpu_limit", v.sharedConfig.DefaultResourceRecommendations.DefaultCPULimit).
+					WithDetail("recommended_memory_limit", v.sharedConfig.DefaultResourceRecommendations.DefaultMemoryLimit))
 			}
 		}
 

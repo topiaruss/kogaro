@@ -614,7 +614,7 @@ func TestNetworkingValidator_ValidateIngressConnectivity(t *testing.T) {
 }
 
 func TestNetworkingValidator_HelperFunctions(t *testing.T) {
-	validator := &NetworkingValidator{}
+	validator := NewNetworkingValidator(nil, logr.Discard(), NetworkingConfig{})
 
 	t.Run("isSpecialService", func(t *testing.T) {
 		// Headless service

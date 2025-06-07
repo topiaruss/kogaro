@@ -39,17 +39,19 @@ type NetworkingConfig struct {
 
 // NetworkingValidator validates networking configurations across workloads
 type NetworkingValidator struct {
-	client client.Client
-	log    logr.Logger
-	config NetworkingConfig
+	client       client.Client
+	log          logr.Logger
+	config       NetworkingConfig
+	sharedConfig SharedConfig
 }
 
 // NewNetworkingValidator creates a new NetworkingValidator with the given client, logger and config
 func NewNetworkingValidator(client client.Client, log logr.Logger, config NetworkingConfig) *NetworkingValidator {
 	return &NetworkingValidator{
-		client: client,
-		log:    log.WithName("networking-validator"),
-		config: config,
+		client:       client,
+		log:          log.WithName("networking-validator"),
+		config:       config,
+		sharedConfig: DefaultSharedConfig(),
 	}
 }
 
@@ -299,7 +301,7 @@ func (v *NetworkingValidator) isSpecialService(service corev1.Service) bool {
 	}
 	
 	// Skip system services
-	if service.Namespace == "kube-system" || service.Namespace == "kube-public" {
+	if v.sharedConfig.IsNetworkingExcludedNamespace(service.Namespace) {
 		return true
 	}
 	
@@ -346,29 +348,20 @@ func (v *NetworkingValidator) findUnexposedPods(pods []corev1.Pod, services []co
 }
 
 func (v *NetworkingValidator) isSystemPod(pod corev1.Pod) bool {
-	systemNamespaces := []string{"kube-system", "kube-public", "kube-node-lease"}
-	for _, ns := range systemNamespaces {
-		if pod.Namespace == ns {
-			return true
-		}
-	}
-	return false
+	return v.sharedConfig.IsNetworkingExcludedNamespace(pod.Namespace)
 }
 
 func (v *NetworkingValidator) isPodTypicallyUnexposed(pod corev1.Pod) bool {
-	// Check if pod is owned by a Job or CronJob (typically don't need services)
+	// Check if pod is owned by a batch workload (typically don't need services)
 	for _, owner := range pod.OwnerReferences {
-		if owner.Kind == "Job" || owner.Kind == "CronJob" {
+		if v.sharedConfig.IsBatchOwnerKind(owner.Kind) {
 			return true
 		}
 	}
 	
 	// Check for common patterns in pod names that suggest they don't need services
-	unexposedPatterns := []string{"migration", "backup", "setup", "init"}
-	for _, pattern := range unexposedPatterns {
-		if len(pod.Name) > len(pattern) && pod.Name[:len(pattern)] == pattern {
-			return true
-		}
+	if v.sharedConfig.IsUnexposedPodPattern(pod.Name) {
+		return true
 	}
 	
 	return false
@@ -690,19 +683,7 @@ func (v *NetworkingValidator) isPodReady(pod corev1.Pod) bool {
 }
 
 func (v *NetworkingValidator) isSystemNamespace(namespace string) bool {
-	systemNamespaces := []string{
-		"kube-system",
-		"kube-public", 
-		"kube-node-lease",
-		"default",
-	}
-
-	for _, systemNS := range systemNamespaces {
-		if namespace == systemNS {
-			return true
-		}
-	}
-	return false
+	return v.sharedConfig.IsNetworkingExcludedNamespace(namespace)
 }
 
 func (v *NetworkingValidator) getPoliciesInNamespace(policies []networkingv1.NetworkPolicy, namespace string) []networkingv1.NetworkPolicy {

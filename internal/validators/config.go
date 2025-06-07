@@ -16,6 +16,10 @@ type SharedConfig struct {
 	// System namespaces to exclude from various validations
 	SystemNamespaces []string
 	
+	// Context-specific namespace exclusion sets
+	SecurityExcludedNamespaces   []string
+	NetworkingExcludedNamespaces []string
+	
 	// Default resource recommendations
 	DefaultResourceRecommendations ResourceRecommendations
 	
@@ -85,6 +89,16 @@ func DefaultSharedConfig() SharedConfig {
 			"kube-node-lease",
 			"default",
 		},
+		SecurityExcludedNamespaces: []string{
+			"kube-system",
+			"kube-public",
+			"kube-node-lease",
+		},
+		NetworkingExcludedNamespaces: []string{
+			"kube-system",
+			"kube-public",
+			"kube-node-lease",
+		},
 		DefaultResourceRecommendations: ResourceRecommendations{
 			DefaultCPURequest:    "100m",
 			DefaultMemoryRequest: "128Mi",
@@ -135,6 +149,26 @@ func DefaultSharedConfig() SharedConfig {
 func (c *SharedConfig) IsSystemNamespace(namespace string) bool {
 	for _, systemNS := range c.SystemNamespaces {
 		if namespace == systemNS {
+			return true
+		}
+	}
+	return false
+}
+
+// IsSecurityExcludedNamespace checks if a namespace should be excluded from security validation
+func (c *SharedConfig) IsSecurityExcludedNamespace(namespace string) bool {
+	for _, excludedNS := range c.SecurityExcludedNamespaces {
+		if namespace == excludedNS {
+			return true
+		}
+	}
+	return false
+}
+
+// IsNetworkingExcludedNamespace checks if a namespace should be excluded from networking validation
+func (c *SharedConfig) IsNetworkingExcludedNamespace(namespace string) bool {
+	for _, excludedNS := range c.NetworkingExcludedNamespaces {
+		if namespace == excludedNS {
 			return true
 		}
 	}
