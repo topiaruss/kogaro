@@ -24,7 +24,7 @@ maintainers:
     url: https://github.com/topiaruss
 annotations:
   category: Monitoring
-  artifacthub.io/license: MIT
+  artifacthub.io/license: Apache-2.0
   artifacthub.io/links: |
     - name: Chart Source
       url: https://github.com/topiaruss/kogaro/tree/main/charts/kogaro

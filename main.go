@@ -1,3 +1,8 @@
+// Copyright 2025 Russell Ferriday
+// Licensed under the Apache License, Version 2.0
+//
+// Kogaro - Kubernetes Configuration Hygiene Agent
+
 // Package main provides the Kogaro Kubernetes configuration hygiene validation agent.
 //
 // Kogaro is a Kubernetes controller that continuously monitors cluster resources

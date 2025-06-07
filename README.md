@@ -4,7 +4,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/topiaruss/kogaro)](https://goreportcard.com/report/github.com/topiaruss/kogaro)
 [![codecov](https://codecov.io/gh/topiaruss/kogaro/branch/main/graph/badge.svg)](https://codecov.io/gh/topiaruss/kogaro)
 [![GoDoc](https://pkg.go.dev/badge/github.com/topiaruss/kogaro.svg)](https://pkg.go.dev/github.com/topiaruss/kogaro)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![GitHub release](https://img.shields.io/github/release/topiaruss/kogaro.svg)](https://github.com/topiaruss/kogaro/releases)
 
 Kogaro is a runtime Kubernetes agent that continuously validates resource references and identifies configuration hygiene issues that can cause silent failures.

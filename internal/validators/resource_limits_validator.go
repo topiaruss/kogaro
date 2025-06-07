@@ -1,3 +1,8 @@
+// Copyright 2025 Russell Ferriday
+// Licensed under the Apache License, Version 2.0
+//
+// Kogaro - Kubernetes Configuration Hygiene Agent
+
 // Package validators provides resource limits validation functionality.
 //
 // This package implements validation of resource requests and limits for

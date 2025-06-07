@@ -1,3 +1,8 @@
+// Copyright 2025 Russell Ferriday
+// Licensed under the Apache License, Version 2.0
+//
+// Kogaro - Kubernetes Configuration Hygiene Agent
+
 // Package controllers implements Kubernetes controllers for resource validation.
 //
 // This package provides the ValidationController which runs periodic scans

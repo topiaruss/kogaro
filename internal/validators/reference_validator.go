@@ -1,3 +1,8 @@
+// Copyright 2025 Russell Ferriday
+// Licensed under the Apache License, Version 2.0
+//
+// Kogaro - Kubernetes Configuration Hygiene Agent
+
 // Package validators provides Kubernetes resource reference validation functionality.
 //
 // This package implements comprehensive validation of resource references within
