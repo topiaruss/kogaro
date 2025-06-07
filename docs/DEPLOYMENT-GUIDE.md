@@ -335,7 +335,7 @@ affinity:
         topologyKey: kubernetes.io/hostname
 ```
 
-**Note**: Multiple replicas will perform redundant validation but provide fault tolerance.
+**Note**: Multiple replicas provide fault tolerance through leader election. Only the leader performs validation, while other replicas remain idle but ready to take over if the leader fails.
 
 ## Troubleshooting
 
