@@ -104,6 +104,32 @@ Validates service connectivity and network policies:
 - **Structured Logging**: Detailed logs of all validation issues found
 - **Health Checks**: Kubernetes-native health and readiness probes
 
+### Structured Error Codes
+
+Kogaro assigns structured error codes to all validation issues for easy categorization, filtering, and automated processing. Each error follows the format `KOGARO-CCC-XXX`:
+
+- **Reference Validation**: `KOGARO-REF-001` through `KOGARO-REF-011`
+- **Resource Limits**: `KOGARO-RES-001` through `KOGARO-RES-010`
+- **Security Validation**: `KOGARO-SEC-001` through `KOGARO-SEC-012`
+- **Networking Validation**: `KOGARO-NET-001` through `KOGARO-NET-009`
+
+**Benefits:**
+- **Automated Processing**: Filter and process errors by type or category
+- **Metrics & Alerting**: Create dashboards and alerts based on error patterns
+- **Tool Integration**: External tools can understand and act on specific error types
+- **Trend Analysis**: Track which issues are most common over time
+
+📖 **See the complete [Error Codes Reference](docs/ERROR-CODES.md) for detailed mappings**
+
+Example usage:
+```bash
+# Show only security issues
+kubectl logs kogaro-pod | grep "KOGARO-SEC-"
+
+# Count reference validation errors
+kubectl logs kogaro-pod | grep "KOGARO-REF-" | wc -l
+```
+
 ## Quick Start
 
 For detailed deployment instructions, see the [Deployment Guide](docs/DEPLOYMENT-GUIDE.md).
@@ -277,7 +303,7 @@ spec:
 
 **Kogaro Output:**
 ```
-validation error found: resource_type=Ingress resource_name=my-app validation_type=dangling_ingress_class message="IngressClass 'nginx' does not exist"
+validation error found: resource_type=Ingress resource_name=my-app validation_type=dangling_ingress_class error_code=KOGARO-REF-001 message="IngressClass 'nginx' does not exist"
 ```
 
 ### Missing ConfigMap Reference
@@ -293,14 +319,18 @@ spec:
 
 **Kogaro Output:**
 ```
-validation error found: resource_type=Pod resource_name=my-pod validation_type=dangling_configmap_envfrom message="ConfigMap 'app-settings' referenced in envFrom does not exist"
+validation error found: resource_type=Pod resource_name=my-pod validation_type=dangling_configmap_envfrom error_code=KOGARO-REF-004 message="ConfigMap 'app-settings' referenced in envFrom does not exist"
 ```
 
 ## Documentation
 
+- **[Error Codes Reference](docs/ERROR-CODES.md)** - Complete mapping of structured error codes for all validation types
 - **[Deployment Guide](docs/DEPLOYMENT-GUIDE.md)** - Comprehensive deployment and configuration instructions
 - **[Contributing Guide](CONTRIBUTING.md)** - Development setup and contribution guidelines
 - **[Security Policy](SECURITY.md)** - Security considerations and vulnerability reporting
+
+### Developer References
+- **[Validation Mappings](docs/validations.csv)** - Technical mapping of validation types to error codes, Kubernetes spec paths, and test files
 
 ## Future Enhancements
 

@@ -1,0 +1,53 @@
+# Developer Reference: Validation Types to Error Codes Mapping
+# 
+# This CSV serves as a developer reference for:
+# - Verifying implementation completeness between code and documentation
+# - Cross-referencing test coverage in sample/kogaro-testbed/
+# - Mapping validation types to specific Kubernetes spec paths
+# - Supporting automated tooling and test generation
+# 
+# For user-facing documentation, see: ERROR-CODES.md
+#
+Category,Entity Type,Resource,Match Criteria,Validation Type,Error Code,Description,Severity,Test File
+Reference Validation,Ingress,IngressClass,spec.ingressClassName,dangling_ingress_class,KOGARO-REF-001,IngressClass 'nonexistent-class' does not exist,Error,ingress-missing-ingressclass.yaml
+Reference Validation,Ingress,Service,spec.rules[].http.paths[].backend.service.name,dangling_service_reference,KOGARO-REF-002,Service 'nonexistent-service' referenced in Ingress does not exist,Error,ingress-orphan.yaml
+Reference Validation,Pod,ConfigMap,spec.volumes[].configMap.name,dangling_configmap_volume,KOGARO-REF-003,ConfigMap 'missing-configmap' referenced in volume does not exist,Error,pod-missing-configmap-volume.yaml
+Reference Validation,Pod,ConfigMap,spec.containers[].envFrom[].configMapRef.name,dangling_configmap_envfrom,KOGARO-REF-004,ConfigMap 'nonexistent-config' referenced in envFrom does not exist,Error,deployment-missing-configmap.yaml
+Reference Validation,Pod,Secret,spec.volumes[].secret.secretName,dangling_secret_volume,KOGARO-REF-005,Secret 'missing-secret' referenced in volume does not exist,Error,pod-missing-secret-volume.yaml
+Reference Validation,Pod,Secret,spec.containers[].envFrom[].secretRef.name,dangling_secret_envfrom,KOGARO-REF-006,Secret 'missing-env-secret' referenced in envFrom does not exist,Error,pod-missing-secret-envfrom.yaml
+Reference Validation,Pod,Secret,spec.containers[].env[].valueFrom.secretKeyRef.name,dangling_secret_env,KOGARO-REF-007,Secret 'missing-secret-key' referenced in env does not exist,Error,pod-missing-secret-env.yaml
+Reference Validation,Ingress,Secret,spec.tls[].secretName,dangling_tls_secret,KOGARO-REF-008,TLS Secret 'missing-tls-secret' referenced in Ingress does not exist,Error,ingress-missing-tls-secret.yaml
+Reference Validation,PersistentVolumeClaim,StorageClass,spec.storageClassName,dangling_storage_class,KOGARO-REF-009,StorageClass 'nonexistent-storage' does not exist,Error,pvc-missing-storageclass.yaml
+Reference Validation,Pod,PersistentVolumeClaim,spec.volumes[].persistentVolumeClaim.claimName,dangling_pvc_reference,KOGARO-REF-010,PVC 'missing-pvc' referenced in volume does not exist,Error,pod-missing-pvc.yaml
+Reference Validation,Pod,ServiceAccount,spec.serviceAccountName,dangling_service_account,KOGARO-REF-011,ServiceAccount 'missing-sa' does not exist,Error,pod-missing-serviceaccount.yaml
+Resource Limits Validation,Deployment,Container,spec.template.spec.containers[].resources.requests,missing_resource_requests,KOGARO-RES-001,Container 'test-container' has no resource requests defined,Error,deployment-missing-resources.yaml
+Resource Limits Validation,StatefulSet,Container,spec.template.spec.containers[].resources.requests,missing_resource_requests,KOGARO-RES-002,Container 'test-container' has no resource requests defined,Error,statefulset-missing-resources.yaml
+Resource Limits Validation,Deployment,Container,spec.template.spec.containers[].resources.limits,missing_resource_limits,KOGARO-RES-003,Container 'test-container' has no resource limits defined,Error,deployment-missing-resources.yaml
+Resource Limits Validation,Deployment,Container,spec.template.spec.containers[].resources.limits,missing_resource_limits,KOGARO-RES-004,Container 'test-container' has no resource limits defined,Error,deployment-insufficient-resources.yaml
+Resource Limits Validation,StatefulSet,Container,spec.template.spec.containers[].resources.limits,missing_resource_limits,KOGARO-RES-005,Container 'test-container' has no resource limits defined,Error,statefulset-missing-resources.yaml
+Resource Limits Validation,Deployment,Container,spec.template.spec.containers[].resources.requests.cpu,insufficient_cpu_request,KOGARO-RES-006,Container 'test-container' CPU request 1m is below minimum 10m,Error,deployment-insufficient-resources.yaml
+Resource Limits Validation,Deployment,Container,spec.template.spec.containers[].resources.requests.memory,insufficient_memory_request,KOGARO-RES-007,Container 'test-container' memory request 1Mi is below minimum 16Mi,Error,deployment-insufficient-resources.yaml
+Resource Limits Validation,Deployment,Container,spec.template.spec.containers[].resources (QoS analysis),qos_class_issue,KOGARO-RES-008,Container 'test-container': BestEffort QoS: no resource constraints can be killed first under pressure,Error,deployment-missing-resources.yaml
+Resource Limits Validation,StatefulSet,Container,spec.template.spec.containers[].resources (QoS analysis),qos_class_issue,KOGARO-RES-009,Container 'test-container': BestEffort QoS: no resource constraints can be killed first under pressure,Error,statefulset-missing-resources.yaml
+Resource Limits Validation,Deployment,Container,spec.template.spec.containers[].resources (QoS analysis),qos_class_issue,KOGARO-RES-010,Container 'test-container': Burstable QoS: requests != limits may face throttling under pressure,Warning,deployment-burstable-qos.yaml
+Security Validation,Deployment,Pod SecurityContext,spec.template.spec.securityContext.runAsUser,pod_running_as_root,KOGARO-SEC-001,Pod SecurityContext specifies runAsUser: 0 (root),Error,deployment-root-user.yaml
+Security Validation,Deployment,Pod SecurityContext,spec.template.spec.securityContext.runAsNonRoot,pod_allows_root_user,KOGARO-SEC-002,Pod SecurityContext does not enforce runAsNonRoot: true,Error,deployment-root-user.yaml
+Security Validation,Deployment,Container SecurityContext,spec.template.spec.containers[].securityContext.runAsUser,container_running_as_root,KOGARO-SEC-003,Container 'root-container' (container) SecurityContext specifies runAsUser: 0 (root),Error,deployment-root-user.yaml
+Security Validation,Deployment,Container SecurityContext,spec.template.spec.containers[].securityContext.allowPrivilegeEscalation,container_allows_privilege_escalation,KOGARO-SEC-004,Container 'root-container' (container) SecurityContext does not set allowPrivilegeEscalation: false,Error,deployment-root-user.yaml
+Security Validation,Deployment,Container SecurityContext,spec.template.spec.containers[].securityContext.allowPrivilegeEscalation,container_allows_privilege_escalation,KOGARO-SEC-005,Container 'privileged-container' (container) SecurityContext does not set allowPrivilegeEscalation: false,Error,deployment-privileged-container.yaml
+Security Validation,Deployment,Container SecurityContext,spec.template.spec.containers[].securityContext.privileged,container_privileged_mode,KOGARO-SEC-006,Container 'privileged-container' (container) SecurityContext specifies privileged: true,Error,deployment-privileged-container.yaml
+Security Validation,Deployment,Container SecurityContext,spec.template.spec.containers[].securityContext.readOnlyRootFilesystem,container_writable_root_filesystem,KOGARO-SEC-007,Container 'privileged-container' (container) SecurityContext does not set readOnlyRootFilesystem: true,Error,deployment-privileged-container.yaml
+Security Validation,Deployment,Container SecurityContext,spec.template.spec.containers[].securityContext.capabilities.add,container_additional_capabilities,KOGARO-SEC-008,Container 'privileged-container' (container) SecurityContext adds capability: NET_ADMIN,Error,deployment-privileged-container.yaml
+Security Validation,Deployment,Pod SecurityContext,spec.template.spec.securityContext,missing_pod_security_context,KOGARO-SEC-009,Pod has no SecurityContext defined,Error,deployment-missing-security-context.yaml
+Security Validation,Deployment,Container SecurityContext,spec.template.spec.containers[].securityContext,missing_container_security_context,KOGARO-SEC-010,Container 'no-security-container' (container) has no SecurityContext defined,Error,deployment-missing-security-context.yaml
+Security Validation,ServiceAccount,ClusterRoleBinding,subjects[].name matches ServiceAccount,serviceaccount_cluster_role_binding,KOGARO-SEC-011,ServiceAccount has ClusterRoleBinding 'admin-service-account-binding' with role 'cluster-admin',Error,serviceaccount-excessive-permissions.yaml
+Security Validation,ServiceAccount,RoleBinding,subjects[].name matches ServiceAccount,serviceaccount_excessive_permissions,KOGARO-SEC-012,ServiceAccount has potentially excessive RoleBinding 'admin-role-binding' with role 'admin',Error,serviceaccount-excessive-permissions.yaml
+Networking Validation,Service,Pod,spec.selector matches pod labels,service_selector_mismatch,KOGARO-NET-001,Service selector {app:nonexistent-app} does not match any pods,Warning,service-no-endpoints.yaml
+Networking Validation,Service,Endpoints,Service name matches Endpoints name,service_no_endpoints,KOGARO-NET-002,Service has no ready endpoints despite matching pods,Error,service-no-endpoints.yaml
+Networking Validation,Service,Container Port,spec.ports[].targetPort matches container ports,service_port_mismatch,KOGARO-NET-003,Service port (target: 9999) does not match any container ports in matching pods,Error,service-port-mismatch.yaml
+Networking Validation,Pod,Service,Pod labels matched by any Service selector,pod_no_service,KOGARO-NET-004,Pod is not exposed by any Service (consider if this is intentional),Info,pod-unexposed.yaml
+Networking Validation,NetworkPolicy,Pod,spec.podSelector matches pod labels,network_policy_orphaned,KOGARO-NET-005,NetworkPolicy selector does not match any pods in namespace,Warning,networkpolicy-orphaned.yaml
+Networking Validation,Namespace,NetworkPolicy,Namespace contains NetworkPolicies but no default deny,missing_network_policy_default_deny,KOGARO-NET-006,Namespace has NetworkPolicies but no default deny policy,Warning,networkpolicy-missing-default-deny.yaml
+Networking Validation,Ingress,Service,spec.rules[].http.paths[].backend.service.name,ingress_service_missing,KOGARO-NET-007,Ingress references non-existent service 'nonexistent-service',Error,ingress-missing-backend-service.yaml
+Networking Validation,Ingress,Service Port,spec.rules[].http.paths[].backend.service.port,ingress_service_port_mismatch,KOGARO-NET-008,Ingress references service 'ingress-backend-service' port that doesn't exist,Error,ingress-port-mismatch.yaml
+Networking Validation,Ingress,Pod,Service backend has ready pods,ingress_no_backend_pods,KOGARO-NET-009,Ingress service 'empty-backend-service' has no ready backend pods,Error,ingress-no-backend-pods.yaml

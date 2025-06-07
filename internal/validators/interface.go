@@ -29,6 +29,7 @@ type ValidationError struct {
 	ResourceName   string
 	Namespace      string
 	ValidationType string
+	ErrorCode      string
 	Message        string
 	
 	// Enhanced context fields
@@ -40,13 +41,28 @@ type ValidationError struct {
 	Details map[string]string
 }
 
-// NewValidationError creates a new ValidationError with the specified core fields
+// NewValidationError creates a new ValidationError with the specified core fields (legacy version)
 func NewValidationError(resourceType, resourceName, namespace, validationType, message string) ValidationError {
 	return ValidationError{
 		ResourceType:   resourceType,
 		ResourceName:   resourceName,
 		Namespace:      namespace,
 		ValidationType: validationType,
+		ErrorCode:      "", // Empty for legacy calls
+		Message:        message,
+		Severity:       SeverityError, // Default to error severity
+		Details:        make(map[string]string),
+	}
+}
+
+// NewValidationErrorWithCode creates a new ValidationError with error code
+func NewValidationErrorWithCode(resourceType, resourceName, namespace, validationType, errorCode, message string) ValidationError {
+	return ValidationError{
+		ResourceType:   resourceType,
+		ResourceName:   resourceName,
+		Namespace:      namespace,
+		ValidationType: validationType,
+		ErrorCode:      errorCode,
 		Message:        message,
 		Severity:       SeverityError, // Default to error severity
 		Details:        make(map[string]string),

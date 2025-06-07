@@ -215,7 +215,8 @@ func (v *SecurityValidator) validatePodTemplateSecurity(template corev1.PodTempl
 	// Validate Pod-level SecurityContext
 	if v.config.EnableSecurityContextValidation {
 		if template.Spec.SecurityContext == nil {
-			errors = append(errors, NewValidationError(resourceType, resourceName, namespace, "missing_pod_security_context", "Pod has no SecurityContext defined").
+			errorCode := v.getSecurityErrorCode("missing_pod_security_context", nil)
+			errors = append(errors, NewValidationErrorWithCode(resourceType, resourceName, namespace, "missing_pod_security_context", errorCode, "Pod has no SecurityContext defined").
 				WithSeverity(SeverityError).
 				WithRemediationHint(fmt.Sprintf("Add a SecurityContext with runAsNonRoot: true, runAsUser: %d, runAsGroup: %d, and fsGroup: %d", v.sharedConfig.DefaultSecurityContext.RecommendedUserID, v.sharedConfig.DefaultSecurityContext.RecommendedGroupID, v.sharedConfig.DefaultSecurityContext.RecommendedFSGroup)).
 				WithRelatedResources("SecurityContext/pod-security-context").
@@ -244,7 +245,8 @@ func (v *SecurityValidator) validatePodSecurityContext(securityContext *corev1.P
 	if v.config.EnableRootUserValidation {
 		// Check if Pod is running as root user
 		if securityContext.RunAsUser != nil && *securityContext.RunAsUser == 0 {
-			errors = append(errors, NewValidationError(resourceType, resourceName, namespace, "pod_running_as_root", "Pod SecurityContext specifies runAsUser: 0 (root)").
+			errorCode := v.getSecurityErrorCode("pod_running_as_root", nil)
+			errors = append(errors, NewValidationErrorWithCode(resourceType, resourceName, namespace, "pod_running_as_root", errorCode, "Pod SecurityContext specifies runAsUser: 0 (root)").
 				WithSeverity(SeverityError).
 				WithRemediationHint(fmt.Sprintf("Change runAsUser to a non-zero value (e.g., %d) and set runAsNonRoot: true", v.sharedConfig.DefaultSecurityContext.RecommendedUserID)).
 				WithRelatedResources("SecurityContext/pod-security-context").
@@ -255,7 +257,8 @@ func (v *SecurityValidator) validatePodSecurityContext(securityContext *corev1.P
 
 		// Check if Pod allows privilege escalation
 		if securityContext.RunAsNonRoot == nil || !*securityContext.RunAsNonRoot {
-			errors = append(errors, NewValidationError(resourceType, resourceName, namespace, "pod_allows_root_user", "Pod SecurityContext does not enforce runAsNonRoot: true").
+			errorCode := v.getSecurityErrorCode("pod_allows_root_user", nil)
+			errors = append(errors, NewValidationErrorWithCode(resourceType, resourceName, namespace, "pod_allows_root_user", errorCode, "Pod SecurityContext does not enforce runAsNonRoot: true").
 				WithSeverity(SeverityError).
 				WithRemediationHint("Set runAsNonRoot: true in the pod SecurityContext to prevent containers from running as root").
 				WithRelatedResources("SecurityContext/pod-security-context").
@@ -279,7 +282,8 @@ func (v *SecurityValidator) validateContainersSecurity(containers []corev1.Conta
 	for _, container := range containers {
 		if v.config.EnableSecurityContextValidation {
 			if container.SecurityContext == nil {
-				errors = append(errors, NewValidationError(resourceType, resourceName, namespace, "missing_container_security_context", fmt.Sprintf("Container '%s' (%s) has no SecurityContext defined", container.Name, containerType)).
+				errorCode := v.getSecurityErrorCode("missing_container_security_context", nil)
+				errors = append(errors, NewValidationErrorWithCode(resourceType, resourceName, namespace, "missing_container_security_context", errorCode, fmt.Sprintf("Container '%s' (%s) has no SecurityContext defined", container.Name, containerType)).
 					WithSeverity(SeverityError).
 					WithRemediationHint("Add a SecurityContext with allowPrivilegeEscalation: false, runAsNonRoot: true, readOnlyRootFilesystem: true, and drop all capabilities").
 					WithRelatedResources(fmt.Sprintf("Container/%s", container.Name)).
@@ -302,7 +306,8 @@ func (v *SecurityValidator) validateContainerSecurityContext(securityContext *co
 	if v.config.EnableRootUserValidation {
 		// Check if container is running as root user
 		if securityContext.RunAsUser != nil && *securityContext.RunAsUser == 0 {
-			errors = append(errors, NewValidationError(resourceType, resourceName, namespace, "container_running_as_root", fmt.Sprintf("Container '%s' (%s) SecurityContext specifies runAsUser: 0 (root)", containerName, containerType)).
+			errorCode := v.getSecurityErrorCode("container_running_as_root", nil)
+			errors = append(errors, NewValidationErrorWithCode(resourceType, resourceName, namespace, "container_running_as_root", errorCode, fmt.Sprintf("Container '%s' (%s) SecurityContext specifies runAsUser: 0 (root)", containerName, containerType)).
 				WithSeverity(SeverityError).
 				WithRemediationHint(fmt.Sprintf("Set runAsUser to a non-zero value (e.g., %d) in the container SecurityContext", v.sharedConfig.DefaultSecurityContext.RecommendedUserID)).
 				WithRelatedResources(fmt.Sprintf("Container/%s", containerName)).
@@ -314,7 +319,11 @@ func (v *SecurityValidator) validateContainerSecurityContext(securityContext *co
 
 		// Check if container allows privilege escalation
 		if securityContext.AllowPrivilegeEscalation == nil || *securityContext.AllowPrivilegeEscalation {
-			errors = append(errors, NewValidationError(resourceType, resourceName, namespace, "container_allows_privilege_escalation", fmt.Sprintf("Container '%s' (%s) SecurityContext does not set allowPrivilegeEscalation: false", containerName, containerType)).
+			// Check if container is in privileged mode to determine error code
+			isPrivileged := securityContext.Privileged != nil && *securityContext.Privileged
+			context := map[string]interface{}{"is_privileged": isPrivileged}
+			errorCode := v.getSecurityErrorCode("container_allows_privilege_escalation", context)
+			errors = append(errors, NewValidationErrorWithCode(resourceType, resourceName, namespace, "container_allows_privilege_escalation", errorCode, fmt.Sprintf("Container '%s' (%s) SecurityContext does not set allowPrivilegeEscalation: false", containerName, containerType)).
 				WithSeverity(SeverityError).
 				WithRemediationHint("Set allowPrivilegeEscalation: false in the container SecurityContext to prevent privilege escalation").
 				WithRelatedResources(fmt.Sprintf("Container/%s", containerName)).
@@ -326,7 +335,8 @@ func (v *SecurityValidator) validateContainerSecurityContext(securityContext *co
 
 		// Check if container is running in privileged mode
 		if securityContext.Privileged != nil && *securityContext.Privileged {
-			errors = append(errors, NewValidationError(resourceType, resourceName, namespace, "container_privileged_mode", fmt.Sprintf("Container '%s' (%s) SecurityContext specifies privileged: true", containerName, containerType)).
+			errorCode := v.getSecurityErrorCode("container_privileged_mode", nil)
+			errors = append(errors, NewValidationErrorWithCode(resourceType, resourceName, namespace, "container_privileged_mode", errorCode, fmt.Sprintf("Container '%s' (%s) SecurityContext specifies privileged: true", containerName, containerType)).
 				WithSeverity(SeverityError).
 				WithRemediationHint("Remove privileged: true from the container SecurityContext or set privileged: false to disable privileged mode").
 				WithRelatedResources(fmt.Sprintf("Container/%s", containerName)).
@@ -338,7 +348,8 @@ func (v *SecurityValidator) validateContainerSecurityContext(securityContext *co
 
 		// Check if container has root filesystem read-only
 		if securityContext.ReadOnlyRootFilesystem == nil || !*securityContext.ReadOnlyRootFilesystem {
-			errors = append(errors, NewValidationError(resourceType, resourceName, namespace, "container_writable_root_filesystem", fmt.Sprintf("Container '%s' (%s) SecurityContext does not set readOnlyRootFilesystem: true", containerName, containerType)).
+			errorCode := v.getSecurityErrorCode("container_writable_root_filesystem", nil)
+			errors = append(errors, NewValidationErrorWithCode(resourceType, resourceName, namespace, "container_writable_root_filesystem", errorCode, fmt.Sprintf("Container '%s' (%s) SecurityContext does not set readOnlyRootFilesystem: true", containerName, containerType)).
 				WithSeverity(SeverityError).
 				WithRemediationHint("Set readOnlyRootFilesystem: true in the container SecurityContext to prevent filesystem modifications").
 				WithRelatedResources(fmt.Sprintf("Container/%s", containerName)).
@@ -354,7 +365,8 @@ func (v *SecurityValidator) validateContainerSecurityContext(securityContext *co
 		// Check for capabilities
 		if securityContext.Capabilities != nil && len(securityContext.Capabilities.Add) > 0 {
 			for _, capability := range securityContext.Capabilities.Add {
-				errors = append(errors, NewValidationError(resourceType, resourceName, namespace, "container_additional_capabilities", fmt.Sprintf("Container '%s' (%s) SecurityContext adds capability: %s", containerName, containerType, capability)).
+				errorCode := v.getSecurityErrorCode("container_additional_capabilities", nil)
+				errors = append(errors, NewValidationErrorWithCode(resourceType, resourceName, namespace, "container_additional_capabilities", errorCode, fmt.Sprintf("Container '%s' (%s) SecurityContext adds capability: %s", containerName, containerType, capability)).
 					WithSeverity(SeverityError).
 					WithRemediationHint("Remove additional capabilities from the container SecurityContext and use capabilities.drop: ['ALL'] to drop all capabilities").
 					WithRelatedResources(fmt.Sprintf("Container/%s", containerName)).
@@ -401,7 +413,8 @@ func (v *SecurityValidator) validateServiceAccountPermissions(ctx context.Contex
 		for _, crb := range clusterRoleBindings.Items {
 			for _, subject := range crb.Subjects {
 				if subject.Kind == "ServiceAccount" && subject.Name == sa.Name && subject.Namespace == sa.Namespace {
-					errors = append(errors, NewValidationError("ServiceAccount", sa.Name, sa.Namespace, "serviceaccount_cluster_role_binding", fmt.Sprintf("ServiceAccount has ClusterRoleBinding '%s' with role '%s'", crb.Name, crb.RoleRef.Name)).
+					errorCode := v.getSecurityErrorCode("serviceaccount_cluster_role_binding", nil)
+				errors = append(errors, NewValidationErrorWithCode("ServiceAccount", sa.Name, sa.Namespace, "serviceaccount_cluster_role_binding", errorCode, fmt.Sprintf("ServiceAccount has ClusterRoleBinding '%s' with role '%s'", crb.Name, crb.RoleRef.Name)).
 						WithSeverity(SeverityError).
 						WithRemediationHint("Review if cluster-wide permissions are necessary. Consider using namespace-scoped RoleBindings instead of ClusterRoleBindings").
 						WithRelatedResources(fmt.Sprintf("ClusterRoleBinding/%s", crb.Name)).
@@ -423,7 +436,8 @@ func (v *SecurityValidator) validateServiceAccountPermissions(ctx context.Contex
 				if subject.Kind == "ServiceAccount" && subject.Name == sa.Name {
 					// Flag some potentially dangerous role names
 					if v.isDangerousRole(rb.RoleRef.Name) {
-						errors = append(errors, NewValidationError("ServiceAccount", sa.Name, sa.Namespace, "serviceaccount_excessive_permissions", fmt.Sprintf("ServiceAccount has potentially excessive RoleBinding '%s' with role '%s'", rb.Name, rb.RoleRef.Name)).
+						errorCode := v.getSecurityErrorCode("serviceaccount_excessive_permissions", nil)
+						errors = append(errors, NewValidationErrorWithCode("ServiceAccount", sa.Name, sa.Namespace, "serviceaccount_excessive_permissions", errorCode, fmt.Sprintf("ServiceAccount has potentially excessive RoleBinding '%s' with role '%s'", rb.Name, rb.RoleRef.Name)).
 							WithSeverity(SeverityError).
 							WithRemediationHint("Create custom roles with minimal required permissions instead of using broad administrative roles").
 							WithRelatedResources(fmt.Sprintf("RoleBinding/%s", rb.Name)).
@@ -502,4 +516,38 @@ func (v *SecurityValidator) validateNetworkPolicyCoverage(ctx context.Context) (
 
 func (v *SecurityValidator) isProductionLikeNamespace(namespace string) bool {
 	return v.sharedConfig.IsProductionLikeNamespace(namespace)
+}
+
+// getSecurityErrorCode returns the appropriate error code for security validations
+func (v *SecurityValidator) getSecurityErrorCode(validationType string, context map[string]interface{}) string {
+	switch validationType {
+	case "pod_running_as_root":
+		return "KOGARO-SEC-001"
+	case "pod_allows_root_user":
+		return "KOGARO-SEC-002"
+	case "container_running_as_root":
+		return "KOGARO-SEC-003"
+	case "container_allows_privilege_escalation":
+		// Distinguish based on whether container is in privileged mode
+		if isPrivileged, ok := context["is_privileged"].(bool); ok && isPrivileged {
+			return "KOGARO-SEC-005" // privileged-container case
+		}
+		return "KOGARO-SEC-004" // root-container case
+	case "container_privileged_mode":
+		return "KOGARO-SEC-006"
+	case "container_writable_root_filesystem":
+		return "KOGARO-SEC-007"
+	case "container_additional_capabilities":
+		return "KOGARO-SEC-008"
+	case "missing_pod_security_context":
+		return "KOGARO-SEC-009"
+	case "missing_container_security_context":
+		return "KOGARO-SEC-010"
+	case "serviceaccount_cluster_role_binding":
+		return "KOGARO-SEC-011"
+	case "serviceaccount_excessive_permissions":
+		return "KOGARO-SEC-012"
+	}
+	// For network policy validations or unknown types
+	return "KOGARO-SEC-UNKNOWN"
 }

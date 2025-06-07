@@ -157,7 +157,7 @@ func (v *ReferenceValidator) validateIngressReferences(ctx context.Context) ([]V
 		if ingress.Spec.IngressClassName != nil {
 			className := *ingress.Spec.IngressClassName
 			if !existingClasses[className] {
-				errors = append(errors, NewValidationError("Ingress", ingress.Name, ingress.Namespace, "dangling_ingress_class", fmt.Sprintf("IngressClass '%s' does not exist", className)).
+				errors = append(errors, NewValidationErrorWithCode("Ingress", ingress.Name, ingress.Namespace, "dangling_ingress_class", "KOGARO-REF-001", fmt.Sprintf("IngressClass '%s' does not exist", className)).
 					WithSeverity(SeverityError).
 					WithRemediationHint(fmt.Sprintf("Create IngressClass '%s' or update Ingress to use an existing IngressClass", className)).
 					WithRelatedResources(fmt.Sprintf("IngressClass/%s", className)).
@@ -179,7 +179,7 @@ func (v *ReferenceValidator) validateIngressReferences(ctx context.Context) ([]V
 					}, &service)
 
 					if err != nil {
-						errors = append(errors, NewValidationError("Ingress", ingress.Name, ingress.Namespace, "dangling_service_reference", fmt.Sprintf("Service '%s' referenced in Ingress does not exist", serviceName)).
+						errors = append(errors, NewValidationErrorWithCode("Ingress", ingress.Name, ingress.Namespace, "dangling_service_reference", "KOGARO-REF-002", fmt.Sprintf("Service '%s' referenced in Ingress does not exist", serviceName)).
 							WithSeverity(SeverityError).
 							WithRemediationHint(fmt.Sprintf("Create Service '%s' in namespace '%s' or update Ingress to reference an existing Service", serviceName, ingress.Namespace)).
 							WithRelatedResources(fmt.Sprintf("Service/%s", serviceName)).
@@ -209,7 +209,7 @@ func (v *ReferenceValidator) validateConfigMapReferences(ctx context.Context) ([
 			if volume.ConfigMap != nil {
 				configMapName := volume.ConfigMap.Name
 				if err := v.validateConfigMapExists(ctx, configMapName, pod.Namespace); err != nil {
-					errors = append(errors, NewValidationError("Pod", pod.Name, pod.Namespace, "dangling_configmap_volume", fmt.Sprintf("ConfigMap '%s' referenced in volume does not exist", configMapName)).
+					errors = append(errors, NewValidationErrorWithCode("Pod", pod.Name, pod.Namespace, "dangling_configmap_volume", "KOGARO-REF-003", fmt.Sprintf("ConfigMap '%s' referenced in volume does not exist", configMapName)).
 						WithSeverity(SeverityError).
 						WithRemediationHint(fmt.Sprintf("Create ConfigMap '%s' in namespace '%s' or update the volume reference to use an existing ConfigMap", configMapName, pod.Namespace)).
 						WithRelatedResources(fmt.Sprintf("ConfigMap/%s", configMapName)).
@@ -225,7 +225,7 @@ func (v *ReferenceValidator) validateConfigMapReferences(ctx context.Context) ([
 				if envFrom.ConfigMapRef != nil {
 					configMapName := envFrom.ConfigMapRef.Name
 					if err := v.validateConfigMapExists(ctx, configMapName, pod.Namespace); err != nil {
-						errors = append(errors, NewValidationError("Pod", pod.Name, pod.Namespace, "dangling_configmap_envfrom", fmt.Sprintf("ConfigMap '%s' referenced in envFrom does not exist", configMapName)).
+						errors = append(errors, NewValidationErrorWithCode("Pod", pod.Name, pod.Namespace, "dangling_configmap_envfrom", "KOGARO-REF-004", fmt.Sprintf("ConfigMap '%s' referenced in envFrom does not exist", configMapName)).
 							WithSeverity(SeverityError).
 							WithRemediationHint(fmt.Sprintf("Create ConfigMap '%s' in namespace '%s' or update the envFrom reference to use an existing ConfigMap", configMapName, pod.Namespace)).
 							WithRelatedResources(fmt.Sprintf("ConfigMap/%s", configMapName)).
@@ -263,7 +263,7 @@ func (v *ReferenceValidator) validateSecretReferences(ctx context.Context) ([]Va
 			if volume.Secret != nil {
 				secretName := volume.Secret.SecretName
 				if err := v.validateSecretExists(ctx, secretName, pod.Namespace); err != nil {
-					errors = append(errors, NewValidationError("Pod", pod.Name, pod.Namespace, "dangling_secret_volume", fmt.Sprintf("Secret '%s' referenced in volume does not exist", secretName)).
+					errors = append(errors, NewValidationErrorWithCode("Pod", pod.Name, pod.Namespace, "dangling_secret_volume", "KOGARO-REF-005", fmt.Sprintf("Secret '%s' referenced in volume does not exist", secretName)).
 						WithSeverity(SeverityError).
 						WithRemediationHint(fmt.Sprintf("Create Secret '%s' in namespace '%s' or update the volume reference to use an existing Secret", secretName, pod.Namespace)).
 						WithRelatedResources(fmt.Sprintf("Secret/%s", secretName)).
@@ -279,7 +279,7 @@ func (v *ReferenceValidator) validateSecretReferences(ctx context.Context) ([]Va
 				if envFrom.SecretRef != nil {
 					secretName := envFrom.SecretRef.Name
 					if err := v.validateSecretExists(ctx, secretName, pod.Namespace); err != nil {
-						errors = append(errors, NewValidationError("Pod", pod.Name, pod.Namespace, "dangling_secret_envfrom", fmt.Sprintf("Secret '%s' referenced in envFrom does not exist", secretName)).
+						errors = append(errors, NewValidationErrorWithCode("Pod", pod.Name, pod.Namespace, "dangling_secret_envfrom", "KOGARO-REF-006", fmt.Sprintf("Secret '%s' referenced in envFrom does not exist", secretName)).
 							WithSeverity(SeverityError).
 							WithRemediationHint(fmt.Sprintf("Create Secret '%s' in namespace '%s' or update the envFrom reference to use an existing Secret", secretName, pod.Namespace)).
 							WithRelatedResources(fmt.Sprintf("Secret/%s", secretName)).
@@ -293,7 +293,7 @@ func (v *ReferenceValidator) validateSecretReferences(ctx context.Context) ([]Va
 				if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil {
 					secretName := env.ValueFrom.SecretKeyRef.Name
 					if err := v.validateSecretExists(ctx, secretName, pod.Namespace); err != nil {
-						errors = append(errors, NewValidationError("Pod", pod.Name, pod.Namespace, "dangling_secret_env", fmt.Sprintf("Secret '%s' referenced in env does not exist", secretName)).
+						errors = append(errors, NewValidationErrorWithCode("Pod", pod.Name, pod.Namespace, "dangling_secret_env", "KOGARO-REF-007", fmt.Sprintf("Secret '%s' referenced in env does not exist", secretName)).
 							WithSeverity(SeverityError).
 							WithRemediationHint(fmt.Sprintf("Create Secret '%s' in namespace '%s' or update the env reference to use an existing Secret", secretName, pod.Namespace)).
 							WithRelatedResources(fmt.Sprintf("Secret/%s", secretName)).
@@ -316,7 +316,7 @@ func (v *ReferenceValidator) validateSecretReferences(ctx context.Context) ([]Va
 		for _, tls := range ingress.Spec.TLS {
 			if tls.SecretName != "" {
 				if err := v.validateSecretExists(ctx, tls.SecretName, ingress.Namespace); err != nil {
-					errors = append(errors, NewValidationError("Ingress", ingress.Name, ingress.Namespace, "dangling_tls_secret", fmt.Sprintf("TLS Secret '%s' referenced in Ingress does not exist", tls.SecretName)).
+					errors = append(errors, NewValidationErrorWithCode("Ingress", ingress.Name, ingress.Namespace, "dangling_tls_secret", "KOGARO-REF-008", fmt.Sprintf("TLS Secret '%s' referenced in Ingress does not exist", tls.SecretName)).
 						WithSeverity(SeverityError).
 						WithRemediationHint(fmt.Sprintf("Create TLS Secret '%s' in namespace '%s' or update the Ingress TLS configuration to use an existing Secret", tls.SecretName, ingress.Namespace)).
 						WithRelatedResources(fmt.Sprintf("Secret/%s", tls.SecretName)).
@@ -355,7 +355,7 @@ func (v *ReferenceValidator) validatePVCReferences(ctx context.Context) ([]Valid
 		if pvc.Spec.StorageClassName != nil {
 			className := *pvc.Spec.StorageClassName
 			if !existingClasses[className] {
-				errors = append(errors, NewValidationError("PersistentVolumeClaim", pvc.Name, pvc.Namespace, "dangling_storage_class", fmt.Sprintf("StorageClass '%s' does not exist", className)).
+				errors = append(errors, NewValidationErrorWithCode("PersistentVolumeClaim", pvc.Name, pvc.Namespace, "dangling_storage_class", "KOGARO-REF-009", fmt.Sprintf("StorageClass '%s' does not exist", className)).
 					WithSeverity(SeverityError).
 					WithRemediationHint(fmt.Sprintf("Create StorageClass '%s' or update PVC to use an existing StorageClass", className)).
 					WithRelatedResources(fmt.Sprintf("StorageClass/%s", className)).
@@ -375,7 +375,7 @@ func (v *ReferenceValidator) validatePVCReferences(ctx context.Context) ([]Valid
 			if volume.PersistentVolumeClaim != nil {
 				pvcName := volume.PersistentVolumeClaim.ClaimName
 				if err := v.validatePVCExists(ctx, pvcName, pod.Namespace); err != nil {
-					errors = append(errors, NewValidationError("Pod", pod.Name, pod.Namespace, "dangling_pvc_reference", fmt.Sprintf("PVC '%s' referenced in volume does not exist", pvcName)).
+					errors = append(errors, NewValidationErrorWithCode("Pod", pod.Name, pod.Namespace, "dangling_pvc_reference", "KOGARO-REF-010", fmt.Sprintf("PVC '%s' referenced in volume does not exist", pvcName)).
 						WithSeverity(SeverityError).
 						WithRemediationHint(fmt.Sprintf("Create PVC '%s' in namespace '%s' or update the volume reference to use an existing PVC", pvcName, pod.Namespace)).
 						WithRelatedResources(fmt.Sprintf("PersistentVolumeClaim/%s", pvcName)).
@@ -405,7 +405,7 @@ func (v *ReferenceValidator) validateServiceAccountReferences(ctx context.Contex
 		}
 
 		if err := v.validateServiceAccountExists(ctx, saName, pod.Namespace); err != nil {
-			errors = append(errors, NewValidationError("Pod", pod.Name, pod.Namespace, "dangling_service_account", fmt.Sprintf("ServiceAccount '%s' does not exist", saName)).
+			errors = append(errors, NewValidationErrorWithCode("Pod", pod.Name, pod.Namespace, "dangling_service_account", "KOGARO-REF-011", fmt.Sprintf("ServiceAccount '%s' does not exist", saName)).
 				WithSeverity(SeverityError).
 				WithRemediationHint(fmt.Sprintf("Create ServiceAccount '%s' in namespace '%s' or update Pod to use an existing ServiceAccount", saName, pod.Namespace)).
 				WithRelatedResources(fmt.Sprintf("ServiceAccount/%s", saName)).
