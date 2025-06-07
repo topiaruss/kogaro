@@ -39,7 +39,7 @@ spec:
             - --enable-configmap-validation={{ .Values.validation.enableConfigMapValidation }}
             - --enable-secret-validation={{ .Values.validation.enableSecretValidation }}
             - --enable-pvc-validation={{ .Values.validation.enablePVCValidation }}
-            - --enable-serviceaccount-validation={{ .Values.validation.enableServiceAccountValidation }}
+            - --enable-reference-serviceaccount-validation={{ .Values.validation.enableServiceAccountValidation }}
             - --enable-resource-limits-validation={{ .Values.validation.enableResourceLimitsValidation }}
             - --enable-missing-requests-validation={{ .Values.validation.enableMissingRequestsValidation }}
             - --enable-missing-limits-validation={{ .Values.validation.enableMissingLimitsValidation }}
@@ -55,15 +55,15 @@ spec:
             - --enable-security-context-validation={{ .Values.validation.enableSecurityContextValidation }}
             - --enable-security-serviceaccount-validation={{ .Values.validation.enableSecurityServiceAccountValidation }}
             - --enable-network-policy-validation={{ .Values.validation.enableNetworkPolicyValidation }}
-            {{- if .Values.validation.securitySensitiveNamespaces }}
-            - --security-sensitive-namespaces={{ .Values.validation.securitySensitiveNamespaces }}
+            {{- if .Values.validation.securityRequiredNamespaces }}
+            - --security-required-namespaces={{ .Values.validation.securityRequiredNamespaces }}
             {{- end }}
             - --enable-networking-validation={{ .Values.validation.enableNetworkingValidation }}
             - --enable-networking-service-validation={{ .Values.validation.enableNetworkingServiceValidation }}
             - --enable-networking-ingress-validation={{ .Values.validation.enableNetworkingIngressValidation }}
             - --enable-networking-policy-validation={{ .Values.validation.enableNetworkingPolicyValidation }}
-            {{- if .Values.validation.networkingPolicyRequiredNamespaces }}
-            - --networking-policy-required-namespaces={{ .Values.validation.networkingPolicyRequiredNamespaces }}
+            {{- if .Values.validation.networkingRequiredNamespaces }}
+            - --networking-required-namespaces={{ .Values.validation.networkingRequiredNamespaces }}
             {{- end }}
             - --warn-unexposed-pods={{ .Values.validation.warnUnexposedPods }}
           ports:

@@ -21,6 +21,8 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/topiaruss/kogaro/internal/metrics"
 )
 
 // SecurityConfig defines which security validation checks to perform
@@ -113,7 +115,7 @@ func (v *SecurityValidator) ValidateCluster(ctx context.Context) error {
 			"message", validationErr.Message,
 		)
 
-		validationErrors.WithLabelValues(
+		metrics.ValidationErrors.WithLabelValues(
 			validationErr.ResourceType,
 			validationErr.ValidationType,
 			validationErr.Namespace,

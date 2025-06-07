@@ -22,6 +22,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/topiaruss/kogaro/internal/metrics"
 )
 
 // NetworkingConfig defines which networking validation checks to perform
@@ -97,7 +99,7 @@ func (v *NetworkingValidator) ValidateCluster(ctx context.Context) error {
 			"message", validationErr.Message,
 		)
 
-		validationErrors.WithLabelValues(
+		metrics.ValidationErrors.WithLabelValues(
 			validationErr.ResourceType,
 			validationErr.ValidationType,
 			validationErr.Namespace,

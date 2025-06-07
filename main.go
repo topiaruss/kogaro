@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/topiaruss/kogaro/internal/controllers"
+	"github.com/topiaruss/kogaro/internal/metrics"
 	"github.com/topiaruss/kogaro/internal/validators"
 )
 
@@ -79,7 +80,7 @@ func main() {
 	flag.BoolVar(&enableConfigMapValidation, "enable-configmap-validation", true, "Enable validation of ConfigMap references in Pods")
 	flag.BoolVar(&enableSecretValidation, "enable-secret-validation", true, "Enable validation of Secret references (volumes, env, TLS)")
 	flag.BoolVar(&enablePVCValidation, "enable-pvc-validation", true, "Enable validation of PVC and StorageClass references")
-	flag.BoolVar(&enableServiceAccountValidation, "enable-serviceaccount-validation", false, "Enable validation of ServiceAccount references (may be noisy)")
+	flag.BoolVar(&enableServiceAccountValidation, "enable-reference-serviceaccount-validation", false, "Enable validation of ServiceAccount references (may be noisy)")
 
 	// Resource limits validation configuration flags
 	flag.BoolVar(&enableResourceLimitsValidation, "enable-resource-limits-validation", true, "Enable validation of resource requests and limits")
@@ -95,7 +96,7 @@ func main() {
 	flag.BoolVar(&enableSecurityContextValidation, "enable-security-context-validation", true, "Enable validation for missing SecurityContext configurations")
 	flag.BoolVar(&enableSecurityServiceAccountValidation, "enable-security-serviceaccount-validation", true, "Enable validation for ServiceAccount excessive permissions")
 	flag.BoolVar(&enableNetworkPolicyValidation, "enable-network-policy-validation", true, "Enable validation for missing NetworkPolicies in sensitive namespaces")
-	flag.StringVar(&securitySensitiveNamespaces, "security-sensitive-namespaces", "", "Comma-separated list of security-sensitive namespaces that require NetworkPolicies")
+	flag.StringVar(&securitySensitiveNamespaces, "security-required-namespaces", "", "Comma-separated list of namespaces that require NetworkPolicies for security validation")
 
 	// Networking validation flags
 	var enableNetworkingValidation bool
@@ -110,7 +111,7 @@ func main() {
 	flag.BoolVar(&enableNetworkingServiceValidation, "enable-networking-service-validation", true, "Enable validation for Service selector mismatches")
 	flag.BoolVar(&enableNetworkingIngressValidation, "enable-networking-ingress-validation", true, "Enable validation for Ingress connectivity issues")
 	flag.BoolVar(&enableNetworkingPolicyValidation, "enable-networking-policy-validation", true, "Enable validation for NetworkPolicy coverage")
-	flag.StringVar(&networkingPolicyRequiredNamespaces, "networking-policy-required-namespaces", "", "Comma-separated list of namespaces that require NetworkPolicies")
+	flag.StringVar(&networkingPolicyRequiredNamespaces, "networking-required-namespaces", "", "Comma-separated list of namespaces that require NetworkPolicies for networking validation")
 	flag.BoolVar(&warnUnexposedPods, "warn-unexposed-pods", false, "Enable warnings for pods not exposed by any Service")
 
 	opts := zap.Options{
@@ -134,6 +135,9 @@ func main() {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
+
+	// Register metrics
+	metrics.RegisterMetrics()
 
 	// Initialize the validator registry
 	registry := validators.NewValidatorRegistry(setupLog)
@@ -162,8 +166,9 @@ func main() {
 		// Parse minimum resource thresholds if provided
 		if minCPURequest != "" {
 			if cpuQuantity, err := resource.ParseQuantity(minCPURequest); err != nil {
-				setupLog.Error(err, "invalid min-cpu-request value", "value", minCPURequest)
-				os.Exit(1)
+				setupLog.Info("invalid min-cpu-request value, using default", "invalid_value", minCPURequest, "error", err, "default", "10m")
+				defaultCPU := resource.MustParse("10m")
+				resourceLimitsConfig.MinCPURequest = &defaultCPU
 			} else {
 				resourceLimitsConfig.MinCPURequest = &cpuQuantity
 			}
@@ -171,8 +176,9 @@ func main() {
 
 		if minMemoryRequest != "" {
 			if memoryQuantity, err := resource.ParseQuantity(minMemoryRequest); err != nil {
-				setupLog.Error(err, "invalid min-memory-request value", "value", minMemoryRequest)
-				os.Exit(1)
+				setupLog.Info("invalid min-memory-request value, using default", "invalid_value", minMemoryRequest, "error", err, "default", "64Mi")
+				defaultMemory := resource.MustParse("64Mi")
+				resourceLimitsConfig.MinMemoryRequest = &defaultMemory
 			} else {
 				resourceLimitsConfig.MinMemoryRequest = &memoryQuantity
 			}

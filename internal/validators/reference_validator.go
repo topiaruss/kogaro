@@ -16,37 +16,15 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/metrics"
+
+	"github.com/topiaruss/kogaro/internal/metrics"
 )
 
-var (
-	validationErrors = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "kogaro_validation_errors_total",
-			Help: "Total number of validation errors found",
-		},
-		[]string{"resource_type", "validation_type", "namespace"},
-	)
-
-	validationRuns = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Name: "kogaro_validation_runs_total",
-			Help: "Total number of validation runs performed",
-		},
-	)
-)
-
-func init() {
-	// Register metrics with controller-runtime metrics registry
-	metrics.Registry.MustRegister(validationErrors)
-	metrics.Registry.MustRegister(validationRuns)
-}
 
 // ValidationConfig defines which types of validation checks to perform
 type ValidationConfig struct {
@@ -80,7 +58,7 @@ func NewReferenceValidator(client client.Client, log logr.Logger, config Validat
 
 // ValidateCluster performs comprehensive validation of resource references across the entire cluster
 func (v *ReferenceValidator) ValidateCluster(ctx context.Context) error {
-	validationRuns.Inc()
+	metrics.ValidationRuns.Inc()
 
 	var allErrors []ValidationError
 
@@ -139,7 +117,7 @@ func (v *ReferenceValidator) ValidateCluster(ctx context.Context) error {
 			"message", validationErr.Message,
 		)
 
-		validationErrors.WithLabelValues(
+		metrics.ValidationErrors.WithLabelValues(
 			validationErr.ResourceType,
 			validationErr.ValidationType,
 			validationErr.Namespace,

@@ -58,7 +58,7 @@ spec:
             - ALL
           readOnlyRootFilesystem: true
           runAsNonRoot: true
-          runAsUser: 65532
+          runAsUser: 65534
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -72,10 +72,10 @@ metadata:
   name: kogaro
 rules:
 - apiGroups: [""]
-  resources: ["pods", "services", "configmaps", "secrets"]
+  resources: ["pods", "services", "endpoints", "configmaps", "secrets", "serviceaccounts", "persistentvolumeclaims", "namespaces"]
   verbs: ["get", "list", "watch"]
 - apiGroups: ["networking.k8s.io"]
-  resources: ["ingresses", "ingressclasses"]
+  resources: ["ingresses", "ingressclasses", "networkpolicies"]
   verbs: ["get", "list", "watch"]
 - apiGroups: ["apps"]
   resources: ["deployments", "replicasets", "daemonsets", "statefulsets"]
@@ -86,8 +86,11 @@ rules:
 - apiGroups: ["autoscaling"]
   resources: ["horizontalpodautoscalers"]
   verbs: ["get", "list", "watch"]
+- apiGroups: ["storage.k8s.io"]
+  resources: ["storageclasses"]
+  verbs: ["get", "list", "watch"]
 - apiGroups: ["rbac.authorization.k8s.io"]
-  resources: ["roles", "rolebindings", "clusterroles", "clusterrolebindings"]
+  resources: ["rolebindings", "clusterrolebindings"]
   verbs: ["get", "list", "watch"]
 - apiGroups: [""]
   resources: ["events"]

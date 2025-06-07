@@ -58,3 +58,4 @@ Thumbs.db
 # accidental binaries
 /kogaro
 /kogaro-test
+.claude.md

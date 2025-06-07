@@ -1,102 +1,177 @@
 ---
+# Number of Kogaro replicas to deploy.
+# Recommended: 1 for leader election, 2+ for HA with leader election enabled
 replicaCount: 1
 
 image:
+  # Docker image repository for Kogaro
   repository: topiaruss/kogaro
+  # Image pull policy: Always, IfNotPresent, or Never
   pullPolicy: IfNotPresent
+  # Image tag - corresponds to Kogaro version
   tag: "0.3.0"
 
+# Secrets for pulling images from private registries
 imagePullSecrets: []
 # - name: myregistrykey
+
+# Override Kubernetes resource names
 nameOverride: ""
 fullnameOverride: ""
 
 serviceAccount:
+  # Whether to create a ServiceAccount for Kogaro
   create: true
+  # Additional annotations for the ServiceAccount
   annotations: {}
+  # ServiceAccount name (auto-generated if empty)
   name: ""
 
+# Additional annotations for Kogaro pods
 podAnnotations: {}
 
+# Pod-level security context
 podSecurityContext:
+  # Run as non-root user (required for security)
   runAsNonRoot: true
+  # User ID to run containers (65534 = nobody)
   runAsUser: 65534
+  # Group ID for filesystem permissions
   fsGroup: 65534
 
+# Container-level security context
 securityContext:
+  # Prevent privilege escalation
   allowPrivilegeEscalation: false
   capabilities:
+    # Drop all Linux capabilities for security
     drop:
       - ALL
+  # Make root filesystem read-only
   readOnlyRootFilesystem: true
+  # Enforce non-root user at container level
   runAsNonRoot: true
+  # User ID to run the container (must match podSecurityContext)
   runAsUser: 65534
 
 service:
+  # Kubernetes service type: ClusterIP, NodePort, LoadBalancer
   type: ClusterIP
+  # Service port for external access
   port: 8080
+  # Port for Prometheus metrics endpoint
   metricsPort: 8080
+  # Port for health/readiness probes
   healthPort: 8081
 
+# Resource requests and limits for Kogaro container
 resources:
   limits:
+    # Maximum CPU usage (500 millicores)
     cpu: 500m
+    # Maximum memory usage
     memory: 128Mi
   requests:
+    # Guaranteed CPU allocation (100 millicores)
     cpu: 100m
+    # Guaranteed memory allocation
     memory: 64Mi
 
+# Node selector for pod placement
 nodeSelector: {}
 
+# Tolerations for running on tainted nodes
 tolerations: []
 
+# Pod affinity/anti-affinity rules
 affinity: {}
 
-# Validation configuration
+# Kogaro validation configuration (37+ validation types across 4 categories)
 validation:
-  # Reference validation
+  # === REFERENCE VALIDATION (11 validation types) ===
+  # Detects dangling references to non-existent resources
+  # Enable Ingress reference validation (dangling_ingress_class, dangling_service_reference, dangling_tls_secret)
   enableIngressValidation: true
+  # Enable ConfigMap reference validation (dangling_configmap_volume, dangling_configmap_envfrom)
   enableConfigMapValidation: true
+  # Enable Secret reference validation (dangling_secret_volume, dangling_secret_envfrom, dangling_secret_env)
   enableSecretValidation: true
+  # Enable PVC/StorageClass validation (dangling_pvc_reference, dangling_storage_class)
   enablePVCValidation: true
+  # Enable ServiceAccount reference validation (dangling_service_account)
+  # Note: Can be noisy in environments with frequent Pod churn
   enableServiceAccountValidation: false
 
-  # Resource limits validation
+  # === RESOURCE LIMITS VALIDATION (6 validation types) ===
+  # Ensures proper resource management and QoS classes
+  # Enable resource limits/requests validation
   enableResourceLimitsValidation: true
+  # Check for missing resource requests (missing_resource_requests)
   enableMissingRequestsValidation: true
+  # Check for missing resource limits (missing_resource_limits)
   enableMissingLimitsValidation: true
+  # Analyze QoS classes (qos_class_issue for BestEffort/Burstable pods)
   enableQoSValidation: true
 
-  # Minimum resource thresholds (optional)
-  # minCPURequest: "10m"
-  # minMemoryRequest: "16Mi"
+  # Minimum resource thresholds - triggers insufficient_cpu_request/insufficient_memory_request
+  # Format: Kubernetes resource quantities (e.g., "10m", "100m", "1", "16Mi", "1Gi")
+  # minCPURequest: "10m"       # Minimum CPU request (e.g., 10 millicores)
+  # minMemoryRequest: "16Mi"   # Minimum memory request (e.g., 16 mebibytes)
 
-  # Security validation
+  # === SECURITY VALIDATION (11+ validation types) ===
+  # Detects security misconfigurations and vulnerabilities
+  # Enable security validation suite
   enableSecurityValidation: true
+  # Check for containers/pods running as root (pod_running_as_root, container_running_as_root, pod_allows_root_user)
   enableRootUserValidation: true
+  # Check for missing SecurityContext (missing_pod_security_context, missing_container_security_context)
+  # Also validates privilege escalation, privileged mode, writable root filesystem, additional capabilities
   enableSecurityContextValidation: true
+  # Check ServiceAccount excessive permissions
+  # (serviceaccount_cluster_role_binding, serviceaccount_excessive_permissions)
   enableSecurityServiceAccountValidation: true
+  # Check NetworkPolicy coverage in sensitive namespaces (missing_network_policy_required)
   enableNetworkPolicyValidation: true
-  # securitySensitiveNamespaces: "production,staging"
+  # Comma-separated list of namespaces requiring NetworkPolicies for security validation
+  # securityRequiredNamespaces: "production,staging,default"
 
-  # Networking validation
+  # === NETWORKING VALIDATION (9 validation types) ===
+  # Validates service connectivity and network policies
+  # Enable networking connectivity validation suite
   enableNetworkingValidation: true
+  # Service connectivity validation (service_selector_mismatch, service_no_endpoints, service_port_mismatch)
   enableNetworkingServiceValidation: true
+  # Ingress connectivity validation (ingress_service_missing, ingress_service_port_mismatch, ingress_no_backend_pods)
   enableNetworkingIngressValidation: true
+  # NetworkPolicy coverage validation (network_policy_orphaned, missing_network_policy_default_deny)
   enableNetworkingPolicyValidation: true
-  # networkingPolicyRequiredNamespaces: "production,staging"
+  # Comma-separated list of namespaces requiring NetworkPolicies for networking validation
+  # networkingRequiredNamespaces: "production,staging,default"
+  # Warn about pods not exposed by any Service (pod_no_service) - can be noisy
   warnUnexposedPods: false
 
+  # === SCAN CONFIGURATION ===
+  # How often to perform cluster-wide validation scans
+  # Format: Go duration (e.g., "30s", "5m", "1h")
+  # Recommended: 5m-15m for production, 30s-1m for development
   scanInterval: "5m"
 
-# Metrics configuration
+# Prometheus metrics configuration
 metrics:
+  # Enable metrics endpoint exposure
   enabled: true
   serviceMonitor:
+    # Create ServiceMonitor for Prometheus Operator (requires prometheus-operator CRDs)
     enabled: true
+    # Scrape interval for metrics collection
     interval: 15s
+    # Metrics endpoint path
     path: /metrics
 
-# RBAC configuration
+# Role-Based Access Control configuration
 rbac:
+  # Create ClusterRole and ClusterRoleBinding for Kogaro
+  # Required permissions: pods, services, endpoints, configmaps, secrets, serviceaccounts,
+  # persistentvolumeclaims, namespaces, ingresses, ingressclasses, networkpolicies,
+  # storageclasses, deployments, statefulsets, daemonsets, rolebindings, clusterrolebindings
   create: true

@@ -22,28 +22,81 @@ These issues often manifest as silent failures that are difficult to diagnose, o
 
 ## Features
 
-### Current Validations
+### Comprehensive Kubernetes Validation (37+ validation types)
+
+Kogaro provides four comprehensive validation categories covering all critical aspects of Kubernetes cluster hygiene:
+
+#### 1. Reference Validation (11 validation types)
+Detects dangling references to non-existent resources:
 
 - **Ingress References** (`--enable-ingress-validation`)
-  - Validates `ingressClassName` references to existing IngressClass resources
-  - Validates Service references in Ingress rules
+  - `dangling_ingress_class`: Missing IngressClass references
+  - `dangling_service_reference`: Missing Service references in ingress rules
+  - `dangling_tls_secret`: Missing TLS Secrets in ingress
 
 - **ConfigMap References** (`--enable-configmap-validation`)
-  - Validates ConfigMap references in Pod volumes
-  - Validates ConfigMap references in container `envFrom`
+  - `dangling_configmap_volume`: Missing ConfigMap volume references
+  - `dangling_configmap_envfrom`: Missing ConfigMap envFrom references
 
 - **Secret References** (`--enable-secret-validation`)
-  - Validates Secret references in Pod volumes
-  - Validates Secret references in container `envFrom` and `env`
-  - Validates TLS Secret references in Ingress resources
+  - `dangling_secret_volume`: Missing Secret volume references
+  - `dangling_secret_envfrom`: Missing Secret envFrom references
+  - `dangling_secret_env`: Missing Secret env var references
 
 - **Storage References** (`--enable-pvc-validation`)
-  - Validates PVC references in Pod volumes
-  - Validates StorageClass references in PVCs
+  - `dangling_pvc_reference`: Missing PVC references
+  - `dangling_storage_class`: Missing StorageClass references
 
-- **ServiceAccount References** (`--enable-serviceaccount-validation`, disabled by default)
-  - Validates ServiceAccount references in Pods
-  - Note: Can be noisy in environments with frequent Pod churn
+- **ServiceAccount References** (`--enable-serviceaccount-validation`)
+  - `dangling_service_account`: Missing ServiceAccount references
+
+#### 2. Resource Limits Validation (6 validation types)
+Ensures proper resource management and QoS:
+
+- **Resource Constraints** (`--enable-resource-limits-validation`)
+  - `missing_resource_requests`: Containers without CPU/memory requests
+  - `missing_resource_limits`: Containers without CPU/memory limits
+  - `insufficient_cpu_request`: CPU requests below minimum thresholds
+  - `insufficient_memory_request`: Memory requests below minimum thresholds
+  - `qos_class_issue` (BestEffort): Containers with no resource constraints
+  - `qos_class_issue` (Burstable): Containers where requests ≠ limits
+
+#### 3. Security Validation (11+ validation types)
+Detects security misconfigurations and vulnerabilities:
+
+- **Pod & Container Security** (`--enable-security-validation`)
+  - `pod_running_as_root`: Pod SecurityContext specifies runAsUser: 0
+  - `pod_allows_root_user`: Pod SecurityContext missing runAsNonRoot: true
+  - `container_running_as_root`: Container SecurityContext specifies runAsUser: 0
+  - `container_allows_privilege_escalation`: Container allows privilege escalation
+  - `container_privileged_mode`: Container running in privileged mode
+  - `container_writable_root_filesystem`: Container has writable root filesystem
+  - `container_additional_capabilities`: Container adds Linux capabilities
+  - `missing_pod_security_context`: Pod has no SecurityContext defined
+  - `missing_container_security_context`: Container has no SecurityContext defined
+
+- **ServiceAccount & RBAC Security** (`--enable-security-serviceaccount-validation`)
+  - `serviceaccount_cluster_role_binding`: ServiceAccount with ClusterRoleBinding
+  - `serviceaccount_excessive_permissions`: ServiceAccount with dangerous RoleBinding
+
+#### 4. Networking Validation (9 validation types)
+Validates service connectivity and network policies:
+
+- **Service Connectivity** (`--enable-networking-validation`)
+  - `service_selector_mismatch`: Service selectors that don't match any pods
+  - `service_no_endpoints`: Services with no ready endpoints despite matching pods
+  - `service_port_mismatch`: Service ports that don't match container ports
+  - `pod_no_service`: Pods not exposed by any Service (warning when enabled)
+
+- **NetworkPolicy Coverage** (`--networking-policy-validation`)
+  - `network_policy_orphaned`: NetworkPolicy selectors that don't match any pods
+  - `missing_network_policy_default_deny`: Namespaces with policies but no default deny
+  - `missing_network_policy_required`: Required namespaces missing NetworkPolicies
+
+- **Ingress Connectivity** (`--enable-networking-validation`)
+  - `ingress_service_missing`: Ingress references to non-existent services
+  - `ingress_service_port_mismatch`: Ingress references to non-existent service ports
+  - `ingress_no_backend_pods`: Ingress services with no ready backend pods
 
 ### Observability
 
@@ -80,7 +133,9 @@ helm install kogaro kogaro/kogaro \
   --namespace kogaro-system \
   --create-namespace \
   --set validation.enableServiceAccountValidation=true \
-  --set validation.scanInterval=10m
+  --set validation.scanInterval=10m \
+  --set resourceLimits.minCPURequest=50m \
+  --set security.enableNetworkPolicyValidation=true
 
 # Check deployment status
 kubectl get pods -n kogaro-system
@@ -118,8 +173,8 @@ go mod download
 # Run locally against your current kubeconfig
 go run main.go --scan-interval=30s
 
-# Run with only specific validations enabled
-go run main.go --enable-secret-validation=false --enable-serviceaccount-validation=true
+# Run with specific validations enabled
+go run main.go --enable-secret-validation=false --enable-security-validation=true --min-cpu-request=100m
 
 # Or build and run
 make build
@@ -130,18 +185,42 @@ make build
 
 ### Command Line Flags
 
-#### Core Flags
-- `--scan-interval`: How often to scan the cluster (default: 5m)
-- `--metrics-bind-address`: Metrics server address (default: :8080)
-- `--health-probe-bind-address`: Health probe address (default: :8081)
-- `--leader-elect`: Enable leader election for HA deployments
+#### Core Configuration Flags
+- `--scan-interval`: Interval between cluster scans (default: 5m)
+- `--metrics-bind-address`: Metrics server bind address (default: :8080)
+- `--health-probe-bind-address`: Health probe bind address (default: :8081)
+- `--leader-elect`: Enable leader election for HA deployments (default: false)
 
-#### Validation Control Flags
-- `--enable-ingress-validation`: Enable Ingress reference validation (default: true)
-- `--enable-configmap-validation`: Enable ConfigMap reference validation (default: true)
-- `--enable-secret-validation`: Enable Secret reference validation (default: true)
+#### Reference Validation Flags
+- `--enable-ingress-validation`: Enable Ingress references validation (default: true)
+- `--enable-configmap-validation`: Enable ConfigMap references validation (default: true)
+- `--enable-secret-validation`: Enable Secret references validation (default: true)
 - `--enable-pvc-validation`: Enable PVC/StorageClass validation (default: true)
-- `--enable-serviceaccount-validation`: Enable ServiceAccount validation (default: false, may be noisy)
+- `--enable-reference-serviceaccount-validation`: Enable ServiceAccount reference validation (default: false)
+
+#### Resource Limits Validation Flags
+- `--enable-resource-limits-validation`: Enable resource requests/limits validation (default: true)
+- `--enable-missing-requests-validation`: Enable missing requests validation (default: true)
+- `--enable-missing-limits-validation`: Enable missing limits validation (default: true)
+- `--enable-qos-validation`: Enable QoS class analysis (default: true)
+- `--min-cpu-request`: Minimum CPU request threshold (e.g., '10m')
+- `--min-memory-request`: Minimum memory request threshold (e.g., '16Mi')
+
+#### Security Validation Flags
+- `--enable-security-validation`: Enable security configuration validation (default: true)
+- `--enable-root-user-validation`: Enable root user validation (default: true)
+- `--enable-security-context-validation`: Enable SecurityContext validation (default: true)
+- `--enable-security-serviceaccount-validation`: Enable ServiceAccount permissions validation (default: true)
+- `--enable-network-policy-validation`: Enable NetworkPolicy validation (default: true)
+- `--security-required-namespaces`: Namespaces requiring NetworkPolicies for security validation
+
+#### Networking Validation Flags
+- `--enable-networking-validation`: Enable networking connectivity validation (default: true)
+- `--enable-networking-service-validation`: Enable Service validation (default: true)
+- `--enable-networking-ingress-validation`: Enable Ingress connectivity validation (default: true)
+- `--enable-networking-policy-validation`: Enable NetworkPolicy coverage validation (default: true)
+- `--networking-required-namespaces`: Namespaces requiring NetworkPolicies for networking validation
+- `--warn-unexposed-pods`: Warn about pods not exposed by Services (default: false)
 
 ### Prometheus Metrics
 
@@ -157,16 +236,22 @@ kogaro_validation_runs_total
 
 ## Architecture
 
-Kogaro uses the controller-runtime framework to:
+Kogaro uses a modular validator architecture built on controller-runtime:
 
-1. **Periodic Scanning**: Runs validation every `scan-interval`
-2. **Reference Resolution**: Checks that referenced resources exist
-3. **Error Reporting**: Logs issues and exports metrics
-4. **Leader Election**: Supports HA deployments
+1. **Validator Registry**: Manages four validator types (Reference, ResourceLimits, Security, Networking)
+2. **Periodic Scanning**: Runs comprehensive validation every `scan-interval`
+3. **Multi-Domain Validation**: 
+   - Reference resolution for dangling references
+   - Resource constraint analysis for proper limits/requests
+   - Security configuration validation for misconfigurations
+   - Networking connectivity validation for service health
+4. **Centralized Metrics**: Thread-safe Prometheus metrics collection
+5. **Error Reporting**: Structured logs and metrics for all validation issues
+6. **Leader Election**: Supports HA deployments in multi-replica scenarios
 
 ## Extending Validations
 
-Add new validation types in `internal/validators/reference_validator.go`:
+The validator registry pattern supports easy extension. Add new validators by implementing the `Validator` interface:
 
 ```go
 func (v *ReferenceValidator) validateNewResourceType(ctx context.Context) ([]ValidationError, error) {
