@@ -1,0 +1,79 @@
+# Test case for system namespace detection (IsSystemNamespace function)
+# Deploy insecure workload to kube-system namespace to test system namespace exclusion
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kogaro-test-system
+  labels:
+    test-category: "system-namespace"
+    kogaro-test: "system-namespace-exclusion"
+  annotations:
+    test-description: "Tests IsSystemNamespace function and system namespace exclusion from security validation"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kogaro-testbed.fullname" . }}-system-namespace-test
+  namespace: kogaro-test-system  # Will be treated as system namespace if configured
+  labels:
+    {{- include "kogaro-testbed.labels" . | nindent 4 }}
+    test-case: "system-namespace-test"
+    test-category: "system-namespace"
+  annotations:
+    test-description: "Insecure deployment in system namespace - should be excluded from security validation"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "kogaro-testbed.selectorLabels" . | nindent 6 }}
+      test-case: "system-namespace-test"
+  template:
+    metadata:
+      labels:
+        {{- include "kogaro-testbed.selectorLabels" . | nindent 8 }}
+        test-case: "system-namespace-test"
+        app: system-namespace-app
+    spec:
+      # Intentionally insecure configuration that should be excluded from security validation
+      # in system namespaces but still validated for networking/reference issues
+      securityContext:
+        runAsUser: 0  # Root user - should be excluded if in system namespace
+      containers:
+      - name: system-namespace-container
+        image: nginx:1.21-alpine
+        securityContext:
+          runAsUser: 0  # Root user
+          privileged: true  # Privileged mode
+          allowPrivilegeEscalation: true
+          readOnlyRootFilesystem: false
+          capabilities:
+            add:
+              - NET_ADMIN  # Additional capabilities
+        # Missing resource constraints - should still be validated
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: nonexistent-system-secret  # Should still be validated for references
+              key: secret-key
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kogaro-testbed.fullname" . }}-system-namespace-service
+  namespace: kogaro-test-system
+  labels:
+    {{- include "kogaro-testbed.labels" . | nindent 4 }}
+    test-case: "system-namespace-test"
+spec:
+  selector:
+    test-case: "system-namespace-test"
+    app: system-namespace-app
+  ports:
+  - port: 80
+    targetPort: 8080
+    name: http
+  type: ClusterIP

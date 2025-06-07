@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kogaro-testbed.fullname" . }}-production-patterns-test
+  labels:
+    {{- include "kogaro-testbed.labels" . | nindent 4 }}
+    test-case: "production-patterns-test"
+    test-category: "shared-config"
+  annotations:
+    test-description: "Tests SharedConfig production namespace detection patterns and security requirements"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "kogaro-testbed.selectorLabels" . | nindent 6 }}
+      test-case: "production-patterns-test"
+  template:
+    metadata:
+      labels:
+        {{- include "kogaro-testbed.selectorLabels" . | nindent 8 }}
+        test-case: "production-patterns-test"
+        app: prod-pattern-app
+        tier: production  # Production-like label
+    spec:
+      # Production workload without NetworkPolicies should trigger warnings
+      # if namespace name matches production patterns (prod, production, live, api, app, web, service)
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000  # Uses SharedConfig default
+        runAsGroup: 3000 # Uses SharedConfig default  
+        fsGroup: 2000    # Uses SharedConfig default
+      containers:
+      - name: prod-pattern-container
+        image: nginx:1.21-alpine
+        securityContext:
+          runAsUser: 1000  # Uses SharedConfig default
+          runAsGroup: 3000
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+        resources:
+          requests:
+            cpu: "100m"    # Uses SharedConfig default
+            memory: "128Mi" # Uses SharedConfig default
+          limits:
+            cpu: "500m"    # Uses SharedConfig default
+            memory: "256Mi" # Uses SharedConfig default
+        ports:
+        - containerPort: 8080
+          name: http
+        volumeMounts:
+        - name: tmp-volume
+          mountPath: /tmp
+        - name: cache-volume
+          mountPath: /var/cache/nginx
+      volumes:
+      - name: tmp-volume
+        emptyDir: {}
+      - name: cache-volume
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kogaro-testbed.fullname" . }}-production-patterns-service
+  labels:
+    {{- include "kogaro-testbed.labels" . | nindent 4 }}
+    test-case: "production-patterns-test"
+spec:
+  selector:
+    test-case: "production-patterns-test"
+    app: prod-pattern-app
+  ports:
+  - port: 80
+    targetPort: 8080
+    name: http
+  type: ClusterIP

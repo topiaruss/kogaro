@@ -1,7 +1,74 @@
 enabled: true
 
-# Enable networking validation test cases
+# Enable all validation test cases for maximum coverage
 enableNetworkingTests: true
+enableSecurityTests: true
+enableResourceLimitsTests: true
+enableReferenceTests: true
 
-# Namespace for test resources
+# Enable comprehensive validation features
+enableServiceAccountValidation: true
+enableNetworkPolicyValidation: true
+enableIngressValidation: true
+enablePVCValidation: true
+enableConfigMapValidation: true
+enableSecretValidation: true
+
+# Enable advanced features for coverage testing
+enableBatchWorkloadDetection: true
+enableUnexposedPodWarnings: true
+enableSystemNamespaceExclusion: true
+enableProductionNamespaceDetection: true
+
+# Configuration for testing minimum resource thresholds (tests GetMinResourceThresholds)
+minResourceThresholds:
+  enabled: true
+  minCPURequest: "10m"     # Will trigger insufficient_cpu_request errors for resources below this
+  minMemoryRequest: "16Mi" # Will trigger insufficient_memory_request errors for resources below this
+
+# Namespace configuration for testing
 namespace: "kogaro-testbed"
+
+# Additional test namespaces for comprehensive testing
+additionalNamespaces:
+  - name: "kogaro-test-system"
+    type: "system"
+    purpose: "Test system namespace exclusion from security validation"
+  - name: "kogaro-test-prod" 
+    type: "production"
+    purpose: "Test production namespace detection and NetworkPolicy requirements"
+
+# Test categories to enable (for marketing documentation)
+testCategories:
+  referenceValidation:
+    enabled: true
+    description: "Tests for dangling resource references (Secrets, ConfigMaps, PVCs, ServiceAccounts, etc.)"
+    expectedErrors: 15
+  
+  resourceLimitsValidation:
+    enabled: true
+    description: "Tests for missing resource constraints and QoS class issues"
+    expectedErrors: 8
+    
+  securityValidation:
+    enabled: true
+    description: "Tests for security misconfigurations (root users, privileged containers, etc.)"
+    expectedErrors: 12
+    
+  networkingValidation:
+    enabled: true
+    description: "Tests for networking connectivity issues (service selectors, NetworkPolicies, Ingress)"
+    expectedErrors: 10
+    
+  sharedConfigValidation:
+    enabled: true
+    description: "Tests for SharedConfig features (namespace exclusions, production detection, batch workloads)"
+    expectedErrors: 8
+
+# Coverage measurement configuration
+coverage:
+  enabled: true
+  trackValidationTypes: true
+  trackResourceTypes: true
+  trackNamespaces: true
+  generateReports: true

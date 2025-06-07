@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kogaro-testbed.fullname" . }}-custom-config-test
+  labels:
+    {{- include "kogaro-testbed.labels" . | nindent 4 }}
+    test-case: "custom-config-test"
+    test-category: "shared-config"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "kogaro-testbed.selectorLabels" . | nindent 6 }}
+      test-case: "custom-config-test"
+  template:
+    metadata:
+      labels:
+        {{- include "kogaro-testbed.selectorLabels" . | nindent 8 }}
+        test-case: "custom-config-test"
+    spec:
+      # SecurityContext that uses non-standard user ID (not the SharedConfig default of 1000)
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 2000  # Different from SharedConfig default (1000)
+        runAsGroup: 2000 # Different from SharedConfig default (3000)
+        fsGroup: 2000    # Different from SharedConfig default (2000)
+      containers:
+      - name: config-test-container
+        image: nginx:1.21-alpine
+        securityContext:
+          runAsUser: 2000
+          runAsGroup: 2000
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+        # Resources that are above SharedConfig defaults but below "recommended" levels
+        # This tests resource validation against configurable thresholds
+        resources:
+          requests:
+            cpu: "50m"     # Above SharedConfig default (100m) - should be OK
+            memory: "64Mi" # Below SharedConfig default (128Mi) - should trigger recommendation
+          limits:
+            cpu: "200m"    # Below SharedConfig default (500m) - should trigger recommendation  
+            memory: "128Mi" # Below SharedConfig default (256Mi) - should trigger recommendation
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: tmp-volume
+          mountPath: /tmp
+        - name: cache-volume
+          mountPath: /var/cache/nginx
+      volumes:
+      - name: tmp-volume
+        emptyDir: {}
+      - name: cache-volume
+        emptyDir: {}

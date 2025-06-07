@@ -3,7 +3,7 @@
 <html>
 	<head>
 		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-		<title>controllers: Go Coverage Report</title>
+		<title>validators: Go Coverage Report</title>
 		<style>
 			body {
 				background: black;
@@ -55,11 +55,15 @@
 			<div id="nav">
 				<select id="files">
 				
-				<option value="file0">github.com/russ/kogaro/internal/controllers/validation_controller.go (0.0%)</option>
+				<option value="file0">github.com/topiaruss/kogaro/internal/validators/networking_validator.go (85.3%)</option>
 				
-				<option value="file1">github.com/russ/kogaro/internal/validators/reference_validator.go (0.0%)</option>
+				<option value="file1">github.com/topiaruss/kogaro/internal/validators/reference_validator.go (73.2%)</option>
 				
-				<option value="file2">github.com/russ/kogaro/main.go (0.0%)</option>
+				<option value="file2">github.com/topiaruss/kogaro/internal/validators/registry.go (0.0%)</option>
+				
+				<option value="file3">github.com/topiaruss/kogaro/internal/validators/resource_limits_validator.go (73.3%)</option>
+				
+				<option value="file4">github.com/topiaruss/kogaro/internal/validators/security_validator.go (85.8%)</option>
 				
 				</select>
 			</div>
@@ -73,133 +77,765 @@
 		</div>
 		<div id="content">
 		
-		<pre class="file" id="file0" style="display: none">package controllers
+		<pre class="file" id="file0" style="display: none">// Copyright 2025 Russell Ferriday
+// Licensed under the Apache License, Version 2.0
+//
+// Kogaro - Kubernetes Configuration Hygiene Agent
 
-import (
-        "context"
-        "time"
-
-        "github.com/go-logr/logr"
-        "k8s.io/apimachinery/pkg/runtime"
-        ctrl "sigs.k8s.io/controller-runtime"
-        "sigs.k8s.io/controller-runtime/pkg/client"
-
-        "github.com/russ/kogaro/internal/validators"
-)
-
-type ValidationController struct {
-        Client       client.Client
-        Scheme       *runtime.Scheme
-        Log          logr.Logger
-        Validator    *validators.ReferenceValidator
-        ScanInterval time.Duration
-}
-
-func (r *ValidationController) SetupWithManager(mgr ctrl.Manager) error <span class="cov0" title="0">{
-        // Start the periodic validation as a runnable
-        return mgr.Add(r)
-}</span>
-
-func (r *ValidationController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) <span class="cov0" title="0">{
-        log := r.Log.WithValues("validation", req.NamespacedName)
-
-        // Run the validation scan
-        log.Info("starting cluster validation scan")
-        
-        if err := r.Validator.ValidateCluster(ctx); err != nil </span><span class="cov0" title="0">{
-                log.Error(err, "failed to validate cluster")
-                return ctrl.Result{RequeueAfter: r.ScanInterval}, err
-        }</span>
-
-        <span class="cov0" title="0">log.Info("cluster validation scan completed successfully")
-        
-        // Requeue after the scan interval
-        return ctrl.Result{RequeueAfter: r.ScanInterval}, nil</span>
-}
-
-// Start begins the periodic validation process
-func (r *ValidationController) Start(ctx context.Context) error <span class="cov0" title="0">{
-        log := r.Log.WithName("periodic-validator")
-        
-        ticker := time.NewTicker(r.ScanInterval)
-        defer ticker.Stop()
-
-        // Run initial validation
-        log.Info("running initial cluster validation")
-        if err := r.Validator.ValidateCluster(ctx); err != nil </span><span class="cov0" title="0">{
-                log.Error(err, "initial validation failed")
-        }</span>
-
-        <span class="cov0" title="0">for </span><span class="cov0" title="0">{
-                select </span>{
-                case &lt;-ctx.Done():<span class="cov0" title="0">
-                        log.Info("stopping periodic validation")
-                        return nil</span>
-                case &lt;-ticker.C:<span class="cov0" title="0">
-                        log.Info("running periodic cluster validation")
-                        if err := r.Validator.ValidateCluster(ctx); err != nil </span><span class="cov0" title="0">{
-                                log.Error(err, "periodic validation failed")
-                        }</span>
-                }
-        }
-}</pre>
-		
-		<pre class="file" id="file1" style="display: none">package validators
+// Package validators provides networking configuration validation functionality.
+//
+// This package implements validation of networking configurations within
+// a Kubernetes cluster, detecting network connectivity issues that could
+// cause service disruptions. It validates Service selectors, NetworkPolicy 
+// coverage, and Ingress connectivity to ensure proper network communication.
+package validators
 
 import (
         "context"
         "fmt"
 
         "github.com/go-logr/logr"
-        networkingv1 "k8s.io/api/networking/v1"
         corev1 "k8s.io/api/core/v1"
+        networkingv1 "k8s.io/api/networking/v1"
+        metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+        "k8s.io/apimachinery/pkg/labels"
+        "k8s.io/apimachinery/pkg/util/intstr"
+        "sigs.k8s.io/controller-runtime/pkg/client"
+
+        "github.com/topiaruss/kogaro/internal/metrics"
+)
+
+// NetworkingConfig defines which networking validation checks to perform
+type NetworkingConfig struct {
+        EnableServiceValidation     bool
+        EnableNetworkPolicyValidation bool
+        EnableIngressValidation     bool
+        // Namespaces that require NetworkPolicy coverage
+        PolicyRequiredNamespaces []string
+        // Enable warnings for pods not exposed by services
+        WarnUnexposedPods bool
+}
+
+// NetworkingValidator validates networking configurations across workloads
+type NetworkingValidator struct {
+        client client.Client
+        log    logr.Logger
+        config NetworkingConfig
+}
+
+// NewNetworkingValidator creates a new NetworkingValidator with the given client, logger and config
+func NewNetworkingValidator(client client.Client, log logr.Logger, config NetworkingConfig) *NetworkingValidator <span class="cov8" title="1">{
+        return &amp;NetworkingValidator{
+                client: client,
+                log:    log.WithName("networking-validator"),
+                config: config,
+        }
+}</span>
+
+// GetValidationType returns the validation type identifier for networking validation
+func (v *NetworkingValidator) GetValidationType() string <span class="cov8" title="1">{
+        return "networking_validation"
+}</span>
+
+// ValidateCluster performs comprehensive validation of networking configurations across the entire cluster
+func (v *NetworkingValidator) ValidateCluster(ctx context.Context) error <span class="cov8" title="1">{
+        metrics.ValidationRuns.Inc()
+        
+        var allErrors []ValidationError
+
+        // Validate Service connectivity
+        if v.config.EnableServiceValidation </span><span class="cov8" title="1">{
+                serviceErrors, err := v.validateServiceConnectivity(ctx)
+                if err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to validate service connectivity: %w", err)
+                }</span>
+                <span class="cov8" title="1">allErrors = append(allErrors, serviceErrors...)</span>
+        }
+
+        // Validate NetworkPolicy coverage
+        <span class="cov8" title="1">if v.config.EnableNetworkPolicyValidation </span><span class="cov8" title="1">{
+                networkPolicyErrors, err := v.validateNetworkPolicyCoverage(ctx)
+                if err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to validate networkpolicy coverage: %w", err)
+                }</span>
+                <span class="cov8" title="1">allErrors = append(allErrors, networkPolicyErrors...)</span>
+        }
+
+        // Validate Ingress connectivity
+        <span class="cov8" title="1">if v.config.EnableIngressValidation </span><span class="cov8" title="1">{
+                ingressErrors, err := v.validateIngressConnectivity(ctx)
+                if err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to validate ingress connectivity: %w", err)
+                }</span>
+                <span class="cov8" title="1">allErrors = append(allErrors, ingressErrors...)</span>
+        }
+
+        // Log all validation errors and update metrics
+        <span class="cov8" title="1">for _, validationErr := range allErrors </span><span class="cov8" title="1">{
+                v.log.Info("validation error found",
+                        "validator_type", "networking",
+                        "resource_type", validationErr.ResourceType,
+                        "resource_name", validationErr.ResourceName,
+                        "namespace", validationErr.Namespace,
+                        "validation_type", validationErr.ValidationType,
+                        "message", validationErr.Message,
+                )
+
+                metrics.ValidationErrors.WithLabelValues(
+                        validationErr.ResourceType,
+                        validationErr.ValidationType,
+                        validationErr.Namespace,
+                ).Inc()
+        }</span>
+
+        <span class="cov8" title="1">v.log.Info("validation completed", "validator_type", "networking", "total_errors", len(allErrors))
+        return nil</span>
+}
+
+func (v *NetworkingValidator) validateServiceConnectivity(ctx context.Context) ([]ValidationError, error) <span class="cov8" title="1">{
+        var errors []ValidationError
+
+        // Get all Services
+        var services corev1.ServiceList
+        if err := v.client.List(ctx, &amp;services); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to list services: %w", err)
+        }</span>
+
+        // Get all Pods
+        <span class="cov8" title="1">var pods corev1.PodList
+        if err := v.client.List(ctx, &amp;pods); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to list pods: %w", err)
+        }</span>
+
+        // Get all Endpoints
+        <span class="cov8" title="1">var endpoints corev1.EndpointsList
+        if err := v.client.List(ctx, &amp;endpoints); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to list endpoints: %w", err)
+        }</span>
+
+        // Create maps for efficient lookup
+        <span class="cov8" title="1">podsByNamespace := make(map[string][]corev1.Pod)
+        endpointsByName := make(map[string]corev1.Endpoints)
+        
+        for _, pod := range pods.Items </span><span class="cov8" title="1">{
+                podsByNamespace[pod.Namespace] = append(podsByNamespace[pod.Namespace], pod)
+        }</span>
+        
+        <span class="cov8" title="1">for _, ep := range endpoints.Items </span><span class="cov8" title="1">{
+                key := fmt.Sprintf("%s/%s", ep.Namespace, ep.Name)
+                endpointsByName[key] = ep
+        }</span>
+
+        // Validate each service
+        <span class="cov8" title="1">for _, service := range services.Items </span><span class="cov8" title="1">{
+                // Skip headless services and special services
+                if v.isSpecialService(service) </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+
+                <span class="cov8" title="1">serviceErrors := v.validateService(service, podsByNamespace[service.Namespace], endpointsByName)
+                errors = append(errors, serviceErrors...)</span>
+        }
+
+        // Optionally warn about unexposed pods
+        <span class="cov8" title="1">if v.config.WarnUnexposedPods </span><span class="cov8" title="1">{
+                unexposedErrors := v.findUnexposedPods(pods.Items, services.Items)
+                errors = append(errors, unexposedErrors...)
+        }</span>
+
+        <span class="cov8" title="1">return errors, nil</span>
+}
+
+func (v *NetworkingValidator) validateService(service corev1.Service, namespacePods []corev1.Pod, endpointsMap map[string]corev1.Endpoints) []ValidationError <span class="cov8" title="1">{
+        var errors []ValidationError
+
+        // Check if service selector matches any pods
+        if service.Spec.Selector != nil &amp;&amp; len(service.Spec.Selector) &gt; 0 </span><span class="cov8" title="1">{
+                matchingPods := v.findMatchingPods(service.Spec.Selector, namespacePods)
+                
+                if len(matchingPods) == 0 </span><span class="cov8" title="1">{
+                        errors = append(errors, ValidationError{
+                                ResourceType:   "Service",
+                                ResourceName:   service.Name,
+                                Namespace:      service.Namespace,
+                                ValidationType: "service_selector_mismatch",
+                                Message:        fmt.Sprintf("Service selector %v does not match any pods", service.Spec.Selector),
+                        })
+                }</span>
+
+                // Check if service has endpoints
+                <span class="cov8" title="1">endpointsKey := fmt.Sprintf("%s/%s", service.Namespace, service.Name)
+                if endpoints, exists := endpointsMap[endpointsKey]; exists </span><span class="cov8" title="1">{
+                        if v.hasNoReadyEndpoints(endpoints) </span><span class="cov0" title="0">{
+                                errors = append(errors, ValidationError{
+                                        ResourceType:   "Service",
+                                        ResourceName:   service.Name,
+                                        Namespace:      service.Namespace,
+                                        ValidationType: "service_no_endpoints",
+                                        Message:        "Service has no ready endpoints despite matching pods",
+                                })
+                        }</span>
+                } else<span class="cov8" title="1"> {
+                        errors = append(errors, ValidationError{
+                                ResourceType:   "Service",
+                                ResourceName:   service.Name,
+                                Namespace:      service.Namespace,
+                                ValidationType: "service_no_endpoints",
+                                Message:        "Service has no endpoints object",
+                        })
+                }</span>
+
+                // Validate port matching between service and pods
+                <span class="cov8" title="1">portErrors := v.validateServicePorts(service, matchingPods)
+                errors = append(errors, portErrors...)</span>
+        }
+
+        <span class="cov8" title="1">return errors</span>
+}
+
+func (v *NetworkingValidator) validateServicePorts(service corev1.Service, matchingPods []corev1.Pod) []ValidationError <span class="cov8" title="1">{
+        var errors []ValidationError
+
+        if len(matchingPods) == 0 </span><span class="cov8" title="1">{
+                return errors
+        }</span>
+
+        // Check if service ports match container ports in pods
+        <span class="cov8" title="1">for _, servicePort := range service.Spec.Ports </span><span class="cov8" title="1">{
+                if servicePort.TargetPort.IntVal == 0 &amp;&amp; servicePort.TargetPort.StrVal == "" </span><span class="cov8" title="1">{
+                        // TargetPort defaults to Port if not specified
+                        continue</span>
+                }
+
+                <span class="cov8" title="1">portFound := false
+                for _, pod := range matchingPods </span><span class="cov8" title="1">{
+                        if v.podHasPort(pod, servicePort.TargetPort) </span><span class="cov8" title="1">{
+                                portFound = true
+                                break</span>
+                        }
+                }
+
+                <span class="cov8" title="1">if !portFound </span><span class="cov8" title="1">{
+                        errors = append(errors, ValidationError{
+                                ResourceType:   "Service",
+                                ResourceName:   service.Name,
+                                Namespace:      service.Namespace,
+                                ValidationType: "service_port_mismatch",
+                                Message:        fmt.Sprintf("Service port %s (target: %s) does not match any container ports in matching pods", servicePort.Name, servicePort.TargetPort.String()),
+                        })
+                }</span>
+        }
+
+        <span class="cov8" title="1">return errors</span>
+}
+
+func (v *NetworkingValidator) podHasPort(pod corev1.Pod, targetPort intstr.IntOrString) bool <span class="cov8" title="1">{
+        for _, container := range pod.Spec.Containers </span><span class="cov8" title="1">{
+                for _, port := range container.Ports </span><span class="cov8" title="1">{
+                        if targetPort.Type == intstr.Int </span><span class="cov8" title="1">{
+                                if port.ContainerPort == targetPort.IntVal </span><span class="cov8" title="1">{
+                                        return true
+                                }</span>
+                        } else<span class="cov0" title="0"> {
+                                if port.Name == targetPort.StrVal </span><span class="cov0" title="0">{
+                                        return true
+                                }</span>
+                        }
+                }
+        }
+        <span class="cov8" title="1">return false</span>
+}
+
+func (v *NetworkingValidator) findMatchingPods(selector map[string]string, pods []corev1.Pod) []corev1.Pod <span class="cov8" title="1">{
+        var matchingPods []corev1.Pod
+        
+        selectorLabels := labels.Set(selector)
+        
+        for _, pod := range pods </span><span class="cov8" title="1">{
+                if selectorLabels.AsSelector().Matches(labels.Set(pod.Labels)) </span><span class="cov8" title="1">{
+                        matchingPods = append(matchingPods, pod)
+                }</span>
+        }
+        
+        <span class="cov8" title="1">return matchingPods</span>
+}
+
+func (v *NetworkingValidator) hasNoReadyEndpoints(endpoints corev1.Endpoints) bool <span class="cov8" title="1">{
+        for _, subset := range endpoints.Subsets </span><span class="cov8" title="1">{
+                if len(subset.Addresses) &gt; 0 </span><span class="cov8" title="1">{
+                        return false
+                }</span>
+        }
+        <span class="cov0" title="0">return true</span>
+}
+
+func (v *NetworkingValidator) isSpecialService(service corev1.Service) bool <span class="cov8" title="1">{
+        // Skip headless services
+        if service.Spec.ClusterIP == "None" </span><span class="cov8" title="1">{
+                return true
+        }</span>
+        
+        // Skip services without selectors (external services)
+        <span class="cov8" title="1">if len(service.Spec.Selector) == 0 </span><span class="cov8" title="1">{
+                return true
+        }</span>
+        
+        // Skip system services
+        <span class="cov8" title="1">if service.Namespace == "kube-system" || service.Namespace == "kube-public" </span><span class="cov8" title="1">{
+                return true
+        }</span>
+        
+        <span class="cov8" title="1">return false</span>
+}
+
+func (v *NetworkingValidator) findUnexposedPods(pods []corev1.Pod, services []corev1.Service) []ValidationError <span class="cov8" title="1">{
+        var errors []ValidationError
+
+        // Create map of service selectors by namespace
+        servicesByNamespace := make(map[string][]corev1.Service)
+        for _, service := range services </span><span class="cov0" title="0">{
+                if !v.isSpecialService(service) </span><span class="cov0" title="0">{
+                        servicesByNamespace[service.Namespace] = append(servicesByNamespace[service.Namespace], service)
+                }</span>
+        }
+
+        <span class="cov8" title="1">for _, pod := range pods </span><span class="cov8" title="1">{
+                // Skip system pods and pods owned by controllers that typically don't need services
+                if v.isSystemPod(pod) || v.isPodTypicallyUnexposed(pod) </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+
+                // Check if pod is matched by any service
+                <span class="cov8" title="1">isExposed := false
+                for _, service := range servicesByNamespace[pod.Namespace] </span><span class="cov0" title="0">{
+                        if v.findMatchingPods(service.Spec.Selector, []corev1.Pod{pod}) != nil </span><span class="cov0" title="0">{
+                                isExposed = true
+                                break</span>
+                        }
+                }
+
+                <span class="cov8" title="1">if !isExposed </span><span class="cov8" title="1">{
+                        errors = append(errors, ValidationError{
+                                ResourceType:   "Pod",
+                                ResourceName:   pod.Name,
+                                Namespace:      pod.Namespace,
+                                ValidationType: "pod_no_service",
+                                Message:        "Pod is not exposed by any Service (consider if this is intentional)",
+                        })
+                }</span>
+        }
+
+        <span class="cov8" title="1">return errors</span>
+}
+
+func (v *NetworkingValidator) isSystemPod(pod corev1.Pod) bool <span class="cov8" title="1">{
+        systemNamespaces := []string{"kube-system", "kube-public", "kube-node-lease"}
+        for _, ns := range systemNamespaces </span><span class="cov8" title="1">{
+                if pod.Namespace == ns </span><span class="cov0" title="0">{
+                        return true
+                }</span>
+        }
+        <span class="cov8" title="1">return false</span>
+}
+
+func (v *NetworkingValidator) isPodTypicallyUnexposed(pod corev1.Pod) bool <span class="cov8" title="1">{
+        // Check if pod is owned by a Job or CronJob (typically don't need services)
+        for _, owner := range pod.OwnerReferences </span><span class="cov0" title="0">{
+                if owner.Kind == "Job" || owner.Kind == "CronJob" </span><span class="cov0" title="0">{
+                        return true
+                }</span>
+        }
+        
+        // Check for common patterns in pod names that suggest they don't need services
+        <span class="cov8" title="1">unexposedPatterns := []string{"migration", "backup", "setup", "init"}
+        for _, pattern := range unexposedPatterns </span><span class="cov8" title="1">{
+                if len(pod.Name) &gt; len(pattern) &amp;&amp; pod.Name[:len(pattern)] == pattern </span><span class="cov0" title="0">{
+                        return true
+                }</span>
+        }
+        
+        <span class="cov8" title="1">return false</span>
+}
+
+func (v *NetworkingValidator) validateNetworkPolicyCoverage(ctx context.Context) ([]ValidationError, error) <span class="cov8" title="1">{
+        var errors []ValidationError
+
+        // Get all NetworkPolicies
+        var networkPolicies networkingv1.NetworkPolicyList
+        if err := v.client.List(ctx, &amp;networkPolicies); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to list networkpolicies: %w", err)
+        }</span>
+
+        // Get all Pods
+        <span class="cov8" title="1">var pods corev1.PodList
+        if err := v.client.List(ctx, &amp;pods); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to list pods: %w", err)
+        }</span>
+
+        // Get all Namespaces
+        <span class="cov8" title="1">var namespaces corev1.NamespaceList
+        if err := v.client.List(ctx, &amp;namespaces); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to list namespaces: %w", err)
+        }</span>
+
+        // Validate NetworkPolicy coverage
+        <span class="cov8" title="1">coverageErrors := v.validatePolicyRequired(namespaces.Items, networkPolicies.Items)
+        errors = append(errors, coverageErrors...)
+
+        // Validate NetworkPolicy selectors
+        selectorErrors := v.validateNetworkPolicySelectors(networkPolicies.Items, pods.Items)
+        errors = append(errors, selectorErrors...)
+
+        return errors, nil</span>
+}
+
+func (v *NetworkingValidator) validatePolicyRequired(namespaces []corev1.Namespace, policies []networkingv1.NetworkPolicy) []ValidationError <span class="cov8" title="1">{
+        var errors []ValidationError
+
+        // Create map of namespaces with policies
+        namespacesWithPolicies := make(map[string]bool)
+        for _, policy := range policies </span><span class="cov8" title="1">{
+                namespacesWithPolicies[policy.Namespace] = true
+        }</span>
+
+        // Check policy-required namespaces
+        <span class="cov8" title="1">for _, requiredNS := range v.config.PolicyRequiredNamespaces </span><span class="cov8" title="1">{
+                if !namespacesWithPolicies[requiredNS] </span><span class="cov8" title="1">{
+                        errors = append(errors, ValidationError{
+                                ResourceType:   "Namespace",
+                                ResourceName:   requiredNS,
+                                Namespace:      requiredNS,
+                                ValidationType: "missing_network_policy_required",
+                                Message:        fmt.Sprintf("Policy-required namespace '%s' has no NetworkPolicies", requiredNS),
+                        })
+                }</span>
+        }
+
+        // Check for missing default deny policies in namespaces with policies
+        <span class="cov8" title="1">for _, ns := range namespaces </span><span class="cov8" title="1">{
+                if v.isSystemNamespace(ns.Name) </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+
+                <span class="cov8" title="1">if namespacesWithPolicies[ns.Name] </span><span class="cov8" title="1">{
+                        hasDefaultDeny := v.hasDefaultDenyPolicy(policies, ns.Name)
+                        if !hasDefaultDeny </span><span class="cov8" title="1">{
+                                errors = append(errors, ValidationError{
+                                        ResourceType:   "Namespace",
+                                        ResourceName:   ns.Name,
+                                        Namespace:      ns.Name,
+                                        ValidationType: "missing_network_policy_default_deny",
+                                        Message:        "Namespace has NetworkPolicies but no default deny policy",
+                                })
+                        }</span>
+                }
+        }
+
+        <span class="cov8" title="1">return errors</span>
+}
+
+func (v *NetworkingValidator) hasDefaultDenyPolicy(policies []networkingv1.NetworkPolicy, namespace string) bool <span class="cov8" title="1">{
+        for _, policy := range policies </span><span class="cov8" title="1">{
+                if policy.Namespace != namespace </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+
+                // Check if it's a default deny policy (empty selectors with no ingress/egress rules)
+                <span class="cov8" title="1">if v.isDefaultDenyPolicy(policy) </span><span class="cov8" title="1">{
+                        return true
+                }</span>
+        }
+        <span class="cov8" title="1">return false</span>
+}
+
+func (v *NetworkingValidator) isDefaultDenyPolicy(policy networkingv1.NetworkPolicy) bool <span class="cov8" title="1">{
+        // A default deny policy typically:
+        // 1. Selects all pods (empty podSelector)
+        // 2. Has empty ingress and/or egress rules
+        
+        if policy.Spec.PodSelector.MatchLabels != nil &amp;&amp; len(policy.Spec.PodSelector.MatchLabels) &gt; 0 </span><span class="cov8" title="1">{
+                return false
+        }</span>
+        
+        <span class="cov8" title="1">if policy.Spec.PodSelector.MatchExpressions != nil &amp;&amp; len(policy.Spec.PodSelector.MatchExpressions) &gt; 0 </span><span class="cov0" title="0">{
+                return false
+        }</span>
+
+        // Check if it denies ingress (has ingress policy type but no ingress rules)
+        <span class="cov8" title="1">hasIngressDeny := false
+        hasEgressDeny := false
+        
+        for _, policyType := range policy.Spec.PolicyTypes </span><span class="cov8" title="1">{
+                if policyType == networkingv1.PolicyTypeIngress &amp;&amp; len(policy.Spec.Ingress) == 0 </span><span class="cov8" title="1">{
+                        hasIngressDeny = true
+                }</span>
+                <span class="cov8" title="1">if policyType == networkingv1.PolicyTypeEgress &amp;&amp; len(policy.Spec.Egress) == 0 </span><span class="cov0" title="0">{
+                        hasEgressDeny = true
+                }</span>
+        }
+
+        <span class="cov8" title="1">return hasIngressDeny || hasEgressDeny</span>
+}
+
+func (v *NetworkingValidator) validateNetworkPolicySelectors(policies []networkingv1.NetworkPolicy, pods []corev1.Pod) []ValidationError <span class="cov8" title="1">{
+        var errors []ValidationError
+
+        for _, policy := range policies </span><span class="cov8" title="1">{
+                // Check if policy selector matches any pods in its namespace
+                namespacePods := v.getPodsInNamespace(pods, policy.Namespace)
+                matchingPods := v.findPodsMatchingPolicy(policy, namespacePods)
+
+                if len(matchingPods) == 0 </span><span class="cov8" title="1">{
+                        errors = append(errors, ValidationError{
+                                ResourceType:   "NetworkPolicy",
+                                ResourceName:   policy.Name,
+                                Namespace:      policy.Namespace,
+                                ValidationType: "network_policy_orphaned",
+                                Message:        "NetworkPolicy selector does not match any pods in namespace",
+                        })
+                }</span>
+        }
+
+        <span class="cov8" title="1">return errors</span>
+}
+
+func (v *NetworkingValidator) getPodsInNamespace(pods []corev1.Pod, namespace string) []corev1.Pod <span class="cov8" title="1">{
+        var namespacePods []corev1.Pod
+        for _, pod := range pods </span><span class="cov8" title="1">{
+                if pod.Namespace == namespace </span><span class="cov8" title="1">{
+                        namespacePods = append(namespacePods, pod)
+                }</span>
+        }
+        <span class="cov8" title="1">return namespacePods</span>
+}
+
+func (v *NetworkingValidator) findPodsMatchingPolicy(policy networkingv1.NetworkPolicy, pods []corev1.Pod) []corev1.Pod <span class="cov8" title="1">{
+        var matchingPods []corev1.Pod
+        
+        selector, err := metav1.LabelSelectorAsSelector(&amp;policy.Spec.PodSelector)
+        if err != nil </span><span class="cov0" title="0">{
+                return matchingPods
+        }</span>
+        
+        <span class="cov8" title="1">for _, pod := range pods </span><span class="cov0" title="0">{
+                if selector.Matches(labels.Set(pod.Labels)) </span><span class="cov0" title="0">{
+                        matchingPods = append(matchingPods, pod)
+                }</span>
+        }
+        
+        <span class="cov8" title="1">return matchingPods</span>
+}
+
+func (v *NetworkingValidator) validateIngressConnectivity(ctx context.Context) ([]ValidationError, error) <span class="cov8" title="1">{
+        var errors []ValidationError
+
+        // Get all Ingresses
+        var ingresses networkingv1.IngressList
+        if err := v.client.List(ctx, &amp;ingresses); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to list ingresses: %w", err)
+        }</span>
+
+        // Get all Services
+        <span class="cov8" title="1">var services corev1.ServiceList
+        if err := v.client.List(ctx, &amp;services); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to list services: %w", err)
+        }</span>
+
+        // Get all Pods
+        <span class="cov8" title="1">var pods corev1.PodList
+        if err := v.client.List(ctx, &amp;pods); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to list pods: %w", err)
+        }</span>
+
+        // Create service lookup map
+        <span class="cov8" title="1">serviceMap := make(map[string]corev1.Service)
+        for _, service := range services.Items </span><span class="cov8" title="1">{
+                key := fmt.Sprintf("%s/%s", service.Namespace, service.Name)
+                serviceMap[key] = service
+        }</span>
+
+        // Validate each ingress
+        <span class="cov8" title="1">for _, ingress := range ingresses.Items </span><span class="cov8" title="1">{
+                ingressErrors := v.validateIngressBackends(ingress, serviceMap, pods.Items)
+                errors = append(errors, ingressErrors...)
+        }</span>
+
+        <span class="cov8" title="1">return errors, nil</span>
+}
+
+func (v *NetworkingValidator) validateIngressBackends(ingress networkingv1.Ingress, serviceMap map[string]corev1.Service, pods []corev1.Pod) []ValidationError <span class="cov8" title="1">{
+        var errors []ValidationError
+
+        // Check default backend
+        if ingress.Spec.DefaultBackend != nil &amp;&amp; ingress.Spec.DefaultBackend.Service != nil </span><span class="cov0" title="0">{
+                backendErrors := v.validateIngressServiceBackend(ingress, *ingress.Spec.DefaultBackend.Service, serviceMap, pods)
+                errors = append(errors, backendErrors...)
+        }</span>
+
+        // Check rule backends
+        <span class="cov8" title="1">for _, rule := range ingress.Spec.Rules </span><span class="cov8" title="1">{
+                if rule.HTTP != nil </span><span class="cov8" title="1">{
+                        for _, path := range rule.HTTP.Paths </span><span class="cov8" title="1">{
+                                if path.Backend.Service != nil </span><span class="cov8" title="1">{
+                                        backendErrors := v.validateIngressServiceBackend(ingress, *path.Backend.Service, serviceMap, pods)
+                                        errors = append(errors, backendErrors...)
+                                }</span>
+                        }
+                }
+        }
+
+        <span class="cov8" title="1">return errors</span>
+}
+
+func (v *NetworkingValidator) validateIngressServiceBackend(ingress networkingv1.Ingress, backend networkingv1.IngressServiceBackend, serviceMap map[string]corev1.Service, pods []corev1.Pod) []ValidationError <span class="cov8" title="1">{
+        var errors []ValidationError
+
+        serviceKey := fmt.Sprintf("%s/%s", ingress.Namespace, backend.Name)
+        service, exists := serviceMap[serviceKey]
+        
+        if !exists </span><span class="cov8" title="1">{
+                // This should be caught by reference validator, but let's be thorough
+                errors = append(errors, ValidationError{
+                        ResourceType:   "Ingress",
+                        ResourceName:   ingress.Name,
+                        Namespace:      ingress.Namespace,
+                        ValidationType: "ingress_service_missing",
+                        Message:        fmt.Sprintf("Ingress references non-existent service '%s'", backend.Name),
+                })
+                return errors
+        }</span>
+
+        // Check if service port matches
+        <span class="cov8" title="1">if backend.Port != (networkingv1.ServiceBackendPort{}) </span><span class="cov8" title="1">{
+                portExists := false
+                for _, servicePort := range service.Spec.Ports </span><span class="cov8" title="1">{
+                        if backend.Port.Number != 0 &amp;&amp; servicePort.Port == backend.Port.Number </span><span class="cov8" title="1">{
+                                portExists = true
+                                break</span>
+                        }
+                        <span class="cov8" title="1">if backend.Port.Name != "" &amp;&amp; servicePort.Name == backend.Port.Name </span><span class="cov0" title="0">{
+                                portExists = true
+                                break</span>
+                        }
+                }
+                
+                <span class="cov8" title="1">if !portExists </span><span class="cov8" title="1">{
+                        errors = append(errors, ValidationError{
+                                ResourceType:   "Ingress",
+                                ResourceName:   ingress.Name,
+                                Namespace:      ingress.Namespace,
+                                ValidationType: "ingress_service_port_mismatch",
+                                Message:        fmt.Sprintf("Ingress references service '%s' port that doesn't exist", backend.Name),
+                        })
+                }</span>
+        }
+
+        // Check if service has ready backend pods
+        <span class="cov8" title="1">namespacePods := v.getPodsInNamespace(pods, service.Namespace)
+        matchingPods := v.findMatchingPods(service.Spec.Selector, namespacePods)
+        readyPods := v.filterReadyPods(matchingPods)
+        
+        if len(readyPods) == 0 </span><span class="cov8" title="1">{
+                errors = append(errors, ValidationError{
+                        ResourceType:   "Ingress",
+                        ResourceName:   ingress.Name,
+                        Namespace:      ingress.Namespace,
+                        ValidationType: "ingress_no_backend_pods",
+                        Message:        fmt.Sprintf("Ingress service '%s' has no ready backend pods", backend.Name),
+                })
+        }</span>
+
+        <span class="cov8" title="1">return errors</span>
+}
+
+func (v *NetworkingValidator) filterReadyPods(pods []corev1.Pod) []corev1.Pod <span class="cov8" title="1">{
+        var readyPods []corev1.Pod
+        
+        for _, pod := range pods </span><span class="cov8" title="1">{
+                if v.isPodReady(pod) </span><span class="cov8" title="1">{
+                        readyPods = append(readyPods, pod)
+                }</span>
+        }
+        
+        <span class="cov8" title="1">return readyPods</span>
+}
+
+func (v *NetworkingValidator) isPodReady(pod corev1.Pod) bool <span class="cov8" title="1">{
+        for _, condition := range pod.Status.Conditions </span><span class="cov8" title="1">{
+                if condition.Type == corev1.PodReady &amp;&amp; condition.Status == corev1.ConditionTrue </span><span class="cov8" title="1">{
+                        return true
+                }</span>
+        }
+        <span class="cov8" title="1">return false</span>
+}
+
+func (v *NetworkingValidator) isSystemNamespace(namespace string) bool <span class="cov8" title="1">{
+        systemNamespaces := []string{
+                "kube-system",
+                "kube-public", 
+                "kube-node-lease",
+                "default",
+        }
+
+        for _, systemNS := range systemNamespaces </span><span class="cov8" title="1">{
+                if namespace == systemNS </span><span class="cov0" title="0">{
+                        return true
+                }</span>
+        }
+        <span class="cov8" title="1">return false</span>
+}</pre>
+		
+		<pre class="file" id="file1" style="display: none">// Copyright 2025 Russell Ferriday
+// Licensed under the Apache License, Version 2.0
+//
+// Kogaro - Kubernetes Configuration Hygiene Agent
+
+// Package validators provides Kubernetes resource reference validation functionality.
+//
+// This package implements comprehensive validation of resource references within
+// a Kubernetes cluster, detecting dangling references that could cause silent
+// failures in applications. It supports validation of Ingress, ConfigMap, Secret,
+// PVC, and ServiceAccount references with configurable validation rules.
+package validators
+
+import (
+        "context"
+        "fmt"
+
+        "github.com/go-logr/logr"
+        corev1 "k8s.io/api/core/v1"
+        networkingv1 "k8s.io/api/networking/v1"
         storagev1 "k8s.io/api/storage/v1"
         "k8s.io/apimachinery/pkg/types"
         "sigs.k8s.io/controller-runtime/pkg/client"
-        "github.com/prometheus/client_golang/prometheus"
-        "github.com/prometheus/client_golang/prometheus/promauto"
+
+        "github.com/topiaruss/kogaro/internal/metrics"
 )
 
-var (
-        validationErrors = promauto.NewCounterVec(
-                prometheus.CounterOpts{
-                        Name: "kogaro_validation_errors_total",
-                        Help: "Total number of validation errors found",
-                },
-                []string{"resource_type", "validation_type", "namespace"},
-        )
-        
-        validationRuns = promauto.NewCounter(
-                prometheus.CounterOpts{
-                        Name: "kogaro_validation_runs_total",
-                        Help: "Total number of validation runs performed",
-                },
-        )
-)
 
-type ValidationError struct {
-        ResourceType   string
-        ResourceName   string
-        Namespace      string
-        ValidationType string
-        Message        string
-}
-
+// ValidationConfig defines which types of validation checks to perform
 type ValidationConfig struct {
-        EnableIngressValidation     bool
-        EnableConfigMapValidation   bool
-        EnableSecretValidation      bool
-        EnablePVCValidation         bool
+        EnableIngressValidation        bool
+        EnableConfigMapValidation      bool
+        EnableSecretValidation         bool
+        EnablePVCValidation            bool
         EnableServiceAccountValidation bool
 }
 
+// ReferenceValidator validates Kubernetes resource references across the cluster
 type ReferenceValidator struct {
         client client.Client
         log    logr.Logger
         config ValidationConfig
 }
 
-func NewReferenceValidator(client client.Client, log logr.Logger, config ValidationConfig) *ReferenceValidator <span class="cov0" title="0">{
+// GetValidationType returns the validation type identifier for reference validation
+func (v *ReferenceValidator) GetValidationType() string <span class="cov0" title="0">{
+        return "reference_validation"
+}</span>
+
+// NewReferenceValidator creates a new ReferenceValidator with the given client, logger and config
+func NewReferenceValidator(client client.Client, log logr.Logger, config ValidationConfig) *ReferenceValidator <span class="cov8" title="1">{
         return &amp;ReferenceValidator{
                 client: client,
                 log:    log.WithName("reference-validator"),
@@ -207,78 +843,80 @@ func NewReferenceValidator(client client.Client, log logr.Logger, config Validat
         }
 }</span>
 
-func (v *ReferenceValidator) ValidateCluster(ctx context.Context) error <span class="cov0" title="0">{
-        validationRuns.Inc()
-        
+// ValidateCluster performs comprehensive validation of resource references across the entire cluster
+func (v *ReferenceValidator) ValidateCluster(ctx context.Context) error <span class="cov8" title="1">{
+        metrics.ValidationRuns.Inc()
+
         var allErrors []ValidationError
 
         // Validate Ingress references
-        if v.config.EnableIngressValidation </span><span class="cov0" title="0">{
+        if v.config.EnableIngressValidation </span><span class="cov8" title="1">{
                 ingressErrors, err := v.validateIngressReferences(ctx)
                 if err != nil </span><span class="cov0" title="0">{
                         return fmt.Errorf("failed to validate ingress references: %w", err)
                 }</span>
-                <span class="cov0" title="0">allErrors = append(allErrors, ingressErrors...)</span>
+                <span class="cov8" title="1">allErrors = append(allErrors, ingressErrors...)</span>
         }
 
         // Validate ConfigMap references
-        <span class="cov0" title="0">if v.config.EnableConfigMapValidation </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if v.config.EnableConfigMapValidation </span><span class="cov8" title="1">{
                 configMapErrors, err := v.validateConfigMapReferences(ctx)
                 if err != nil </span><span class="cov0" title="0">{
                         return fmt.Errorf("failed to validate configmap references: %w", err)
                 }</span>
-                <span class="cov0" title="0">allErrors = append(allErrors, configMapErrors...)</span>
+                <span class="cov8" title="1">allErrors = append(allErrors, configMapErrors...)</span>
         }
 
         // Validate Secret references
-        <span class="cov0" title="0">if v.config.EnableSecretValidation </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if v.config.EnableSecretValidation </span><span class="cov8" title="1">{
                 secretErrors, err := v.validateSecretReferences(ctx)
                 if err != nil </span><span class="cov0" title="0">{
                         return fmt.Errorf("failed to validate secret references: %w", err)
                 }</span>
-                <span class="cov0" title="0">allErrors = append(allErrors, secretErrors...)</span>
+                <span class="cov8" title="1">allErrors = append(allErrors, secretErrors...)</span>
         }
 
         // Validate PVC references
-        <span class="cov0" title="0">if v.config.EnablePVCValidation </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if v.config.EnablePVCValidation </span><span class="cov8" title="1">{
                 pvcErrors, err := v.validatePVCReferences(ctx)
                 if err != nil </span><span class="cov0" title="0">{
                         return fmt.Errorf("failed to validate pvc references: %w", err)
                 }</span>
-                <span class="cov0" title="0">allErrors = append(allErrors, pvcErrors...)</span>
+                <span class="cov8" title="1">allErrors = append(allErrors, pvcErrors...)</span>
         }
 
         // Validate ServiceAccount references
-        <span class="cov0" title="0">if v.config.EnableServiceAccountValidation </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if v.config.EnableServiceAccountValidation </span><span class="cov8" title="1">{
                 saErrors, err := v.validateServiceAccountReferences(ctx)
                 if err != nil </span><span class="cov0" title="0">{
                         return fmt.Errorf("failed to validate serviceaccount references: %w", err)
                 }</span>
-                <span class="cov0" title="0">allErrors = append(allErrors, saErrors...)</span>
+                <span class="cov8" title="1">allErrors = append(allErrors, saErrors...)</span>
         }
 
-        // Log all validation errors
-        <span class="cov0" title="0">for _, validationErr := range allErrors </span><span class="cov0" title="0">{
+        // Log all validation errors and update metrics
+        <span class="cov8" title="1">for _, validationErr := range allErrors </span><span class="cov0" title="0">{
                 v.log.Info("validation error found",
+                        "validator_type", "reference",
                         "resource_type", validationErr.ResourceType,
                         "resource_name", validationErr.ResourceName,
                         "namespace", validationErr.Namespace,
                         "validation_type", validationErr.ValidationType,
                         "message", validationErr.Message,
                 )
-                
-                validationErrors.WithLabelValues(
+
+                metrics.ValidationErrors.WithLabelValues(
                         validationErr.ResourceType,
                         validationErr.ValidationType,
                         validationErr.Namespace,
                 ).Inc()
         }</span>
 
-        <span class="cov0" title="0">v.log.Info("cluster validation completed", "total_errors", len(allErrors))
+        <span class="cov8" title="1">v.log.Info("validation completed", "validator_type", "reference", "total_errors", len(allErrors))
         return nil</span>
 }
 
-func (v *ReferenceValidator) validateIngressReferences(ctx context.Context) ([]ValidationError, error) <span class="cov0" title="0">{
+func (v *ReferenceValidator) validateIngressReferences(ctx context.Context) ([]ValidationError, error) <span class="cov8" title="1">{
         var errors []ValidationError
 
         // Get all Ingresses
@@ -288,22 +926,22 @@ func (v *ReferenceValidator) validateIngressReferences(ctx context.Context) ([]V
         }</span>
 
         // Get all IngressClasses for validation
-        <span class="cov0" title="0">var ingressClasses networkingv1.IngressClassList
+        <span class="cov8" title="1">var ingressClasses networkingv1.IngressClassList
         if err := v.client.List(ctx, &amp;ingressClasses); err != nil </span><span class="cov0" title="0">{
                 return nil, fmt.Errorf("failed to list ingress classes: %w", err)
         }</span>
 
         // Build a map of existing IngressClass names
-        <span class="cov0" title="0">existingClasses := make(map[string]bool)
-        for _, ic := range ingressClasses.Items </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">existingClasses := make(map[string]bool)
+        for _, ic := range ingressClasses.Items </span><span class="cov8" title="1">{
                 existingClasses[ic.Name] = true
         }</span>
 
         // Validate each Ingress
-        <span class="cov0" title="0">for _, ingress := range ingresses.Items </span><span class="cov0" title="0">{
-                if ingress.Spec.IngressClassName != nil </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">for _, ingress := range ingresses.Items </span><span class="cov8" title="1">{
+                if ingress.Spec.IngressClassName != nil </span><span class="cov8" title="1">{
                         className := *ingress.Spec.IngressClassName
-                        if !existingClasses[className] </span><span class="cov0" title="0">{
+                        if !existingClasses[className] </span><span class="cov8" title="1">{
                                 errors = append(errors, ValidationError{
                                         ResourceType:   "Ingress",
                                         ResourceName:   ingress.Name,
@@ -315,19 +953,19 @@ func (v *ReferenceValidator) validateIngressReferences(ctx context.Context) ([]V
                 }
 
                 // Validate Service references in Ingress rules
-                <span class="cov0" title="0">for _, rule := range ingress.Spec.Rules </span><span class="cov0" title="0">{
-                        if rule.HTTP != nil </span><span class="cov0" title="0">{
-                                for _, path := range rule.HTTP.Paths </span><span class="cov0" title="0">{
+                <span class="cov8" title="1">for _, rule := range ingress.Spec.Rules </span><span class="cov8" title="1">{
+                        if rule.HTTP != nil </span><span class="cov8" title="1">{
+                                for _, path := range rule.HTTP.Paths </span><span class="cov8" title="1">{
                                         serviceName := path.Backend.Service.Name
-                                        
+
                                         // Check if the service exists
                                         var service corev1.Service
                                         err := v.client.Get(ctx, types.NamespacedName{
                                                 Name:      serviceName,
                                                 Namespace: ingress.Namespace,
                                         }, &amp;service)
-                                        
-                                        if err != nil </span><span class="cov0" title="0">{
+
+                                        if err != nil </span><span class="cov8" title="1">{
                                                 errors = append(errors, ValidationError{
                                                         ResourceType:   "Ingress",
                                                         ResourceName:   ingress.Name,
@@ -341,10 +979,10 @@ func (v *ReferenceValidator) validateIngressReferences(ctx context.Context) ([]V
                 }
         }
 
-        <span class="cov0" title="0">return errors, nil</span>
+        <span class="cov8" title="1">return errors, nil</span>
 }
 
-func (v *ReferenceValidator) validateConfigMapReferences(ctx context.Context) ([]ValidationError, error) <span class="cov0" title="0">{
+func (v *ReferenceValidator) validateConfigMapReferences(ctx context.Context) ([]ValidationError, error) <span class="cov8" title="1">{
         var errors []ValidationError
 
         // Get all Pods to check ConfigMap references
@@ -353,12 +991,12 @@ func (v *ReferenceValidator) validateConfigMapReferences(ctx context.Context) ([
                 return nil, fmt.Errorf("failed to list pods: %w", err)
         }</span>
 
-        <span class="cov0" title="0">for _, pod := range pods.Items </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">for _, pod := range pods.Items </span><span class="cov8" title="1">{
                 // Check ConfigMap references in volumes
-                for _, volume := range pod.Spec.Volumes </span><span class="cov0" title="0">{
-                        if volume.ConfigMap != nil </span><span class="cov0" title="0">{
+                for _, volume := range pod.Spec.Volumes </span><span class="cov8" title="1">{
+                        if volume.ConfigMap != nil </span><span class="cov8" title="1">{
                                 configMapName := volume.ConfigMap.Name
-                                if err := v.validateConfigMapExists(ctx, configMapName, pod.Namespace); err != nil </span><span class="cov0" title="0">{
+                                if err := v.validateConfigMapExists(ctx, configMapName, pod.Namespace); err != nil </span><span class="cov8" title="1">{
                                         errors = append(errors, ValidationError{
                                                 ResourceType:   "Pod",
                                                 ResourceName:   pod.Name,
@@ -371,11 +1009,11 @@ func (v *ReferenceValidator) validateConfigMapReferences(ctx context.Context) ([
                 }
 
                 // Check ConfigMap references in envFrom
-                <span class="cov0" title="0">for _, container := range pod.Spec.Containers </span><span class="cov0" title="0">{
-                        for _, envFrom := range container.EnvFrom </span><span class="cov0" title="0">{
-                                if envFrom.ConfigMapRef != nil </span><span class="cov0" title="0">{
+                <span class="cov8" title="1">for _, container := range pod.Spec.Containers </span><span class="cov8" title="1">{
+                        for _, envFrom := range container.EnvFrom </span><span class="cov8" title="1">{
+                                if envFrom.ConfigMapRef != nil </span><span class="cov8" title="1">{
                                         configMapName := envFrom.ConfigMapRef.Name
-                                        if err := v.validateConfigMapExists(ctx, configMapName, pod.Namespace); err != nil </span><span class="cov0" title="0">{
+                                        if err := v.validateConfigMapExists(ctx, configMapName, pod.Namespace); err != nil </span><span class="cov8" title="1">{
                                                 errors = append(errors, ValidationError{
                                                         ResourceType:   "Pod",
                                                         ResourceName:   pod.Name,
@@ -389,10 +1027,10 @@ func (v *ReferenceValidator) validateConfigMapReferences(ctx context.Context) ([
                 }
         }
 
-        <span class="cov0" title="0">return errors, nil</span>
+        <span class="cov8" title="1">return errors, nil</span>
 }
 
-func (v *ReferenceValidator) validateConfigMapExists(ctx context.Context, name, namespace string) error <span class="cov0" title="0">{
+func (v *ReferenceValidator) validateConfigMapExists(ctx context.Context, name, namespace string) error <span class="cov8" title="1">{
         var configMap corev1.ConfigMap
         return v.client.Get(ctx, types.NamespacedName{
                 Name:      name,
@@ -400,7 +1038,7 @@ func (v *ReferenceValidator) validateConfigMapExists(ctx context.Context, name, 
         }, &amp;configMap)
 }</span>
 
-func (v *ReferenceValidator) validateSecretReferences(ctx context.Context) ([]ValidationError, error) <span class="cov0" title="0">{
+func (v *ReferenceValidator) validateSecretReferences(ctx context.Context) ([]ValidationError, error) <span class="cov8" title="1">{
         var errors []ValidationError
 
         // Get all Pods to check Secret references
@@ -409,10 +1047,10 @@ func (v *ReferenceValidator) validateSecretReferences(ctx context.Context) ([]Va
                 return nil, fmt.Errorf("failed to list pods: %w", err)
         }</span>
 
-        <span class="cov0" title="0">for _, pod := range pods.Items </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">for _, pod := range pods.Items </span><span class="cov8" title="1">{
                 // Check Secret references in volumes
-                for _, volume := range pod.Spec.Volumes </span><span class="cov0" title="0">{
-                        if volume.Secret != nil </span><span class="cov0" title="0">{
+                for _, volume := range pod.Spec.Volumes </span><span class="cov8" title="1">{
+                        if volume.Secret != nil </span><span class="cov8" title="1">{
                                 secretName := volume.Secret.SecretName
                                 if err := v.validateSecretExists(ctx, secretName, pod.Namespace); err != nil </span><span class="cov0" title="0">{
                                         errors = append(errors, ValidationError{
@@ -427,7 +1065,7 @@ func (v *ReferenceValidator) validateSecretReferences(ctx context.Context) ([]Va
                 }
 
                 // Check Secret references in envFrom and env
-                <span class="cov0" title="0">for _, container := range pod.Spec.Containers </span><span class="cov0" title="0">{
+                <span class="cov8" title="1">for _, container := range pod.Spec.Containers </span><span class="cov8" title="1">{
                         for _, envFrom := range container.EnvFrom </span><span class="cov0" title="0">{
                                 if envFrom.SecretRef != nil </span><span class="cov0" title="0">{
                                         secretName := envFrom.SecretRef.Name
@@ -443,7 +1081,7 @@ func (v *ReferenceValidator) validateSecretReferences(ctx context.Context) ([]Va
                                 }
                         }
 
-                        <span class="cov0" title="0">for _, env := range container.Env </span><span class="cov0" title="0">{
+                        <span class="cov8" title="1">for _, env := range container.Env </span><span class="cov0" title="0">{
                                 if env.ValueFrom != nil &amp;&amp; env.ValueFrom.SecretKeyRef != nil </span><span class="cov0" title="0">{
                                         secretName := env.ValueFrom.SecretKeyRef.Name
                                         if err := v.validateSecretExists(ctx, secretName, pod.Namespace); err != nil </span><span class="cov0" title="0">{
@@ -461,15 +1099,15 @@ func (v *ReferenceValidator) validateSecretReferences(ctx context.Context) ([]Va
         }
 
         // Check Ingress TLS secrets
-        <span class="cov0" title="0">var ingresses networkingv1.IngressList
+        <span class="cov8" title="1">var ingresses networkingv1.IngressList
         if err := v.client.List(ctx, &amp;ingresses); err != nil </span><span class="cov0" title="0">{
                 return nil, fmt.Errorf("failed to list ingresses: %w", err)
         }</span>
 
-        <span class="cov0" title="0">for _, ingress := range ingresses.Items </span><span class="cov0" title="0">{
-                for _, tls := range ingress.Spec.TLS </span><span class="cov0" title="0">{
-                        if tls.SecretName != "" </span><span class="cov0" title="0">{
-                                if err := v.validateSecretExists(ctx, tls.SecretName, ingress.Namespace); err != nil </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">for _, ingress := range ingresses.Items </span><span class="cov8" title="1">{
+                for _, tls := range ingress.Spec.TLS </span><span class="cov8" title="1">{
+                        if tls.SecretName != "" </span><span class="cov8" title="1">{
+                                if err := v.validateSecretExists(ctx, tls.SecretName, ingress.Namespace); err != nil </span><span class="cov8" title="1">{
                                         errors = append(errors, ValidationError{
                                                 ResourceType:   "Ingress",
                                                 ResourceName:   ingress.Name,
@@ -482,10 +1120,10 @@ func (v *ReferenceValidator) validateSecretReferences(ctx context.Context) ([]Va
                 }
         }
 
-        <span class="cov0" title="0">return errors, nil</span>
+        <span class="cov8" title="1">return errors, nil</span>
 }
 
-func (v *ReferenceValidator) validatePVCReferences(ctx context.Context) ([]ValidationError, error) <span class="cov0" title="0">{
+func (v *ReferenceValidator) validatePVCReferences(ctx context.Context) ([]ValidationError, error) <span class="cov8" title="1">{
         var errors []ValidationError
 
         // Get all PVCs to check StorageClass references
@@ -495,21 +1133,21 @@ func (v *ReferenceValidator) validatePVCReferences(ctx context.Context) ([]Valid
         }</span>
 
         // Get all StorageClasses for validation
-        <span class="cov0" title="0">var storageClasses storagev1.StorageClassList
+        <span class="cov8" title="1">var storageClasses storagev1.StorageClassList
         if err := v.client.List(ctx, &amp;storageClasses); err != nil </span><span class="cov0" title="0">{
                 return nil, fmt.Errorf("failed to list storage classes: %w", err)
         }</span>
 
         // Build a map of existing StorageClass names
-        <span class="cov0" title="0">existingClasses := make(map[string]bool)
-        for _, sc := range storageClasses.Items </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">existingClasses := make(map[string]bool)
+        for _, sc := range storageClasses.Items </span><span class="cov8" title="1">{
                 existingClasses[sc.Name] = true
         }</span>
 
-        <span class="cov0" title="0">for _, pvc := range pvcs.Items </span><span class="cov0" title="0">{
-                if pvc.Spec.StorageClassName != nil </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">for _, pvc := range pvcs.Items </span><span class="cov8" title="1">{
+                if pvc.Spec.StorageClassName != nil </span><span class="cov8" title="1">{
                         className := *pvc.Spec.StorageClassName
-                        if !existingClasses[className] </span><span class="cov0" title="0">{
+                        if !existingClasses[className] </span><span class="cov8" title="1">{
                                 errors = append(errors, ValidationError{
                                         ResourceType:   "PersistentVolumeClaim",
                                         ResourceName:   pvc.Name,
@@ -522,12 +1160,12 @@ func (v *ReferenceValidator) validatePVCReferences(ctx context.Context) ([]Valid
         }
 
         // Check Pod volumes referencing PVCs
-        <span class="cov0" title="0">var pods corev1.PodList
+        <span class="cov8" title="1">var pods corev1.PodList
         if err := v.client.List(ctx, &amp;pods); err != nil </span><span class="cov0" title="0">{
                 return nil, fmt.Errorf("failed to list pods: %w", err)
         }</span>
 
-        <span class="cov0" title="0">for _, pod := range pods.Items </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">for _, pod := range pods.Items </span><span class="cov0" title="0">{
                 for _, volume := range pod.Spec.Volumes </span><span class="cov0" title="0">{
                         if volume.PersistentVolumeClaim != nil </span><span class="cov0" title="0">{
                                 pvcName := volume.PersistentVolumeClaim.ClaimName
@@ -544,10 +1182,10 @@ func (v *ReferenceValidator) validatePVCReferences(ctx context.Context) ([]Valid
                 }
         }
 
-        <span class="cov0" title="0">return errors, nil</span>
+        <span class="cov8" title="1">return errors, nil</span>
 }
 
-func (v *ReferenceValidator) validateServiceAccountReferences(ctx context.Context) ([]ValidationError, error) <span class="cov0" title="0">{
+func (v *ReferenceValidator) validateServiceAccountReferences(ctx context.Context) ([]ValidationError, error) <span class="cov8" title="1">{
         var errors []ValidationError
 
         // Get all Pods to check ServiceAccount references
@@ -556,12 +1194,12 @@ func (v *ReferenceValidator) validateServiceAccountReferences(ctx context.Contex
                 return nil, fmt.Errorf("failed to list pods: %w", err)
         }</span>
 
-        <span class="cov0" title="0">for _, pod := range pods.Items </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">for _, pod := range pods.Items </span><span class="cov0" title="0">{
                 saName := pod.Spec.ServiceAccountName
                 if saName == "" </span><span class="cov0" title="0">{
                         saName = "default"
                 }</span>
-                
+
                 <span class="cov0" title="0">if err := v.validateServiceAccountExists(ctx, saName, pod.Namespace); err != nil </span><span class="cov0" title="0">{
                         errors = append(errors, ValidationError{
                                 ResourceType:   "Pod",
@@ -573,10 +1211,10 @@ func (v *ReferenceValidator) validateServiceAccountReferences(ctx context.Contex
                 }</span>
         }
 
-        <span class="cov0" title="0">return errors, nil</span>
+        <span class="cov8" title="1">return errors, nil</span>
 }
 
-func (v *ReferenceValidator) validateSecretExists(ctx context.Context, name, namespace string) error <span class="cov0" title="0">{
+func (v *ReferenceValidator) validateSecretExists(ctx context.Context, name, namespace string) error <span class="cov8" title="1">{
         var secret corev1.Secret
         return v.client.Get(ctx, types.NamespacedName{
                 Name:      name,
@@ -598,121 +1236,904 @@ func (v *ReferenceValidator) validateServiceAccountExists(ctx context.Context, n
                 Name:      name,
                 Namespace: namespace,
         }, &amp;sa)
-}</pre>
+}</span>
+</pre>
 		
-		<pre class="file" id="file2" style="display: none">package main
+		<pre class="file" id="file2" style="display: none">// Copyright 2025 Russell Ferriday
+// Licensed under the Apache License, Version 2.0
+//
+// Kogaro - Kubernetes Configuration Hygiene Agent
+
+// Package validators provides a registry pattern for managing multiple validators.
+package validators
 
 import (
-        "flag"
-        "os"
-        "time"
+        "context"
+        "fmt"
+        "sync"
 
-        "k8s.io/apimachinery/pkg/runtime"
-        utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-        clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-        ctrl "sigs.k8s.io/controller-runtime"
-        "sigs.k8s.io/controller-runtime/pkg/healthz"
-        "sigs.k8s.io/controller-runtime/pkg/log/zap"
-        "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-
-        "github.com/russ/kogaro/internal/controllers"
-        "github.com/russ/kogaro/internal/validators"
+        "github.com/go-logr/logr"
 )
 
-var (
-        scheme   = runtime.NewScheme()
-        setupLog = ctrl.Log.WithName("setup")
-)
+// ValidatorRegistry manages a collection of validators and coordinates their execution.
+type ValidatorRegistry struct {
+        validators []Validator
+        log        logr.Logger
+        mu         sync.RWMutex
+}
 
-func init() <span class="cov0" title="0">{
-        utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+// NewValidatorRegistry creates a new ValidatorRegistry with the given logger.
+func NewValidatorRegistry(log logr.Logger) *ValidatorRegistry <span class="cov0" title="0">{
+        return &amp;ValidatorRegistry{
+                validators: make([]Validator, 0),
+                log:        log.WithName("validator-registry"),
+        }
 }</span>
 
-func main() <span class="cov0" title="0">{
-        var metricsAddr string
-        var enableLeaderElection bool
-        var probeAddr string
-        var scanInterval time.Duration
+// Register adds a validator to the registry.
+func (r *ValidatorRegistry) Register(validator Validator) <span class="cov0" title="0">{
+        r.mu.Lock()
+        defer r.mu.Unlock()
         
-        // Validation flags
-        var enableIngressValidation bool
-        var enableConfigMapValidation bool
-        var enableSecretValidation bool
-        var enablePVCValidation bool
-        var enableServiceAccountValidation bool
+        r.validators = append(r.validators, validator)
+        r.log.Info("validator registered", "type", validator.GetValidationType())
+}</span>
 
-        flag.StringVar(&amp;metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-        flag.StringVar(&amp;probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-        flag.BoolVar(&amp;enableLeaderElection, "leader-elect", false,
-                "Enable leader election for controller manager. "+
-                        "Enabling this will ensure there is only one active controller manager.")
-        flag.DurationVar(&amp;scanInterval, "scan-interval", 5*time.Minute, "Interval between cluster scans for reference validation")
-        
-        // Validation configuration flags
-        flag.BoolVar(&amp;enableIngressValidation, "enable-ingress-validation", true, "Enable validation of Ingress references (IngressClass, Services)")
-        flag.BoolVar(&amp;enableConfigMapValidation, "enable-configmap-validation", true, "Enable validation of ConfigMap references in Pods")
-        flag.BoolVar(&amp;enableSecretValidation, "enable-secret-validation", true, "Enable validation of Secret references (volumes, env, TLS)")
-        flag.BoolVar(&amp;enablePVCValidation, "enable-pvc-validation", true, "Enable validation of PVC and StorageClass references")
-        flag.BoolVar(&amp;enableServiceAccountValidation, "enable-serviceaccount-validation", false, "Enable validation of ServiceAccount references (may be noisy)")
-        
-        opts := zap.Options{
-                Development: true,
+// ValidateCluster runs validation across all registered validators.
+func (r *ValidatorRegistry) ValidateCluster(ctx context.Context) error <span class="cov0" title="0">{
+        r.mu.RLock()
+        validators := make([]Validator, len(r.validators))
+        copy(validators, r.validators)
+        r.mu.RUnlock()
+
+        if len(validators) == 0 </span><span class="cov0" title="0">{
+                r.log.Info("no validators registered, skipping validation")
+                return nil
+        }</span>
+
+        <span class="cov0" title="0">r.log.Info("starting cluster validation", "validator_count", len(validators))
+
+        for _, validator := range validators </span><span class="cov0" title="0">{
+                validatorType := validator.GetValidationType()
+                r.log.V(1).Info("running validator", "type", validatorType)
+                
+                if err := validator.ValidateCluster(ctx); err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("validator %s failed: %w", validatorType, err)
+                }</span>
+                
+                <span class="cov0" title="0">r.log.V(1).Info("validator completed", "type", validatorType)</span>
         }
-        opts.BindFlags(flag.CommandLine)
-        flag.Parse()
 
-        ctrl.SetLogger(zap.New(zap.UseFlagOptions(&amp;opts)))
+        <span class="cov0" title="0">r.log.Info("cluster validation completed successfully", "validator_count", len(validators))
+        return nil</span>
+}
 
-        mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-                Scheme: scheme,
-                Metrics: server.Options{
-                        BindAddress: metricsAddr,
-                },
-                HealthProbeBindAddress: probeAddr,
-                LeaderElection:         enableLeaderElection,
-                LeaderElectionID:       "kogaro.io",
-        })
-        if err != nil </span><span class="cov0" title="0">{
-                setupLog.Error(err, "unable to start manager")
-                os.Exit(1)
-        }</span>
+// GetValidators returns a copy of all registered validators (for testing).
+func (r *ValidatorRegistry) GetValidators() []Validator <span class="cov0" title="0">{
+        r.mu.RLock()
+        defer r.mu.RUnlock()
+        
+        validators := make([]Validator, len(r.validators))
+        copy(validators, r.validators)
+        return validators
+}</span>
 
-        // Initialize the reference validator with configuration
-        <span class="cov0" title="0">validationConfig := validators.ValidationConfig{
-                EnableIngressValidation:        enableIngressValidation,
-                EnableConfigMapValidation:      enableConfigMapValidation,
-                EnableSecretValidation:         enableSecretValidation,
-                EnablePVCValidation:           enablePVCValidation,
-                EnableServiceAccountValidation: enableServiceAccountValidation,
+// GetValidationType returns the validation type identifier for the registry.
+func (r *ValidatorRegistry) GetValidationType() string <span class="cov0" title="0">{
+        return "validator_registry"
+}</pre>
+		
+		<pre class="file" id="file3" style="display: none">// Copyright 2025 Russell Ferriday
+// Licensed under the Apache License, Version 2.0
+//
+// Kogaro - Kubernetes Configuration Hygiene Agent
+
+// Package validators provides resource limits validation functionality.
+//
+// This package implements validation of resource requests and limits for
+// Kubernetes workloads, detecting pods without proper resource constraints
+// which can lead to resource contention and cluster instability.
+package validators
+
+import (
+        "context"
+        "fmt"
+
+        "github.com/go-logr/logr"
+        appsv1 "k8s.io/api/apps/v1"
+        corev1 "k8s.io/api/core/v1"
+        "k8s.io/apimachinery/pkg/api/resource"
+        "sigs.k8s.io/controller-runtime/pkg/client"
+
+        "github.com/topiaruss/kogaro/internal/metrics"
+)
+
+// ResourceLimitsConfig defines which resource limit validations to perform
+type ResourceLimitsConfig struct {
+        EnableMissingRequestsValidation bool
+        EnableMissingLimitsValidation   bool
+        EnableQoSValidation             bool
+        // Minimum resource thresholds for validation
+        MinCPURequest    *resource.Quantity
+        MinMemoryRequest *resource.Quantity
+}
+
+// ResourceLimitsValidator validates resource requests and limits across workloads
+type ResourceLimitsValidator struct {
+        client client.Client
+        log    logr.Logger
+        config ResourceLimitsConfig
+}
+
+// NewResourceLimitsValidator creates a new ResourceLimitsValidator with the given client, logger and config
+func NewResourceLimitsValidator(client client.Client, log logr.Logger, config ResourceLimitsConfig) *ResourceLimitsValidator <span class="cov8" title="1">{
+        return &amp;ResourceLimitsValidator{
+                client: client,
+                log:    log.WithName("resource-limits-validator"),
+                config: config,
         }
-        validator := validators.NewReferenceValidator(mgr.GetClient(), setupLog, validationConfig)
+}</span>
 
-        // Setup the reference validation controller
-        if err = (&amp;controllers.ValidationController{
-                Client:       mgr.GetClient(),
-                Scheme:       mgr.GetScheme(),
-                Log:          ctrl.Log.WithName("controllers").WithName("ValidationController"),
-                Validator:    validator,
-                ScanInterval: scanInterval,
-        }).SetupWithManager(mgr); err != nil </span><span class="cov0" title="0">{
-                setupLog.Error(err, "unable to create controller", "controller", "ValidationController")
-                os.Exit(1)
+// GetValidationType returns the validation type identifier for resource limits validation
+func (v *ResourceLimitsValidator) GetValidationType() string <span class="cov8" title="1">{
+        return "resource_limits_validation"
+}</span>
+
+// ValidateCluster performs comprehensive validation of resource limits across the entire cluster
+func (v *ResourceLimitsValidator) ValidateCluster(ctx context.Context) error <span class="cov8" title="1">{
+        metrics.ValidationRuns.Inc()
+        
+        var allErrors []ValidationError
+
+        // Validate Deployments
+        if v.config.EnableMissingRequestsValidation || v.config.EnableMissingLimitsValidation || v.config.EnableQoSValidation </span><span class="cov8" title="1">{
+                deploymentErrors, err := v.validateDeploymentResources(ctx)
+                if err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to validate deployment resources: %w", err)
+                }</span>
+                <span class="cov8" title="1">allErrors = append(allErrors, deploymentErrors...)
+
+                // Validate StatefulSets
+                statefulSetErrors, err := v.validateStatefulSetResources(ctx)
+                if err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to validate statefulset resources: %w", err)
+                }</span>
+                <span class="cov8" title="1">allErrors = append(allErrors, statefulSetErrors...)
+
+                // Validate DaemonSets
+                daemonSetErrors, err := v.validateDaemonSetResources(ctx)
+                if err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to validate daemonset resources: %w", err)
+                }</span>
+                <span class="cov8" title="1">allErrors = append(allErrors, daemonSetErrors...)
+
+                // Validate standalone Pods
+                podErrors, err := v.validatePodResources(ctx)
+                if err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to validate pod resources: %w", err)
+                }</span>
+                <span class="cov8" title="1">allErrors = append(allErrors, podErrors...)</span>
+        }
+
+        // Log all validation errors and update metrics
+        <span class="cov8" title="1">for _, validationErr := range allErrors </span><span class="cov8" title="1">{
+                v.log.Info("validation error found",
+                        "validator_type", "resource_limits",
+                        "resource_type", validationErr.ResourceType,
+                        "resource_name", validationErr.ResourceName,
+                        "namespace", validationErr.Namespace,
+                        "validation_type", validationErr.ValidationType,
+                        "message", validationErr.Message,
+                )
+
+                metrics.ValidationErrors.WithLabelValues(
+                        validationErr.ResourceType,
+                        validationErr.ValidationType,
+                        validationErr.Namespace,
+                ).Inc()
         }</span>
 
-        <span class="cov0" title="0">if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil </span><span class="cov0" title="0">{
-                setupLog.Error(err, "unable to set up health check")
-                os.Exit(1)
-        }</span>
-        <span class="cov0" title="0">if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil </span><span class="cov0" title="0">{
-                setupLog.Error(err, "unable to set up ready check")
-                os.Exit(1)
+        <span class="cov8" title="1">v.log.Info("validation completed", "validator_type", "resource_limits", "total_errors", len(allErrors))
+        return nil</span>
+}
+
+func (v *ResourceLimitsValidator) validateDeploymentResources(ctx context.Context) ([]ValidationError, error) <span class="cov8" title="1">{
+        var errors []ValidationError
+        var deployments appsv1.DeploymentList
+
+        if err := v.client.List(ctx, &amp;deployments); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to list deployments: %w", err)
         }</span>
 
-        <span class="cov0" title="0">setupLog.Info("starting manager")
-        if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil </span><span class="cov0" title="0">{
-                setupLog.Error(err, "problem running manager")
-                os.Exit(1)
+        <span class="cov8" title="1">for _, deployment := range deployments.Items </span><span class="cov8" title="1">{
+                containerErrors := v.validateContainerResources(deployment.Spec.Template.Spec.Containers, "Deployment", deployment.Name, deployment.Namespace)
+                errors = append(errors, containerErrors...)
+
+                initContainerErrors := v.validateContainerResources(deployment.Spec.Template.Spec.InitContainers, "Deployment", deployment.Name, deployment.Namespace)
+                errors = append(errors, initContainerErrors...)
         }</span>
+
+        <span class="cov8" title="1">return errors, nil</span>
+}
+
+func (v *ResourceLimitsValidator) validateStatefulSetResources(ctx context.Context) ([]ValidationError, error) <span class="cov8" title="1">{
+        var errors []ValidationError
+        var statefulSets appsv1.StatefulSetList
+
+        if err := v.client.List(ctx, &amp;statefulSets); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to list statefulsets: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">for _, statefulSet := range statefulSets.Items </span><span class="cov0" title="0">{
+                containerErrors := v.validateContainerResources(statefulSet.Spec.Template.Spec.Containers, "StatefulSet", statefulSet.Name, statefulSet.Namespace)
+                errors = append(errors, containerErrors...)
+
+                initContainerErrors := v.validateContainerResources(statefulSet.Spec.Template.Spec.InitContainers, "StatefulSet", statefulSet.Name, statefulSet.Namespace)
+                errors = append(errors, initContainerErrors...)
+        }</span>
+
+        <span class="cov8" title="1">return errors, nil</span>
+}
+
+func (v *ResourceLimitsValidator) validateDaemonSetResources(ctx context.Context) ([]ValidationError, error) <span class="cov8" title="1">{
+        var errors []ValidationError
+        var daemonSets appsv1.DaemonSetList
+
+        if err := v.client.List(ctx, &amp;daemonSets); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to list daemonsets: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">for _, daemonSet := range daemonSets.Items </span><span class="cov0" title="0">{
+                containerErrors := v.validateContainerResources(daemonSet.Spec.Template.Spec.Containers, "DaemonSet", daemonSet.Name, daemonSet.Namespace)
+                errors = append(errors, containerErrors...)
+
+                initContainerErrors := v.validateContainerResources(daemonSet.Spec.Template.Spec.InitContainers, "DaemonSet", daemonSet.Name, daemonSet.Namespace)
+                errors = append(errors, initContainerErrors...)
+        }</span>
+
+        <span class="cov8" title="1">return errors, nil</span>
+}
+
+func (v *ResourceLimitsValidator) validatePodResources(ctx context.Context) ([]ValidationError, error) <span class="cov8" title="1">{
+        var errors []ValidationError
+        var pods corev1.PodList
+
+        if err := v.client.List(ctx, &amp;pods); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to list pods: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">for _, pod := range pods.Items </span><span class="cov0" title="0">{
+                // Skip pods managed by controllers (they're validated via their controllers)
+                if len(pod.OwnerReferences) &gt; 0 </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+
+                <span class="cov0" title="0">containerErrors := v.validateContainerResources(pod.Spec.Containers, "Pod", pod.Name, pod.Namespace)
+                errors = append(errors, containerErrors...)
+
+                initContainerErrors := v.validateContainerResources(pod.Spec.InitContainers, "Pod", pod.Name, pod.Namespace)
+                errors = append(errors, initContainerErrors...)</span>
+        }
+
+        <span class="cov8" title="1">return errors, nil</span>
+}
+
+func (v *ResourceLimitsValidator) validateContainerResources(containers []corev1.Container, resourceType, resourceName, namespace string) []ValidationError <span class="cov8" title="1">{
+        var errors []ValidationError
+
+        for _, container := range containers </span><span class="cov8" title="1">{
+                // Check for missing resource requests
+                if v.config.EnableMissingRequestsValidation </span><span class="cov8" title="1">{
+                        if container.Resources.Requests == nil ||
+                                (container.Resources.Requests.Cpu().IsZero() &amp;&amp; container.Resources.Requests.Memory().IsZero()) </span><span class="cov8" title="1">{
+                                errors = append(errors, ValidationError{
+                                        ResourceType:   resourceType,
+                                        ResourceName:   resourceName,
+                                        Namespace:      namespace,
+                                        ValidationType: "missing_resource_requests",
+                                        Message:        fmt.Sprintf("Container '%s' has no resource requests defined", container.Name),
+                                })
+                        }</span> else<span class="cov8" title="1"> {
+                                // Check minimum CPU request
+                                if v.config.MinCPURequest != nil &amp;&amp; container.Resources.Requests.Cpu().Cmp(*v.config.MinCPURequest) &lt; 0 </span><span class="cov8" title="1">{
+                                        errors = append(errors, ValidationError{
+                                                ResourceType:   resourceType,
+                                                ResourceName:   resourceName,
+                                                Namespace:      namespace,
+                                                ValidationType: "insufficient_cpu_request",
+                                                Message:        fmt.Sprintf("Container '%s' CPU request %s is below minimum %s", container.Name, container.Resources.Requests.Cpu().String(), v.config.MinCPURequest.String()),
+                                        })
+                                }</span>
+
+                                // Check minimum memory request
+                                <span class="cov8" title="1">if v.config.MinMemoryRequest != nil &amp;&amp; container.Resources.Requests.Memory().Cmp(*v.config.MinMemoryRequest) &lt; 0 </span><span class="cov0" title="0">{
+                                        errors = append(errors, ValidationError{
+                                                ResourceType:   resourceType,
+                                                ResourceName:   resourceName,
+                                                Namespace:      namespace,
+                                                ValidationType: "insufficient_memory_request",
+                                                Message:        fmt.Sprintf("Container '%s' memory request %s is below minimum %s", container.Name, container.Resources.Requests.Memory().String(), v.config.MinMemoryRequest.String()),
+                                        })
+                                }</span>
+                        }
+                }
+
+                // Check for missing resource limits
+                <span class="cov8" title="1">if v.config.EnableMissingLimitsValidation </span><span class="cov8" title="1">{
+                        if container.Resources.Limits == nil ||
+                                (container.Resources.Limits.Cpu().IsZero() &amp;&amp; container.Resources.Limits.Memory().IsZero()) </span><span class="cov8" title="1">{
+                                errors = append(errors, ValidationError{
+                                        ResourceType:   resourceType,
+                                        ResourceName:   resourceName,
+                                        Namespace:      namespace,
+                                        ValidationType: "missing_resource_limits",
+                                        Message:        fmt.Sprintf("Container '%s' has no resource limits defined", container.Name),
+                                })
+                        }</span>
+                }
+
+                // Check QoS class implications
+                <span class="cov8" title="1">if v.config.EnableQoSValidation </span><span class="cov8" title="1">{
+                        qosIssues := v.analyzeQoSClass(container)
+                        for _, issue := range qosIssues </span><span class="cov8" title="1">{
+                                errors = append(errors, ValidationError{
+                                        ResourceType:   resourceType,
+                                        ResourceName:   resourceName,
+                                        Namespace:      namespace,
+                                        ValidationType: "qos_class_issue",
+                                        Message:        fmt.Sprintf("Container '%s': %s", container.Name, issue),
+                                })
+                        }</span>
+                }
+        }
+
+        <span class="cov8" title="1">return errors</span>
+}
+
+func (v *ResourceLimitsValidator) analyzeQoSClass(container corev1.Container) []string <span class="cov8" title="1">{
+        var issues []string
+
+        hasRequests := container.Resources.Requests != nil &amp;&amp; (!container.Resources.Requests.Cpu().IsZero() || !container.Resources.Requests.Memory().IsZero())
+        hasLimits := container.Resources.Limits != nil &amp;&amp; (!container.Resources.Limits.Cpu().IsZero() || !container.Resources.Limits.Memory().IsZero())
+
+        if !hasRequests &amp;&amp; !hasLimits </span><span class="cov8" title="1">{
+                issues = append(issues, "BestEffort QoS: no resource constraints, can be killed first under pressure")
+        }</span> else<span class="cov8" title="1"> if hasRequests &amp;&amp; hasLimits </span><span class="cov8" title="1">{
+                // Check if requests equal limits (Guaranteed QoS)
+                if container.Resources.Requests != nil &amp;&amp; container.Resources.Limits != nil </span><span class="cov8" title="1">{
+                        cpuRequestsEqualLimits := container.Resources.Requests.Cpu().Equal(*container.Resources.Limits.Cpu())
+                        memoryRequestsEqualLimits := container.Resources.Requests.Memory().Equal(*container.Resources.Limits.Memory())
+
+                        if !cpuRequestsEqualLimits || !memoryRequestsEqualLimits </span><span class="cov8" title="1">{
+                                issues = append(issues, "Burstable QoS: requests != limits, may face throttling under pressure")
+                        }</span>
+                }
+        } else<span class="cov0" title="0"> if hasRequests &amp;&amp; !hasLimits </span><span class="cov0" title="0">{
+                issues = append(issues, "Burstable QoS: has requests but no limits, may consume unlimited resources")
+        }</span> else<span class="cov0" title="0"> if !hasRequests &amp;&amp; hasLimits </span><span class="cov0" title="0">{
+                issues = append(issues, "Burstable QoS: has limits but no requests, requests will default to limits")
+        }</span>
+
+        <span class="cov8" title="1">return issues</span>
+}</pre>
+		
+		<pre class="file" id="file4" style="display: none">// Copyright 2025 Russell Ferriday
+// Licensed under the Apache License, Version 2.0
+//
+// Kogaro - Kubernetes Configuration Hygiene Agent
+
+// Package validators provides security configuration validation functionality.
+//
+// This package implements validation of security configurations within
+// a Kubernetes cluster, detecting security misconfigurations that could
+// expose workloads to unnecessary risk. It validates SecurityContext settings,
+// root privilege usage, ServiceAccount permissions, and NetworkPolicy coverage.
+package validators
+
+import (
+        "context"
+        "fmt"
+
+        "github.com/go-logr/logr"
+        appsv1 "k8s.io/api/apps/v1"
+        corev1 "k8s.io/api/core/v1"
+        networkingv1 "k8s.io/api/networking/v1"
+        rbacv1 "k8s.io/api/rbac/v1"
+        "sigs.k8s.io/controller-runtime/pkg/client"
+
+        "github.com/topiaruss/kogaro/internal/metrics"
+        "github.com/topiaruss/kogaro/internal/utils"
+)
+
+// SecurityConfig defines which security validation checks to perform
+type SecurityConfig struct {
+        EnableRootUserValidation       bool
+        EnableSecurityContextValidation bool
+        EnableServiceAccountValidation  bool
+        EnableNetworkPolicyValidation   bool
+        // Namespaces that require NetworkPolicies for security compliance
+        SecuritySensitiveNamespaces []string
+}
+
+// SecurityValidator validates security configurations across workloads
+type SecurityValidator struct {
+        client client.Client
+        log    logr.Logger
+        config SecurityConfig
+}
+
+// NewSecurityValidator creates a new SecurityValidator with the given client, logger and config
+func NewSecurityValidator(client client.Client, log logr.Logger, config SecurityConfig) *SecurityValidator <span class="cov8" title="1">{
+        return &amp;SecurityValidator{
+                client: client,
+                log:    log.WithName("security-validator"),
+                config: config,
+        }
+}</span>
+
+// GetValidationType returns the validation type identifier for security validation
+func (v *SecurityValidator) GetValidationType() string <span class="cov8" title="1">{
+        return "security_validation"
+}</span>
+
+// ValidateCluster performs comprehensive validation of security configurations across the entire cluster
+func (v *SecurityValidator) ValidateCluster(ctx context.Context) error <span class="cov8" title="1">{
+        metrics.ValidationRuns.Inc()
+        
+        var allErrors []ValidationError
+
+        // Validate root user and SecurityContext configurations
+        if v.config.EnableRootUserValidation || v.config.EnableSecurityContextValidation </span><span class="cov8" title="1">{
+                deploymentErrors, err := v.validateDeploymentSecurity(ctx)
+                if err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to validate deployment security: %w", err)
+                }</span>
+                <span class="cov8" title="1">allErrors = append(allErrors, deploymentErrors...)
+
+                statefulSetErrors, err := v.validateStatefulSetSecurity(ctx)
+                if err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to validate statefulset security: %w", err)
+                }</span>
+                <span class="cov8" title="1">allErrors = append(allErrors, statefulSetErrors...)
+
+                daemonSetErrors, err := v.validateDaemonSetSecurity(ctx)
+                if err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to validate daemonset security: %w", err)
+                }</span>
+                <span class="cov8" title="1">allErrors = append(allErrors, daemonSetErrors...)
+
+                podErrors, err := v.validatePodSecurity(ctx)
+                if err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to validate pod security: %w", err)
+                }</span>
+                <span class="cov8" title="1">allErrors = append(allErrors, podErrors...)</span>
+        }
+
+        // Validate ServiceAccount permissions
+        <span class="cov8" title="1">if v.config.EnableServiceAccountValidation </span><span class="cov8" title="1">{
+                serviceAccountErrors, err := v.validateServiceAccountPermissions(ctx)
+                if err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to validate serviceaccount permissions: %w", err)
+                }</span>
+                <span class="cov8" title="1">allErrors = append(allErrors, serviceAccountErrors...)</span>
+        }
+
+        // Validate NetworkPolicy coverage
+        <span class="cov8" title="1">if v.config.EnableNetworkPolicyValidation </span><span class="cov8" title="1">{
+                networkPolicyErrors, err := v.validateNetworkPolicyCoverage(ctx)
+                if err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to validate networkpolicy coverage: %w", err)
+                }</span>
+                <span class="cov8" title="1">allErrors = append(allErrors, networkPolicyErrors...)</span>
+        }
+
+        // Log all validation errors and update metrics
+        <span class="cov8" title="1">for _, validationErr := range allErrors </span><span class="cov8" title="1">{
+                v.log.Info("validation error found",
+                        "validator_type", "security",
+                        "resource_type", validationErr.ResourceType,
+                        "resource_name", validationErr.ResourceName,
+                        "namespace", validationErr.Namespace,
+                        "validation_type", validationErr.ValidationType,
+                        "message", validationErr.Message,
+                )
+
+                metrics.ValidationErrors.WithLabelValues(
+                        validationErr.ResourceType,
+                        validationErr.ValidationType,
+                        validationErr.Namespace,
+                ).Inc()
+        }</span>
+
+        <span class="cov8" title="1">v.log.Info("validation completed", "validator_type", "security", "total_errors", len(allErrors))
+        return nil</span>
+}
+
+func (v *SecurityValidator) validateDeploymentSecurity(ctx context.Context) ([]ValidationError, error) <span class="cov8" title="1">{
+        var errors []ValidationError
+        var deployments appsv1.DeploymentList
+
+        if err := v.client.List(ctx, &amp;deployments); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to list deployments: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">for _, deployment := range deployments.Items </span><span class="cov8" title="1">{
+                securityErrors := v.validatePodTemplateSecurity(deployment.Spec.Template, "Deployment", deployment.Name, deployment.Namespace)
+                errors = append(errors, securityErrors...)
+        }</span>
+
+        <span class="cov8" title="1">return errors, nil</span>
+}
+
+func (v *SecurityValidator) validateStatefulSetSecurity(ctx context.Context) ([]ValidationError, error) <span class="cov8" title="1">{
+        var errors []ValidationError
+        var statefulSets appsv1.StatefulSetList
+
+        if err := v.client.List(ctx, &amp;statefulSets); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to list statefulsets: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">for _, statefulSet := range statefulSets.Items </span><span class="cov8" title="1">{
+                securityErrors := v.validatePodTemplateSecurity(statefulSet.Spec.Template, "StatefulSet", statefulSet.Name, statefulSet.Namespace)
+                errors = append(errors, securityErrors...)
+        }</span>
+
+        <span class="cov8" title="1">return errors, nil</span>
+}
+
+func (v *SecurityValidator) validateDaemonSetSecurity(ctx context.Context) ([]ValidationError, error) <span class="cov8" title="1">{
+        var errors []ValidationError
+        var daemonSets appsv1.DaemonSetList
+
+        if err := v.client.List(ctx, &amp;daemonSets); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to list daemonsets: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">for _, daemonSet := range daemonSets.Items </span><span class="cov8" title="1">{
+                securityErrors := v.validatePodTemplateSecurity(daemonSet.Spec.Template, "DaemonSet", daemonSet.Name, daemonSet.Namespace)
+                errors = append(errors, securityErrors...)
+        }</span>
+
+        <span class="cov8" title="1">return errors, nil</span>
+}
+
+func (v *SecurityValidator) validatePodSecurity(ctx context.Context) ([]ValidationError, error) <span class="cov8" title="1">{
+        var errors []ValidationError
+        var pods corev1.PodList
+
+        if err := v.client.List(ctx, &amp;pods); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to list pods: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">for _, pod := range pods.Items </span><span class="cov8" title="1">{
+                // Skip pods managed by controllers (they're validated via their controllers)
+                if utils.HasOwnerReferences(pod) </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+
+                <span class="cov8" title="1">podTemplate := corev1.PodTemplateSpec{
+                        Spec: pod.Spec,
+                }
+                securityErrors := v.validatePodTemplateSecurity(podTemplate, "Pod", pod.Name, pod.Namespace)
+                errors = append(errors, securityErrors...)</span>
+        }
+
+        <span class="cov8" title="1">return errors, nil</span>
+}
+
+func (v *SecurityValidator) validatePodTemplateSecurity(template corev1.PodTemplateSpec, resourceType, resourceName, namespace string) []ValidationError <span class="cov8" title="1">{
+        var errors []ValidationError
+
+        // Validate Pod-level SecurityContext
+        if v.config.EnableSecurityContextValidation </span><span class="cov8" title="1">{
+                if template.Spec.SecurityContext == nil </span><span class="cov8" title="1">{
+                        errors = append(errors, ValidationError{
+                                ResourceType:   resourceType,
+                                ResourceName:   resourceName,
+                                Namespace:      namespace,
+                                ValidationType: "missing_pod_security_context",
+                                Message:        "Pod has no SecurityContext defined",
+                        })
+                }</span> else<span class="cov8" title="1"> {
+                        // Check for Pod-level security settings
+                        podSecurityErrors := v.validatePodSecurityContext(template.Spec.SecurityContext, resourceType, resourceName, namespace)
+                        errors = append(errors, podSecurityErrors...)
+                }</span>
+        }
+
+        // Validate Container-level security
+        <span class="cov8" title="1">containerErrors := v.validateContainersSecurity(template.Spec.Containers, resourceType, resourceName, namespace, false)
+        errors = append(errors, containerErrors...)
+
+        initContainerErrors := v.validateContainersSecurity(template.Spec.InitContainers, resourceType, resourceName, namespace, true)
+        errors = append(errors, initContainerErrors...)
+
+        return errors</span>
+}
+
+func (v *SecurityValidator) validatePodSecurityContext(securityContext *corev1.PodSecurityContext, resourceType, resourceName, namespace string) []ValidationError <span class="cov8" title="1">{
+        var errors []ValidationError
+
+        if v.config.EnableRootUserValidation </span><span class="cov8" title="1">{
+                // Check if Pod is running as root user
+                if securityContext.RunAsUser != nil &amp;&amp; *securityContext.RunAsUser == 0 </span><span class="cov0" title="0">{
+                        errors = append(errors, ValidationError{
+                                ResourceType:   resourceType,
+                                ResourceName:   resourceName,
+                                Namespace:      namespace,
+                                ValidationType: "pod_running_as_root",
+                                Message:        "Pod SecurityContext specifies runAsUser: 0 (root)",
+                        })
+                }</span>
+
+                // Check if Pod allows privilege escalation
+                <span class="cov8" title="1">if securityContext.RunAsNonRoot == nil || !*securityContext.RunAsNonRoot </span><span class="cov0" title="0">{
+                        errors = append(errors, ValidationError{
+                                ResourceType:   resourceType,
+                                ResourceName:   resourceName,
+                                Namespace:      namespace,
+                                ValidationType: "pod_allows_root_user",
+                                Message:        "Pod SecurityContext does not enforce runAsNonRoot: true",
+                        })
+                }</span>
+        }
+
+        <span class="cov8" title="1">return errors</span>
+}
+
+func (v *SecurityValidator) validateContainersSecurity(containers []corev1.Container, resourceType, resourceName, namespace string, isInitContainer bool) []ValidationError <span class="cov8" title="1">{
+        var errors []ValidationError
+
+        containerType := "container"
+        if isInitContainer </span><span class="cov8" title="1">{
+                containerType = "init container"
+        }</span>
+
+        <span class="cov8" title="1">for _, container := range containers </span><span class="cov8" title="1">{
+                if v.config.EnableSecurityContextValidation </span><span class="cov8" title="1">{
+                        if container.SecurityContext == nil </span><span class="cov8" title="1">{
+                                errors = append(errors, ValidationError{
+                                        ResourceType:   resourceType,
+                                        ResourceName:   resourceName,
+                                        Namespace:      namespace,
+                                        ValidationType: "missing_container_security_context",
+                                        Message:        fmt.Sprintf("Container '%s' (%s) has no SecurityContext defined", container.Name, containerType),
+                                })
+                        }</span> else<span class="cov8" title="1"> {
+                                containerSecurityErrors := v.validateContainerSecurityContext(container.SecurityContext, container.Name, containerType, resourceType, resourceName, namespace)
+                                errors = append(errors, containerSecurityErrors...)
+                        }</span>
+                }
+        }
+
+        <span class="cov8" title="1">return errors</span>
+}
+
+func (v *SecurityValidator) validateContainerSecurityContext(securityContext *corev1.SecurityContext, containerName, containerType, resourceType, resourceName, namespace string) []ValidationError <span class="cov8" title="1">{
+        var errors []ValidationError
+
+        if v.config.EnableRootUserValidation </span><span class="cov8" title="1">{
+                // Check if container is running as root user
+                if securityContext.RunAsUser != nil &amp;&amp; *securityContext.RunAsUser == 0 </span><span class="cov0" title="0">{
+                        errors = append(errors, ValidationError{
+                                ResourceType:   resourceType,
+                                ResourceName:   resourceName,
+                                Namespace:      namespace,
+                                ValidationType: "container_running_as_root",
+                                Message:        fmt.Sprintf("Container '%s' (%s) SecurityContext specifies runAsUser: 0 (root)", containerName, containerType),
+                        })
+                }</span>
+
+                // Check if container allows privilege escalation
+                <span class="cov8" title="1">if securityContext.AllowPrivilegeEscalation == nil || *securityContext.AllowPrivilegeEscalation </span><span class="cov0" title="0">{
+                        errors = append(errors, ValidationError{
+                                ResourceType:   resourceType,
+                                ResourceName:   resourceName,
+                                Namespace:      namespace,
+                                ValidationType: "container_allows_privilege_escalation",
+                                Message:        fmt.Sprintf("Container '%s' (%s) SecurityContext does not set allowPrivilegeEscalation: false", containerName, containerType),
+                        })
+                }</span>
+
+                // Check if container is running in privileged mode
+                <span class="cov8" title="1">if securityContext.Privileged != nil &amp;&amp; *securityContext.Privileged </span><span class="cov0" title="0">{
+                        errors = append(errors, ValidationError{
+                                ResourceType:   resourceType,
+                                ResourceName:   resourceName,
+                                Namespace:      namespace,
+                                ValidationType: "container_privileged_mode",
+                                Message:        fmt.Sprintf("Container '%s' (%s) SecurityContext specifies privileged: true", containerName, containerType),
+                        })
+                }</span>
+
+                // Check if container has root filesystem read-only
+                <span class="cov8" title="1">if securityContext.ReadOnlyRootFilesystem == nil || !*securityContext.ReadOnlyRootFilesystem </span><span class="cov0" title="0">{
+                        errors = append(errors, ValidationError{
+                                ResourceType:   resourceType,
+                                ResourceName:   resourceName,
+                                Namespace:      namespace,
+                                ValidationType: "container_writable_root_filesystem",
+                                Message:        fmt.Sprintf("Container '%s' (%s) SecurityContext does not set readOnlyRootFilesystem: true", containerName, containerType),
+                        })
+                }</span>
+        }
+
+        <span class="cov8" title="1">if v.config.EnableSecurityContextValidation </span><span class="cov8" title="1">{
+                // Check for capabilities
+                if securityContext.Capabilities != nil &amp;&amp; len(securityContext.Capabilities.Add) &gt; 0 </span><span class="cov8" title="1">{
+                        for _, capability := range securityContext.Capabilities.Add </span><span class="cov8" title="1">{
+                                errors = append(errors, ValidationError{
+                                        ResourceType:   resourceType,
+                                        ResourceName:   resourceName,
+                                        Namespace:      namespace,
+                                        ValidationType: "container_additional_capabilities",
+                                        Message:        fmt.Sprintf("Container '%s' (%s) SecurityContext adds capability: %s", containerName, containerType, capability),
+                                })
+                        }</span>
+                }
+        }
+
+        <span class="cov8" title="1">return errors</span>
+}
+
+func (v *SecurityValidator) validateServiceAccountPermissions(ctx context.Context) ([]ValidationError, error) <span class="cov8" title="1">{
+        var errors []ValidationError
+
+        // Get all ServiceAccounts
+        var serviceAccounts corev1.ServiceAccountList
+        if err := v.client.List(ctx, &amp;serviceAccounts); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to list serviceaccounts: %w", err)
+        }</span>
+
+        // Get all RoleBindings and ClusterRoleBindings
+        <span class="cov8" title="1">var roleBindings rbacv1.RoleBindingList
+        if err := v.client.List(ctx, &amp;roleBindings); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to list rolebindings: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">var clusterRoleBindings rbacv1.ClusterRoleBindingList
+        if err := v.client.List(ctx, &amp;clusterRoleBindings); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to list clusterrolebindings: %w", err)
+        }</span>
+
+        // Check for ServiceAccounts with potentially excessive permissions
+        <span class="cov8" title="1">for _, sa := range serviceAccounts.Items </span><span class="cov8" title="1">{
+                // Skip default and system ServiceAccounts for some checks
+                if sa.Name == "default" &amp;&amp; sa.Namespace == "default" </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+
+                // Check for ClusterRoleBindings that give this ServiceAccount cluster-wide permissions
+                <span class="cov8" title="1">for _, crb := range clusterRoleBindings.Items </span><span class="cov8" title="1">{
+                        for _, subject := range crb.Subjects </span><span class="cov8" title="1">{
+                                if subject.Kind == "ServiceAccount" &amp;&amp; subject.Name == sa.Name &amp;&amp; subject.Namespace == sa.Namespace </span><span class="cov8" title="1">{
+                                        errors = append(errors, ValidationError{
+                                                ResourceType:   "ServiceAccount",
+                                                ResourceName:   sa.Name,
+                                                Namespace:      sa.Namespace,
+                                                ValidationType: "serviceaccount_cluster_role_binding",
+                                                Message:        fmt.Sprintf("ServiceAccount has ClusterRoleBinding '%s' with role '%s'", crb.Name, crb.RoleRef.Name),
+                                        })
+                                }</span>
+                        }
+                }
+
+                // Check for potentially dangerous RoleBindings
+                <span class="cov8" title="1">for _, rb := range roleBindings.Items </span><span class="cov8" title="1">{
+                        if rb.Namespace != sa.Namespace </span><span class="cov0" title="0">{
+                                continue</span>
+                        }
+
+                        <span class="cov8" title="1">for _, subject := range rb.Subjects </span><span class="cov8" title="1">{
+                                if subject.Kind == "ServiceAccount" &amp;&amp; subject.Name == sa.Name </span><span class="cov8" title="1">{
+                                        // Flag some potentially dangerous role names
+                                        if v.isDangerousRole(rb.RoleRef.Name) </span><span class="cov8" title="1">{
+                                                errors = append(errors, ValidationError{
+                                                        ResourceType:   "ServiceAccount",
+                                                        ResourceName:   sa.Name,
+                                                        Namespace:      sa.Namespace,
+                                                        ValidationType: "serviceaccount_excessive_permissions",
+                                                        Message:        fmt.Sprintf("ServiceAccount has potentially excessive RoleBinding '%s' with role '%s'", rb.Name, rb.RoleRef.Name),
+                                                })
+                                        }</span>
+                                }
+                        }
+                }
+        }
+
+        <span class="cov8" title="1">return errors, nil</span>
+}
+
+func (v *SecurityValidator) isDangerousRole(roleName string) bool <span class="cov8" title="1">{
+        dangerousRoles := []string{
+                "admin",
+                "cluster-admin",
+                "edit",
+                "system:admin",
+        }
+
+        for _, dangerous := range dangerousRoles </span><span class="cov8" title="1">{
+                if roleName == dangerous </span><span class="cov8" title="1">{
+                        return true
+                }</span>
+        }
+        <span class="cov8" title="1">return false</span>
+}
+
+func (v *SecurityValidator) validateNetworkPolicyCoverage(ctx context.Context) ([]ValidationError, error) <span class="cov8" title="1">{
+        var errors []ValidationError
+
+        // Get all NetworkPolicies
+        var networkPolicies networkingv1.NetworkPolicyList
+        if err := v.client.List(ctx, &amp;networkPolicies); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to list networkpolicies: %w", err)
+        }</span>
+
+        // Create a map of namespaces that have NetworkPolicies
+        <span class="cov8" title="1">namespacesWithPolicies := make(map[string]bool)
+        for _, np := range networkPolicies.Items </span><span class="cov8" title="1">{
+                namespacesWithPolicies[np.Namespace] = true
+        }</span>
+
+        // Check if security-sensitive namespaces have NetworkPolicies
+        <span class="cov8" title="1">for _, sensitiveNamespace := range v.config.SecuritySensitiveNamespaces </span><span class="cov8" title="1">{
+                if !namespacesWithPolicies[sensitiveNamespace] </span><span class="cov8" title="1">{
+                        errors = append(errors, ValidationError{
+                                ResourceType:   "Namespace",
+                                ResourceName:   sensitiveNamespace,
+                                Namespace:      sensitiveNamespace,
+                                ValidationType: "missing_network_policy_security_sensitive",
+                                Message:        fmt.Sprintf("Security-sensitive namespace '%s' has no NetworkPolicies defined", sensitiveNamespace),
+                        })
+                }</span>
+        }
+
+        // Get all namespaces and check for production-like namespaces without policies
+        <span class="cov8" title="1">var namespaces corev1.NamespaceList
+        if err := v.client.List(ctx, &amp;namespaces); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to list namespaces: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">for _, ns := range namespaces.Items </span><span class="cov8" title="1">{
+                // Skip system namespaces
+                if utils.IsSystemNamespace(ns.Name) </span><span class="cov8" title="1">{
+                        continue</span>
+                }
+
+                // Check if this looks like a production namespace without NetworkPolicies
+                <span class="cov8" title="1">if v.isProductionLikeNamespace(ns.Name) &amp;&amp; !namespacesWithPolicies[ns.Name] </span><span class="cov8" title="1">{
+                        errors = append(errors, ValidationError{
+                                ResourceType:   "Namespace",
+                                ResourceName:   ns.Name,
+                                Namespace:      ns.Name,
+                                ValidationType: "missing_network_policy_production",
+                                Message:        fmt.Sprintf("Production-like namespace '%s' has no NetworkPolicies defined", ns.Name),
+                        })
+                }</span>
+        }
+
+        <span class="cov8" title="1">return errors, nil</span>
+}
+
+
+func (v *SecurityValidator) isProductionLikeNamespace(namespace string) bool <span class="cov8" title="1">{
+        productionIndicators := []string{
+                "prod",
+                "production",
+                "live",
+                "api",
+                "app",
+                "web",
+                "service",
+        }
+
+        for _, indicator := range productionIndicators </span><span class="cov8" title="1">{
+                if namespace == indicator || len(namespace) &gt; len(indicator) &amp;&amp; 
+                        (namespace[:len(indicator)] == indicator || namespace[len(namespace)-len(indicator):] == indicator) </span><span class="cov8" title="1">{
+                        return true
+                }</span>
+        }
+        <span class="cov8" title="1">return false</span>
 }</pre>
 		
 		</div>

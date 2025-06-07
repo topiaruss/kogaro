@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kogaro-testbed.fullname" . }}-namespace-exclusion-test
+  labels:
+    {{- include "kogaro-testbed.labels" . | nindent 4 }}
+    test-case: "namespace-exclusion-test"
+    test-category: "shared-config"
+  annotations:
+    test-description: "Tests context-specific namespace exclusions - default namespace excluded from security but not networking validation"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "kogaro-testbed.selectorLabels" . | nindent 6 }}
+      test-case: "namespace-exclusion-test"
+  template:
+    metadata:
+      labels:
+        {{- include "kogaro-testbed.selectorLabels" . | nindent 8 }}
+        test-case: "namespace-exclusion-test"
+        app: namespace-exclusion-app
+    spec:
+      # Intentionally insecure configuration that should be excluded from security validation
+      # if deployed to 'default' namespace but still validated for networking issues
+      securityContext:
+        runAsUser: 0  # Root user - should be excluded from security validation in system namespaces
+      containers:
+      - name: exclusion-test-container
+        image: nginx:1.21-alpine
+        securityContext:
+          runAsUser: 0  # Root user
+          privileged: true  # Privileged mode
+          allowPrivilegeEscalation: true
+          readOnlyRootFilesystem: false
+          capabilities:
+            add:
+              - NET_ADMIN  # Additional capabilities
+        # Missing resource constraints - should still be validated if not in excluded namespace
+        ports:
+        - containerPort: 8080
+          name: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kogaro-testbed.fullname" . }}-namespace-exclusion-service
+  labels:
+    {{- include "kogaro-testbed.labels" . | nindent 4 }}
+    test-case: "namespace-exclusion-test"
+spec:
+  selector:
+    test-case: "namespace-exclusion-test"
+    app: namespace-exclusion-app
+  ports:
+  - port: 80
+    targetPort: 8080
+    name: http
+  type: ClusterIP

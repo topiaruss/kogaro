@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kogaro-testbed.fullname" . }}-enhanced-errors-test
+  labels:
+    {{- include "kogaro-testbed.labels" . | nindent 4 }}
+    test-case: "enhanced-errors-test"
+    test-category: "validation-error-details"
+  annotations:
+    test-description: "Tests enhanced ValidationError details with severity, remediation hints, and related resources"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "kogaro-testbed.selectorLabels" . | nindent 6 }}
+      test-case: "enhanced-errors-test"
+  template:
+    metadata:
+      labels:
+        {{- include "kogaro-testbed.selectorLabels" . | nindent 8 }}
+        test-case: "enhanced-errors-test"
+        app: enhanced-errors-app
+    spec:
+      # Multiple security violations that should generate rich error details
+      securityContext:
+        runAsUser: 0  # Error: pod_running_as_root (Severity: Error)
+        # Missing runAsNonRoot: true - Error: pod_allows_root_user (Severity: Error)
+      serviceAccountName: nonexistent-service-account  # Error: dangling_service_account (Severity: Error)
+      containers:
+      - name: multi-error-container
+        image: nginx:1.21-alpine
+        securityContext:
+          runAsUser: 0  # Error: container_running_as_root (Severity: Error)
+          privileged: true  # Error: container_privileged_mode (Severity: Error)
+          allowPrivilegeEscalation: true  # Error: container_allows_privilege_escalation (Severity: Error)
+          readOnlyRootFilesystem: false  # Error: container_writable_root_filesystem (Severity: Error)
+          capabilities:
+            add:
+              - NET_ADMIN  # Error: container_additional_capabilities (Severity: Error)
+              - SYS_ADMIN  # Error: container_additional_capabilities (Severity: Error)
+        # Missing resource constraints - Error: missing_resource_requests, missing_resource_limits (Severity: Error)
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: nonexistent-secret  # Error: dangling_secret_env (Severity: Error)
+              key: secret-key
+        envFrom:
+        - configMapRef:
+            name: nonexistent-configmap  # Error: dangling_configmap_envfrom (Severity: Error)
+        volumeMounts:
+        - name: secret-volume
+          mountPath: /etc/secrets
+        - name: configmap-volume
+          mountPath: /etc/config
+        - name: pvc-volume
+          mountPath: /data
+      - name: additional-error-container
+        image: busybox:1.35
+        # Missing SecurityContext entirely - Error: missing_container_security_context (Severity: Error)
+        resources:
+          requests:
+            cpu: "1m"      # Error: insufficient_cpu_request if min threshold > 1m (Severity: Warning)
+            memory: "1Mi"  # Error: insufficient_memory_request if min threshold > 1Mi (Severity: Warning)
+          limits:
+            cpu: "5m"      # Below recommended limits - should suggest SharedConfig defaults
+            memory: "8Mi"  # Below recommended limits - should suggest SharedConfig defaults
+        command: ["sleep", "3600"]
+      volumes:
+      - name: secret-volume
+        secret:
+          secretName: nonexistent-secret-volume  # Error: dangling_secret_volume (Severity: Error)
+      - name: configmap-volume
+        configMap:
+          name: nonexistent-configmap-volume  # Error: dangling_configmap_volume (Severity: Error)
+      - name: pvc-volume
+        persistentVolumeClaim:
+          claimName: nonexistent-pvc  # Error: dangling_pvc_reference (Severity: Error)
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kogaro-testbed.fullname" . }}-enhanced-errors-service
+  labels:
+    {{- include "kogaro-testbed.labels" . | nindent 4 }}
+    test-case: "enhanced-errors-test"
+spec:
+  selector:
+    test-case: "enhanced-errors-test"
+    app: enhanced-errors-app
+  ports:
+  - port: 80
+    targetPort: 9999  # Error: service_port_mismatch (Severity: Error) - container port is 8080
+    name: http
+  type: ClusterIP

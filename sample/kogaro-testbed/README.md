@@ -206,6 +206,38 @@ This testbed validates all validation errors that Kogaro detects across three va
 - **Test**: Ingress service has no ready backend pods
 - **Expected Error**: `Ingress service 'empty-backend-service' has no ready backend pods`
 
+## Enhanced SharedConfig Test Cases (New)
+
+### 38. SharedConfig Custom Values Test
+- **File**: `deployment-custom-config-test.yaml`
+- **Test**: Deployment using custom user IDs and resource values different from SharedConfig defaults
+- **Expected**: Should validate against configurable thresholds, not hardcoded values
+- **Purpose**: Tests that SharedConfig values are properly used for validation recommendations
+
+### 39. Context-Specific Namespace Exclusions Test  
+- **File**: `deployment-namespace-exclusion-test.yaml`
+- **Test**: Insecure deployment that should be excluded from security validation in system namespaces but still validated for networking
+- **Expected**: Security violations ignored in system namespaces, networking issues still detected
+- **Purpose**: Tests different namespace exclusion sets for security vs networking validation
+
+### 40. Enhanced ValidationError Details Test
+- **File**: `deployment-enhanced-errors-test.yaml`
+- **Test**: Multiple validation errors that should generate rich error details with severity levels, remediation hints, and related resources
+- **Expected**: Comprehensive error reporting with actionable guidance
+- **Purpose**: Tests enhanced ValidationError API with detailed error context
+
+### 41. Production Namespace Patterns Test
+- **File**: `deployment-production-patterns-test.yaml`  
+- **Test**: Production-like workload without NetworkPolicies in namespace matching production patterns
+- **Expected**: Security warnings about missing NetworkPolicies for production workloads
+- **Purpose**: Tests SharedConfig production namespace detection patterns
+
+### 42. Batch Workload Patterns Test
+- **File**: `job-batch-patterns-test.yaml`
+- **Test**: Job, CronJob, and migration pods that should be excluded from "unexposed pod" warnings
+- **Expected**: No pod_no_service warnings for batch workloads
+- **Purpose**: Tests SharedConfig batch workload exclusion patterns
+
 ## Additional Files (Legacy/Other Tests)
 
 - `deployment-missing-volume.yaml` - VolumeMount references missing volume (Kubernetes validation catches this)
@@ -230,11 +262,12 @@ kubectl get all,ingress,pvc -n kogaro-testbed
 
 ## Testing with Kogaro
 
-Once deployed, Kogaro should detect **37+ validation errors** across all four validator types:
-- **11 reference validation errors** (always enabled)
-- **6 resource limits validation errors** (enabled by default)  
-- **11+ security validation errors** (enabled by default, includes 9 core + 2 ServiceAccount when enabled)
-- **9 networking validation errors** (enabled by default when enableNetworkingTests=true)
+Once deployed, Kogaro should detect **55+ validation errors** across all four validator types:
+- **15 reference validation errors** (includes new ServiceAccount and system namespace tests)
+- **8 resource limits validation errors** (includes minimum threshold tests)
+- **12 security validation errors** (includes enhanced SecurityContext and RBAC tests)
+- **10 networking validation errors** (includes system namespace exclusion tests) 
+- **10+ enhanced SharedConfig validation errors** (tests for configurable thresholds and exclusion patterns)
 
 ```bash
 # Check Kogaro logs for validation errors
@@ -244,6 +277,54 @@ kubectl logs -l app.kubernetes.io/name=kogaro -n kogaro-system --tail=100
 kubectl port-forward -n kogaro-system svc/kogaro 8080:8080
 curl http://localhost:8080/metrics | grep kogaro_validation_errors_total
 ```
+
+## Coverage Measurement
+
+The testbed includes comprehensive coverage measurement capabilities for marketing and development purposes.
+
+### Automated Coverage Measurement
+
+```bash
+# Run the automated coverage measurement script
+./scripts/measure-testbed-coverage.sh
+
+# Custom namespace and output
+NAMESPACE=my-testbed COVERAGE_OUTPUT=my-coverage ./scripts/measure-testbed-coverage.sh
+
+# Keep testbed deployed after measurement
+KEEP_TESTBED=true ./scripts/measure-testbed-coverage.sh
+```
+
+The script will:
+1. **Build Kogaro with coverage instrumentation**
+2. **Deploy the comprehensive testbed**
+3. **Run Kogaro validation with coverage tracking**
+4. **Generate detailed coverage reports** (HTML and text)
+5. **Create marketing-ready coverage documentation**
+6. **Analyze coverage gaps** and improvement opportunities
+
+### Coverage Reports Generated
+
+- **`testbed-coverage.html`** - Interactive HTML coverage report
+- **`testbed-coverage-functions.txt`** - Function-level coverage statistics  
+- **`testbed-coverage-marketing-report.md`** - Marketing-ready coverage summary
+
+### Coverage Targets
+
+The testbed is designed to achieve:
+- **95%+ coverage** of validation logic functions
+- **100% coverage** of critical security validation paths
+- **100% coverage** of reference validation scenarios
+- **90%+ coverage** of networking validation features
+- **100% coverage** of SharedConfig functionality
+
+### Marketing Value
+
+The coverage measurement demonstrates:
+- **Comprehensive validation capabilities** - 55+ distinct validation scenarios
+- **Production-ready reliability** - High test coverage ensures robustness
+- **Configurable validation rules** - Tests all SharedConfig patterns
+- **Enterprise security features** - Complete security validation coverage
 
 ## Expected Prometheus Metrics
 

@@ -1,0 +1,179 @@
+# Test case for IsBatchOwnerKind function
+# Tests that pods owned by Jobs/CronJobs are excluded from "unexposed pod" warnings
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "kogaro-testbed.fullname" . }}-owner-reference-test
+  labels:
+    {{- include "kogaro-testbed.labels" . | nindent 4 }}
+    test-case: "batch-owner-reference-test"
+    test-category: "batch-workload-exclusion"
+  annotations:
+    test-description: "Tests IsBatchOwnerKind function - Job pods should be excluded from unexposed pod warnings"
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "kogaro-testbed.selectorLabels" . | nindent 8 }}
+        test-case: "batch-owner-reference-test"
+        workload-type: job
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 3000
+        fsGroup: 2000
+      containers:
+      - name: job-container
+        image: busybox:1.35
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 3000
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "256Mi"
+        command: ["sh", "-c", "echo 'Job processing...' && sleep 60 && echo 'Job completed'"]
+        # No ports defined - this pod should NOT trigger pod_no_service warning
+        # because it's owned by a Job (IsBatchOwnerKind should return true)
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "kogaro-testbed.fullname" . }}-cronjob-owner-test
+  labels:
+    {{- include "kogaro-testbed.labels" . | nindent 4 }}
+    test-case: "cronjob-owner-reference-test"
+    test-category: "batch-workload-exclusion"
+  annotations:
+    test-description: "Tests IsBatchOwnerKind function - CronJob pods should be excluded from unexposed pod warnings"
+spec:
+  schedule: "0 3 * * *"  # Daily at 3 AM
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "kogaro-testbed.selectorLabels" . | nindent 12 }}
+            test-case: "cronjob-owner-reference-test"
+            workload-type: cronjob
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 3000
+            fsGroup: 2000
+          containers:
+          - name: cronjob-container
+            image: busybox:1.35
+            securityContext:
+              runAsUser: 1000
+              runAsGroup: 3000
+              allowPrivilegeEscalation: false
+              privileged: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                  - ALL
+            resources:
+              requests:
+                cpu: "100m"
+                memory: "128Mi"
+              limits:
+                cpu: "500m"
+                memory: "256Mi"
+            command: ["sh", "-c", "echo 'CronJob processing...' && sleep 30 && echo 'CronJob completed'"]
+            # No ports defined - this pod should NOT trigger pod_no_service warning
+            # because it's owned by a CronJob (IsBatchOwnerKind should return true)
+---
+# Test case for IsUnexposedPodPattern function
+# Pod with name pattern that should be excluded from unexposed pod warnings
+apiVersion: v1
+kind: Pod
+metadata:
+  name: migration-{{ include "kogaro-testbed.fullname" . }}-db-schema
+  labels:
+    {{- include "kogaro-testbed.labels" . | nindent 4 }}
+    test-case: "unexposed-pod-pattern-test"
+    test-category: "pod-pattern-exclusion"
+  annotations:
+    test-description: "Tests IsUnexposedPodPattern function - migration pods should be excluded from service warnings"
+spec:
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 3000
+    fsGroup: 2000
+  containers:
+  - name: migration-container
+    image: busybox:1.35
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 3000
+      allowPrivilegeEscalation: false
+      privileged: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "500m"
+        memory: "256Mi"
+    command: ["sh", "-c", "echo 'Running migration-prefix test...' && sleep 20 && echo 'Migration completed'"]
+    # No ports defined - should NOT trigger pod_no_service warning due to "migration" prefix pattern
+---
+# Additional pattern test
+apiVersion: v1
+kind: Pod
+metadata:
+  name: backup-{{ include "kogaro-testbed.fullname" . }}-data
+  labels:
+    {{- include "kogaro-testbed.labels" . | nindent 4 }}
+    test-case: "backup-pod-pattern-test"
+    test-category: "pod-pattern-exclusion"
+  annotations:
+    test-description: "Tests IsUnexposedPodPattern function - backup pods should be excluded from service warnings"
+spec:
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 3000
+    fsGroup: 2000
+  containers:
+  - name: backup-container
+    image: busybox:1.35
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 3000
+      allowPrivilegeEscalation: false
+      privileged: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "500m"
+        memory: "256Mi"
+    command: ["sh", "-c", "echo 'Running backup-prefix test...' && sleep 15 && echo 'Backup completed'"]
+    # No ports defined - should NOT trigger pod_no_service warning due to "backup" prefix pattern

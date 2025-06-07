@@ -1,0 +1,136 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "kogaro-testbed.fullname" . }}-batch-patterns-test
+  labels:
+    {{- include "kogaro-testbed.labels" . | nindent 4 }}
+    test-case: "batch-patterns-test"
+    test-category: "shared-config"
+  annotations:
+    test-description: "Tests SharedConfig batch workload patterns that should be excluded from unexposed pod warnings"
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "kogaro-testbed.selectorLabels" . | nindent 8 }}
+        test-case: "batch-patterns-test"
+        workload-type: batch
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000  # Uses SharedConfig default
+        runAsGroup: 3000 # Uses SharedConfig default
+        fsGroup: 2000    # Uses SharedConfig default
+      containers:
+      - name: batch-container
+        image: busybox:1.35
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 3000
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+        resources:
+          requests:
+            cpu: "100m"    # Uses SharedConfig default
+            memory: "128Mi" # Uses SharedConfig default
+          limits:
+            cpu: "500m"    # Uses SharedConfig default
+            memory: "256Mi" # Uses SharedConfig default
+        command: ["sh", "-c", "echo 'Running batch job...' && sleep 30 && echo 'Batch job completed'"]
+        # No ports defined - this is a batch job that shouldn't need a Service
+        # Should not trigger pod_no_service warning due to Job owner reference
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "kogaro-testbed.fullname" . }}-cronjob-patterns-test
+  labels:
+    {{- include "kogaro-testbed.labels" . | nindent 4 }}
+    test-case: "cronjob-patterns-test"
+    test-category: "shared-config"
+  annotations:
+    test-description: "Tests SharedConfig CronJob patterns that should be excluded from unexposed pod warnings"
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "kogaro-testbed.selectorLabels" . | nindent 12 }}
+            test-case: "cronjob-patterns-test"
+            workload-type: scheduled-batch
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000  # Uses SharedConfig default
+            runAsGroup: 3000 # Uses SharedConfig default
+            fsGroup: 2000    # Uses SharedConfig default
+          containers:
+          - name: cronjob-container
+            image: busybox:1.35
+            securityContext:
+              runAsUser: 1000
+              runAsGroup: 3000
+              allowPrivilegeEscalation: false
+              privileged: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                  - ALL
+            resources:
+              requests:
+                cpu: "100m"    # Uses SharedConfig default
+                memory: "128Mi" # Uses SharedConfig default
+              limits:
+                cpu: "500m"    # Uses SharedConfig default
+                memory: "256Mi" # Uses SharedConfig default
+            command: ["sh", "-c", "echo 'Running scheduled backup...' && sleep 60 && echo 'Backup completed'"]
+            # No ports defined - this is a scheduled job that shouldn't need a Service
+            # Should not trigger pod_no_service warning due to CronJob owner reference
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "kogaro-testbed.fullname" . }}-migration-pattern-test
+  labels:
+    {{- include "kogaro-testbed.labels" . | nindent 4 }}
+    test-case: "migration-pattern-test"
+    test-category: "shared-config"
+  annotations:
+    test-description: "Tests SharedConfig unexposed pod patterns (migration prefix) that should be excluded from service warnings"
+spec:
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000  # Uses SharedConfig default
+    runAsGroup: 3000 # Uses SharedConfig default
+    fsGroup: 2000    # Uses SharedConfig default
+  containers:
+  - name: migration-container
+    image: busybox:1.35
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 3000
+      allowPrivilegeEscalation: false
+      privileged: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+    resources:
+      requests:
+        cpu: "100m"    # Uses SharedConfig default
+        memory: "128Mi" # Uses SharedConfig default
+      limits:
+        cpu: "500m"    # Uses SharedConfig default
+        memory: "256Mi" # Uses SharedConfig default
+    command: ["sh", "-c", "echo 'Running database migration...' && sleep 45 && echo 'Migration completed'"]
+    # No ports defined - this is a migration pod that shouldn't need a Service
+    # Should not trigger pod_no_service warning due to "migration" name prefix pattern

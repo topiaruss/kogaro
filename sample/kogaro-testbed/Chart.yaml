@@ -1,6 +1,6 @@
 apiVersion: v2
 name: kogaro-testbed
-description: A testbed chart with intentional misconfigurations for Kogaro testing
+description: A comprehensive testbed chart with intentional misconfigurations for testing Kogaro's validation capabilities including SharedConfig and enhanced ValidationError features
 type: application
-version: 0.1.0
-appVersion: "1.0"
+version: 0.2.0
+appVersion: "1.1"
