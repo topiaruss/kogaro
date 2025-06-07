@@ -13,6 +13,7 @@ package validators
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
@@ -201,34 +202,34 @@ func (v *ResourceLimitsValidator) validateContainerResources(containers []corev1
 		if v.config.EnableMissingRequestsValidation {
 			if container.Resources.Requests == nil ||
 				(container.Resources.Requests.Cpu().IsZero() && container.Resources.Requests.Memory().IsZero()) {
-				errors = append(errors, ValidationError{
-					ResourceType:   resourceType,
-					ResourceName:   resourceName,
-					Namespace:      namespace,
-					ValidationType: "missing_resource_requests",
-					Message:        fmt.Sprintf("Container '%s' has no resource requests defined", container.Name),
-				})
+				errors = append(errors, NewValidationError(resourceType, resourceName, namespace, "missing_resource_requests", fmt.Sprintf("Container '%s' has no resource requests defined", container.Name)).
+					WithSeverity(SeverityError).
+					WithRemediationHint("Add resource requests to prevent resource contention (e.g., cpu: 100m, memory: 128Mi)").
+					WithRelatedResources(fmt.Sprintf("Container/%s", container.Name)).
+					WithDetail("container_name", container.Name).
+					WithDetail("recommended_cpu", "100m").
+					WithDetail("recommended_memory", "128Mi"))
 			} else {
 				// Check minimum CPU request
 				if v.config.MinCPURequest != nil && container.Resources.Requests.Cpu().Cmp(*v.config.MinCPURequest) < 0 {
-					errors = append(errors, ValidationError{
-						ResourceType:   resourceType,
-						ResourceName:   resourceName,
-						Namespace:      namespace,
-						ValidationType: "insufficient_cpu_request",
-						Message:        fmt.Sprintf("Container '%s' CPU request %s is below minimum %s", container.Name, container.Resources.Requests.Cpu().String(), v.config.MinCPURequest.String()),
-					})
+					errors = append(errors, NewValidationError(resourceType, resourceName, namespace, "insufficient_cpu_request", fmt.Sprintf("Container '%s' CPU request %s is below minimum %s", container.Name, container.Resources.Requests.Cpu().String(), v.config.MinCPURequest.String())).
+						WithSeverity(SeverityError).
+						WithRemediationHint(fmt.Sprintf("Increase CPU request to at least %s to meet minimum requirements", v.config.MinCPURequest.String())).
+						WithRelatedResources(fmt.Sprintf("Container/%s", container.Name)).
+						WithDetail("container_name", container.Name).
+						WithDetail("current_cpu_request", container.Resources.Requests.Cpu().String()).
+						WithDetail("minimum_cpu_request", v.config.MinCPURequest.String()))
 				}
 
 				// Check minimum memory request
 				if v.config.MinMemoryRequest != nil && container.Resources.Requests.Memory().Cmp(*v.config.MinMemoryRequest) < 0 {
-					errors = append(errors, ValidationError{
-						ResourceType:   resourceType,
-						ResourceName:   resourceName,
-						Namespace:      namespace,
-						ValidationType: "insufficient_memory_request",
-						Message:        fmt.Sprintf("Container '%s' memory request %s is below minimum %s", container.Name, container.Resources.Requests.Memory().String(), v.config.MinMemoryRequest.String()),
-					})
+					errors = append(errors, NewValidationError(resourceType, resourceName, namespace, "insufficient_memory_request", fmt.Sprintf("Container '%s' memory request %s is below minimum %s", container.Name, container.Resources.Requests.Memory().String(), v.config.MinMemoryRequest.String())).
+						WithSeverity(SeverityError).
+						WithRemediationHint(fmt.Sprintf("Increase memory request to at least %s to meet minimum requirements", v.config.MinMemoryRequest.String())).
+						WithRelatedResources(fmt.Sprintf("Container/%s", container.Name)).
+						WithDetail("container_name", container.Name).
+						WithDetail("current_memory_request", container.Resources.Requests.Memory().String()).
+						WithDetail("minimum_memory_request", v.config.MinMemoryRequest.String()))
 				}
 			}
 		}
@@ -237,13 +238,13 @@ func (v *ResourceLimitsValidator) validateContainerResources(containers []corev1
 		if v.config.EnableMissingLimitsValidation {
 			if container.Resources.Limits == nil ||
 				(container.Resources.Limits.Cpu().IsZero() && container.Resources.Limits.Memory().IsZero()) {
-				errors = append(errors, ValidationError{
-					ResourceType:   resourceType,
-					ResourceName:   resourceName,
-					Namespace:      namespace,
-					ValidationType: "missing_resource_limits",
-					Message:        fmt.Sprintf("Container '%s' has no resource limits defined", container.Name),
-				})
+				errors = append(errors, NewValidationError(resourceType, resourceName, namespace, "missing_resource_limits", fmt.Sprintf("Container '%s' has no resource limits defined", container.Name)).
+					WithSeverity(SeverityError).
+					WithRemediationHint("Add resource limits to prevent resource overconsumption (e.g., cpu: 500m, memory: 256Mi)").
+					WithRelatedResources(fmt.Sprintf("Container/%s", container.Name)).
+					WithDetail("container_name", container.Name).
+					WithDetail("recommended_cpu_limit", "500m").
+					WithDetail("recommended_memory_limit", "256Mi"))
 			}
 		}
 
@@ -251,13 +252,28 @@ func (v *ResourceLimitsValidator) validateContainerResources(containers []corev1
 		if v.config.EnableQoSValidation {
 			qosIssues := v.analyzeQoSClass(container)
 			for _, issue := range qosIssues {
-				errors = append(errors, ValidationError{
-					ResourceType:   resourceType,
-					ResourceName:   resourceName,
-					Namespace:      namespace,
-					ValidationType: "qos_class_issue",
-					Message:        fmt.Sprintf("Container '%s': %s", container.Name, issue),
-				})
+				severity := SeverityWarning
+				var remediationHint string
+				
+				if strings.Contains(issue, "BestEffort") {
+					severity = SeverityError
+					remediationHint = "Add both resource requests and limits for predictable scheduling and resource management"
+				} else if strings.Contains(issue, "requests != limits") {
+					severity = SeverityWarning
+					remediationHint = "Consider setting requests equal to limits for Guaranteed QoS, or optimize resource allocation"
+				} else if strings.Contains(issue, "no limits") {
+					severity = SeverityWarning
+					remediationHint = "Add resource limits to prevent unlimited resource consumption"
+				} else {
+					remediationHint = "Review resource configuration for optimal QoS class assignment"
+				}
+				
+				errors = append(errors, NewValidationError(resourceType, resourceName, namespace, "qos_class_issue", fmt.Sprintf("Container '%s': %s", container.Name, issue)).
+					WithSeverity(severity).
+					WithRemediationHint(remediationHint).
+					WithRelatedResources(fmt.Sprintf("Container/%s", container.Name)).
+					WithDetail("container_name", container.Name).
+					WithDetail("qos_issue_type", issue))
 			}
 		}
 	}
