@@ -175,35 +175,32 @@ func (v *NetworkingValidator) validateService(service corev1.Service, namespaceP
 		matchingPods := v.findMatchingPods(service.Spec.Selector, namespacePods)
 		
 		if len(matchingPods) == 0 {
-			errors = append(errors, ValidationError{
-				ResourceType:   "Service",
-				ResourceName:   service.Name,
-				Namespace:      service.Namespace,
-				ValidationType: "service_selector_mismatch",
-				Message:        fmt.Sprintf("Service selector %v does not match any pods", service.Spec.Selector),
-			})
+			errors = append(errors, NewValidationError("Service", service.Name, service.Namespace, "service_selector_mismatch", fmt.Sprintf("Service selector %v does not match any pods", service.Spec.Selector)).
+				WithSeverity(SeverityWarning).
+				WithRemediationHint("Update service selector to match existing pod labels or deploy pods with matching labels").
+				WithRelatedResources(fmt.Sprintf("Service/%s", service.Name)).
+				WithDetail("service_selector", fmt.Sprintf("%v", service.Spec.Selector)).
+				WithDetail("namespace_pod_count", fmt.Sprintf("%d", len(namespacePods))))
 		}
 
 		// Check if service has endpoints
 		endpointsKey := fmt.Sprintf("%s/%s", service.Namespace, service.Name)
 		if endpoints, exists := endpointsMap[endpointsKey]; exists {
 			if v.hasNoReadyEndpoints(endpoints) {
-				errors = append(errors, ValidationError{
-					ResourceType:   "Service",
-					ResourceName:   service.Name,
-					Namespace:      service.Namespace,
-					ValidationType: "service_no_endpoints",
-					Message:        "Service has no ready endpoints despite matching pods",
-				})
+				errors = append(errors, NewValidationError("Service", service.Name, service.Namespace, "service_no_endpoints", "Service has no ready endpoints despite matching pods").
+					WithSeverity(SeverityError).
+					WithRemediationHint("Check pod readiness probes and ensure pods are in Ready state").
+					WithRelatedResources(fmt.Sprintf("Service/%s", service.Name), fmt.Sprintf("Endpoints/%s", service.Name)).
+					WithDetail("matching_pods_count", fmt.Sprintf("%d", len(matchingPods))).
+					WithDetail("endpoints_subset_count", fmt.Sprintf("%d", len(endpoints.Subsets))))
 			}
 		} else {
-			errors = append(errors, ValidationError{
-				ResourceType:   "Service",
-				ResourceName:   service.Name,
-				Namespace:      service.Namespace,
-				ValidationType: "service_no_endpoints",
-				Message:        "Service has no endpoints object",
-			})
+			errors = append(errors, NewValidationError("Service", service.Name, service.Namespace, "service_no_endpoints", "Service has no endpoints object").
+				WithSeverity(SeverityError).
+				WithRemediationHint("Verify service selector matches pod labels and pods are ready").
+				WithRelatedResources(fmt.Sprintf("Service/%s", service.Name)).
+				WithDetail("endpoints_missing", "true").
+				WithDetail("matching_pods_count", fmt.Sprintf("%d", len(matchingPods))))
 		}
 
 		// Validate port matching between service and pods
@@ -237,13 +234,13 @@ func (v *NetworkingValidator) validateServicePorts(service corev1.Service, match
 		}
 
 		if !portFound {
-			errors = append(errors, ValidationError{
-				ResourceType:   "Service",
-				ResourceName:   service.Name,
-				Namespace:      service.Namespace,
-				ValidationType: "service_port_mismatch",
-				Message:        fmt.Sprintf("Service port %s (target: %s) does not match any container ports in matching pods", servicePort.Name, servicePort.TargetPort.String()),
-			})
+			errors = append(errors, NewValidationError("Service", service.Name, service.Namespace, "service_port_mismatch", fmt.Sprintf("Service port %s (target: %s) does not match any container ports in matching pods", servicePort.Name, servicePort.TargetPort.String())).
+				WithSeverity(SeverityError).
+				WithRemediationHint("Update service targetPort to match container ports or add the missing port to container specifications").
+				WithRelatedResources(fmt.Sprintf("Service/%s", service.Name)).
+				WithDetail("service_port_name", servicePort.Name).
+				WithDetail("target_port", servicePort.TargetPort.String()).
+				WithDetail("service_port_number", fmt.Sprintf("%d", servicePort.Port)))
 		}
 	}
 
@@ -336,13 +333,12 @@ func (v *NetworkingValidator) findUnexposedPods(pods []corev1.Pod, services []co
 		}
 
 		if !isExposed {
-			errors = append(errors, ValidationError{
-				ResourceType:   "Pod",
-				ResourceName:   pod.Name,
-				Namespace:      pod.Namespace,
-				ValidationType: "pod_no_service",
-				Message:        "Pod is not exposed by any Service (consider if this is intentional)",
-			})
+			errors = append(errors, NewValidationError("Pod", pod.Name, pod.Namespace, "pod_no_service", "Pod is not exposed by any Service (consider if this is intentional)").
+				WithSeverity(SeverityInfo).
+				WithRemediationHint("Create a Service to expose this pod or verify this is intentional for batch/worker pods").
+				WithRelatedResources(fmt.Sprintf("Pod/%s", pod.Name)).
+				WithDetail("pod_labels", fmt.Sprintf("%v", pod.Labels)).
+				WithDetail("namespace_services_count", fmt.Sprintf("%d", len(servicesByNamespace[pod.Namespace]))))
 		}
 	}
 
@@ -422,13 +418,12 @@ func (v *NetworkingValidator) validatePolicyRequired(namespaces []corev1.Namespa
 	// Check policy-required namespaces
 	for _, requiredNS := range v.config.PolicyRequiredNamespaces {
 		if !namespacesWithPolicies[requiredNS] {
-			errors = append(errors, ValidationError{
-				ResourceType:   "Namespace",
-				ResourceName:   requiredNS,
-				Namespace:      requiredNS,
-				ValidationType: "missing_network_policy_required",
-				Message:        fmt.Sprintf("Policy-required namespace '%s' has no NetworkPolicies", requiredNS),
-			})
+			errors = append(errors, NewValidationError("Namespace", requiredNS, requiredNS, "missing_network_policy_required", fmt.Sprintf("Policy-required namespace '%s' has no NetworkPolicies", requiredNS)).
+				WithSeverity(SeverityError).
+				WithRemediationHint("Create NetworkPolicies with default-deny ingress/egress rules and explicit allow rules for required traffic").
+				WithRelatedResources("NetworkPolicy/default-deny-all").
+				WithDetail("namespace_type", "policy_required").
+				WithDetail("security_risk", "unrestricted_network_access"))
 		}
 	}
 
@@ -441,13 +436,13 @@ func (v *NetworkingValidator) validatePolicyRequired(namespaces []corev1.Namespa
 		if namespacesWithPolicies[ns.Name] {
 			hasDefaultDeny := v.hasDefaultDenyPolicy(policies, ns.Name)
 			if !hasDefaultDeny {
-				errors = append(errors, ValidationError{
-					ResourceType:   "Namespace",
-					ResourceName:   ns.Name,
-					Namespace:      ns.Name,
-					ValidationType: "missing_network_policy_default_deny",
-					Message:        "Namespace has NetworkPolicies but no default deny policy",
-				})
+				existingPolicies := v.getPoliciesInNamespace(policies, ns.Name)
+				errors = append(errors, NewValidationError("Namespace", ns.Name, ns.Name, "missing_network_policy_default_deny", "Namespace has NetworkPolicies but no default deny policy").
+					WithSeverity(SeverityWarning).
+					WithRemediationHint("Add a default deny NetworkPolicy to deny all ingress/egress traffic by default, then create specific allow policies").
+					WithRelatedResources("NetworkPolicy/default-deny-all").
+					WithDetail("existing_policies_count", fmt.Sprintf("%d", len(existingPolicies))).
+					WithDetail("security_best_practice", "default_deny_principle"))
 			}
 		}
 	}
@@ -507,13 +502,12 @@ func (v *NetworkingValidator) validateNetworkPolicySelectors(policies []networki
 		matchingPods := v.findPodsMatchingPolicy(policy, namespacePods)
 
 		if len(matchingPods) == 0 {
-			errors = append(errors, ValidationError{
-				ResourceType:   "NetworkPolicy",
-				ResourceName:   policy.Name,
-				Namespace:      policy.Namespace,
-				ValidationType: "network_policy_orphaned",
-				Message:        "NetworkPolicy selector does not match any pods in namespace",
-			})
+			errors = append(errors, NewValidationError("NetworkPolicy", policy.Name, policy.Namespace, "network_policy_orphaned", "NetworkPolicy selector does not match any pods in namespace").
+				WithSeverity(SeverityWarning).
+				WithRemediationHint("Update NetworkPolicy selector to match existing pods or deploy pods with matching labels").
+				WithRelatedResources(fmt.Sprintf("NetworkPolicy/%s", policy.Name)).
+				WithDetail("policy_selector", fmt.Sprintf("%v", policy.Spec.PodSelector)).
+				WithDetail("namespace_pods_count", fmt.Sprintf("%d", len(namespacePods))))
 		}
 	}
 
@@ -616,13 +610,12 @@ func (v *NetworkingValidator) validateIngressServiceBackend(ingress networkingv1
 	
 	if !exists {
 		// This should be caught by reference validator, but let's be thorough
-		errors = append(errors, ValidationError{
-			ResourceType:   "Ingress",
-			ResourceName:   ingress.Name,
-			Namespace:      ingress.Namespace,
-			ValidationType: "ingress_service_missing",
-			Message:        fmt.Sprintf("Ingress references non-existent service '%s'", backend.Name),
-		})
+		errors = append(errors, NewValidationError("Ingress", ingress.Name, ingress.Namespace, "ingress_service_missing", fmt.Sprintf("Ingress references non-existent service '%s'", backend.Name)).
+			WithSeverity(SeverityError).
+			WithRemediationHint(fmt.Sprintf("Create service '%s' in namespace '%s' or update Ingress to reference an existing service", backend.Name, ingress.Namespace)).
+			WithRelatedResources(fmt.Sprintf("Service/%s", backend.Name)).
+			WithDetail("service_name", backend.Name).
+			WithDetail("ingress_namespace", ingress.Namespace))
 		return errors
 	}
 
@@ -641,13 +634,19 @@ func (v *NetworkingValidator) validateIngressServiceBackend(ingress networkingv1
 		}
 		
 		if !portExists {
-			errors = append(errors, ValidationError{
-				ResourceType:   "Ingress",
-				ResourceName:   ingress.Name,
-				Namespace:      ingress.Namespace,
-				ValidationType: "ingress_service_port_mismatch",
-				Message:        fmt.Sprintf("Ingress references service '%s' port that doesn't exist", backend.Name),
-			})
+			var portRef string
+			if backend.Port.Number != 0 {
+				portRef = fmt.Sprintf("%d", backend.Port.Number)
+			} else {
+				portRef = backend.Port.Name
+			}
+			errors = append(errors, NewValidationError("Ingress", ingress.Name, ingress.Namespace, "ingress_service_port_mismatch", fmt.Sprintf("Ingress references service '%s' port '%s' that doesn't exist", backend.Name, portRef)).
+				WithSeverity(SeverityError).
+				WithRemediationHint(fmt.Sprintf("Add port '%s' to service '%s' or update Ingress to reference an existing port", portRef, backend.Name)).
+				WithRelatedResources(fmt.Sprintf("Service/%s", backend.Name)).
+				WithDetail("service_name", backend.Name).
+				WithDetail("referenced_port", portRef).
+				WithDetail("available_ports", fmt.Sprintf("%v", v.getServicePortNames(service))))
 		}
 	}
 
@@ -657,13 +656,13 @@ func (v *NetworkingValidator) validateIngressServiceBackend(ingress networkingv1
 	readyPods := v.filterReadyPods(matchingPods)
 	
 	if len(readyPods) == 0 {
-		errors = append(errors, ValidationError{
-			ResourceType:   "Ingress",
-			ResourceName:   ingress.Name,
-			Namespace:      ingress.Namespace,
-			ValidationType: "ingress_no_backend_pods",
-			Message:        fmt.Sprintf("Ingress service '%s' has no ready backend pods", backend.Name),
-		})
+		errors = append(errors, NewValidationError("Ingress", ingress.Name, ingress.Namespace, "ingress_no_backend_pods", fmt.Sprintf("Ingress service '%s' has no ready backend pods", backend.Name)).
+			WithSeverity(SeverityError).
+			WithRemediationHint("Deploy pods with labels matching the service selector and ensure they pass readiness checks").
+			WithRelatedResources(fmt.Sprintf("Service/%s", backend.Name)).
+			WithDetail("service_name", backend.Name).
+			WithDetail("matching_pods_count", fmt.Sprintf("%d", len(matchingPods))).
+			WithDetail("ready_pods_count", "0"))
 	}
 
 	return errors
@@ -704,4 +703,26 @@ func (v *NetworkingValidator) isSystemNamespace(namespace string) bool {
 		}
 	}
 	return false
+}
+
+func (v *NetworkingValidator) getPoliciesInNamespace(policies []networkingv1.NetworkPolicy, namespace string) []networkingv1.NetworkPolicy {
+	var namespacePolicies []networkingv1.NetworkPolicy
+	for _, policy := range policies {
+		if policy.Namespace == namespace {
+			namespacePolicies = append(namespacePolicies, policy)
+		}
+	}
+	return namespacePolicies
+}
+
+func (v *NetworkingValidator) getServicePortNames(service corev1.Service) []string {
+	var portNames []string
+	for _, port := range service.Spec.Ports {
+		if port.Name != "" {
+			portNames = append(portNames, fmt.Sprintf("%s:%d", port.Name, port.Port))
+		} else {
+			portNames = append(portNames, fmt.Sprintf("%d", port.Port))
+		}
+	}
+	return portNames
 }
