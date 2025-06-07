@@ -38,17 +38,19 @@ type SecurityConfig struct {
 
 // SecurityValidator validates security configurations across workloads
 type SecurityValidator struct {
-	client client.Client
-	log    logr.Logger
-	config SecurityConfig
+	client       client.Client
+	log          logr.Logger
+	config       SecurityConfig
+	sharedConfig SharedConfig
 }
 
 // NewSecurityValidator creates a new SecurityValidator with the given client, logger and config
 func NewSecurityValidator(client client.Client, log logr.Logger, config SecurityConfig) *SecurityValidator {
 	return &SecurityValidator{
-		client: client,
-		log:    log.WithName("security-validator"),
-		config: config,
+		client:       client,
+		log:          log.WithName("security-validator"),
+		config:       config,
+		sharedConfig: DefaultSharedConfig(),
 	}
 }
 
@@ -210,10 +212,10 @@ func (v *SecurityValidator) validatePodTemplateSecurity(template corev1.PodTempl
 		if template.Spec.SecurityContext == nil {
 			errors = append(errors, NewValidationError(resourceType, resourceName, namespace, "missing_pod_security_context", "Pod has no SecurityContext defined").
 				WithSeverity(SeverityError).
-				WithRemediationHint("Add a SecurityContext with runAsNonRoot: true, runAsUser: 1000, runAsGroup: 3000, and fsGroup: 2000").
+				WithRemediationHint(fmt.Sprintf("Add a SecurityContext with runAsNonRoot: true, runAsUser: %d, runAsGroup: %d, and fsGroup: %d", v.sharedConfig.DefaultSecurityContext.RecommendedUserID, v.sharedConfig.DefaultSecurityContext.RecommendedGroupID, v.sharedConfig.DefaultSecurityContext.RecommendedFSGroup)).
 				WithRelatedResources("SecurityContext/pod-security-context").
 				WithDetail("resource_type", resourceType).
-				WithDetail("recommended_user_id", "1000"))
+				WithDetail("recommended_user_id", fmt.Sprintf("%d", v.sharedConfig.DefaultSecurityContext.RecommendedUserID)))
 		} else {
 			// Check for Pod-level security settings
 			podSecurityErrors := v.validatePodSecurityContext(template.Spec.SecurityContext, resourceType, resourceName, namespace)
@@ -239,10 +241,10 @@ func (v *SecurityValidator) validatePodSecurityContext(securityContext *corev1.P
 		if securityContext.RunAsUser != nil && *securityContext.RunAsUser == 0 {
 			errors = append(errors, NewValidationError(resourceType, resourceName, namespace, "pod_running_as_root", "Pod SecurityContext specifies runAsUser: 0 (root)").
 				WithSeverity(SeverityError).
-				WithRemediationHint("Change runAsUser to a non-zero value (e.g., 1000) and set runAsNonRoot: true").
+				WithRemediationHint(fmt.Sprintf("Change runAsUser to a non-zero value (e.g., %d) and set runAsNonRoot: true", v.sharedConfig.DefaultSecurityContext.RecommendedUserID)).
 				WithRelatedResources("SecurityContext/pod-security-context").
 				WithDetail("current_user_id", "0").
-				WithDetail("recommended_user_id", "1000").
+				WithDetail("recommended_user_id", fmt.Sprintf("%d", v.sharedConfig.DefaultSecurityContext.RecommendedUserID)).
 				WithDetail("security_risk", "root_access"))
 		}
 
@@ -297,12 +299,12 @@ func (v *SecurityValidator) validateContainerSecurityContext(securityContext *co
 		if securityContext.RunAsUser != nil && *securityContext.RunAsUser == 0 {
 			errors = append(errors, NewValidationError(resourceType, resourceName, namespace, "container_running_as_root", fmt.Sprintf("Container '%s' (%s) SecurityContext specifies runAsUser: 0 (root)", containerName, containerType)).
 				WithSeverity(SeverityError).
-				WithRemediationHint("Set runAsUser to a non-zero value (e.g., 1000) in the container SecurityContext").
+				WithRemediationHint(fmt.Sprintf("Set runAsUser to a non-zero value (e.g., %d) in the container SecurityContext", v.sharedConfig.DefaultSecurityContext.RecommendedUserID)).
 				WithRelatedResources(fmt.Sprintf("Container/%s", containerName)).
 				WithDetail("container_name", containerName).
 				WithDetail("container_type", containerType).
 				WithDetail("current_user_id", "0").
-				WithDetail("recommended_user_id", "1000"))
+				WithDetail("recommended_user_id", fmt.Sprintf("%d", v.sharedConfig.DefaultSecurityContext.RecommendedUserID)))
 		}
 
 		// Check if container allows privilege escalation
@@ -434,19 +436,7 @@ func (v *SecurityValidator) validateServiceAccountPermissions(ctx context.Contex
 }
 
 func (v *SecurityValidator) isDangerousRole(roleName string) bool {
-	dangerousRoles := []string{
-		"admin",
-		"cluster-admin",
-		"edit",
-		"system:admin",
-	}
-
-	for _, dangerous := range dangerousRoles {
-		if roleName == dangerous {
-			return true
-		}
-	}
-	return false
+	return v.sharedConfig.IsDangerousRole(roleName)
 }
 
 func (v *SecurityValidator) validateNetworkPolicyCoverage(ctx context.Context) ([]ValidationError, error) {
@@ -506,21 +496,5 @@ func (v *SecurityValidator) validateNetworkPolicyCoverage(ctx context.Context) (
 
 
 func (v *SecurityValidator) isProductionLikeNamespace(namespace string) bool {
-	productionIndicators := []string{
-		"prod",
-		"production",
-		"live",
-		"api",
-		"app",
-		"web",
-		"service",
-	}
-
-	for _, indicator := range productionIndicators {
-		if namespace == indicator || len(namespace) > len(indicator) && 
-			(namespace[:len(indicator)] == indicator || namespace[len(namespace)-len(indicator):] == indicator) {
-			return true
-		}
-	}
-	return false
+	return v.sharedConfig.IsProductionLikeNamespace(namespace)
 }
