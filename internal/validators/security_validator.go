@@ -26,6 +26,11 @@ import (
 	"github.com/topiaruss/kogaro/internal/utils"
 )
 
+const (
+	// DefaultResourceName represents the default resource name used by Kubernetes
+	DefaultResourceName = "default"
+)
+
 // SecurityConfig defines which security validation checks to perform
 type SecurityConfig struct {
 	EnableRootUserValidation       bool
@@ -388,7 +393,7 @@ func (v *SecurityValidator) validateServiceAccountPermissions(ctx context.Contex
 	// Check for ServiceAccounts with potentially excessive permissions
 	for _, sa := range serviceAccounts.Items {
 		// Skip default and system ServiceAccounts for some checks
-		if sa.Name == "default" && sa.Namespace == "default" {
+		if sa.Name == DefaultResourceName && sa.Namespace == DefaultResourceName {
 			continue
 		}
 

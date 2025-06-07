@@ -742,6 +742,7 @@ func TestNewResourceExistsChecker(t *testing.T) {
 	checker := NewResourceExistsChecker(client)
 	if checker == nil {
 		t.Error("NewResourceExistsChecker should return non-nil checker")
+		return
 	}
 	
 	if checker.client != client {

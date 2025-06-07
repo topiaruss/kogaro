@@ -223,19 +223,19 @@ func GetMinResourceThresholds(minCPU, minMemory string) (*resource.Quantity, *re
 	var minCPUQuantity, minMemoryQuantity *resource.Quantity
 	
 	if minCPU != "" {
-		if cpuQuantity, err := resource.ParseQuantity(minCPU); err != nil {
+		cpuQuantity, err := resource.ParseQuantity(minCPU)
+		if err != nil {
 			return nil, nil, err
-		} else {
-			minCPUQuantity = &cpuQuantity
 		}
+		minCPUQuantity = &cpuQuantity
 	}
 	
 	if minMemory != "" {
-		if memoryQuantity, err := resource.ParseQuantity(minMemory); err != nil {
+		memoryQuantity, err := resource.ParseQuantity(minMemory)
+		if err != nil {
 			return nil, nil, err
-		} else {
-			minMemoryQuantity = &memoryQuantity
 		}
+		minMemoryQuantity = &memoryQuantity
 	}
 	
 	return minCPUQuantity, minMemoryQuantity, nil

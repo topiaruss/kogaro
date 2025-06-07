@@ -138,7 +138,8 @@ func (v *NetworkingValidator) validateServiceConnectivity(ctx context.Context) (
 
 	// Create maps for efficient lookup
 	podsByNamespace := make(map[string][]corev1.Pod)
-	endpointsByName := make(map[string]corev1.Endpoints)
+	// TODO: Migrate from deprecated corev1.Endpoints to discoveryv1.EndpointSlice
+	endpointsByName := make(map[string]corev1.Endpoints) //nolint:staticcheck
 	
 	for _, pod := range pods.Items {
 		podsByNamespace[pod.Namespace] = append(podsByNamespace[pod.Namespace], pod)
@@ -169,11 +170,11 @@ func (v *NetworkingValidator) validateServiceConnectivity(ctx context.Context) (
 	return errors, nil
 }
 
-func (v *NetworkingValidator) validateService(service corev1.Service, namespacePods []corev1.Pod, endpointsMap map[string]corev1.Endpoints) []ValidationError {
+func (v *NetworkingValidator) validateService(service corev1.Service, namespacePods []corev1.Pod, endpointsMap map[string]corev1.Endpoints) []ValidationError { //nolint:staticcheck
 	var errors []ValidationError
 
 	// Check if service selector matches any pods
-	if service.Spec.Selector != nil && len(service.Spec.Selector) > 0 {
+	if len(service.Spec.Selector) > 0 {
 		matchingPods := v.findMatchingPods(service.Spec.Selector, namespacePods)
 		
 		if len(matchingPods) == 0 {
@@ -280,7 +281,7 @@ func (v *NetworkingValidator) findMatchingPods(selector map[string]string, pods 
 	return matchingPods
 }
 
-func (v *NetworkingValidator) hasNoReadyEndpoints(endpoints corev1.Endpoints) bool {
+func (v *NetworkingValidator) hasNoReadyEndpoints(endpoints corev1.Endpoints) bool { //nolint:staticcheck
 	for _, subset := range endpoints.Subsets {
 		if len(subset.Addresses) > 0 {
 			return false
@@ -462,11 +463,11 @@ func (v *NetworkingValidator) isDefaultDenyPolicy(policy networkingv1.NetworkPol
 	// 1. Selects all pods (empty podSelector)
 	// 2. Has empty ingress and/or egress rules
 	
-	if policy.Spec.PodSelector.MatchLabels != nil && len(policy.Spec.PodSelector.MatchLabels) > 0 {
+	if len(policy.Spec.PodSelector.MatchLabels) > 0 {
 		return false
 	}
 	
-	if policy.Spec.PodSelector.MatchExpressions != nil && len(policy.Spec.PodSelector.MatchExpressions) > 0 {
+	if len(policy.Spec.PodSelector.MatchExpressions) > 0 {
 		return false
 	}
 
