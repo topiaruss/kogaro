@@ -232,6 +232,7 @@ body {
 /* Code Window */
 .hero-code {
     position: relative;
+    margin-top: 20px;
 }
 
 .code-window {
