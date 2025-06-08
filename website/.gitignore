@@ -1,0 +1,12 @@
+# Environment files with secrets
+.env
+
+# Docker build cache
+.dockerignore
+
+# Helm packages
+*.tgz
+
+# OS files
+.DS_Store
+Thumbs.db

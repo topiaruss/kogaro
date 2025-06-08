@@ -1,0 +1,17 @@
+apiVersion: v2
+name: kogaro-website
+description: Official website for Kogaro - Kubernetes configuration validation tool
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - kubernetes
+  - validation
+  - website
+  - nginx
+home: https://kogaro.com
+sources:
+  - https://github.com/your-org/kogaro
+maintainers:
+  - name: Kogaro Team
+    email: info@kogaro.com

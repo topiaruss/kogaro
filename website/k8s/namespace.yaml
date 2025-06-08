@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kogaro-website
+  labels:
+    name: kogaro-website
+    app.kubernetes.io/name: kogaro-website
+    app.kubernetes.io/part-of: kogaro
