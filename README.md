@@ -207,13 +207,6 @@ cd kogaro
 helm install kogaro charts/kogaro --namespace kogaro-system --create-namespace
 ```
 
-#### Option 3: Docker Image
-
-```bash
-# Run directly with Docker (for testing)
-docker run --rm topiaruss/kogaro:latest --help
-```
-
 #### Local Development
 
 ```bash
