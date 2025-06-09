@@ -12,6 +12,44 @@ entries:
       artifacthub.io/prerelease: "false"
       category: Monitoring
     apiVersion: v2
+    appVersion: 0.3.3
+    created: "2025-06-09T12:21:33.173263883Z"
+    description: Kubernetes Configuration Hygiene Agent - validates resource references,
+      resource limits, security configurations, and networking connectivity
+    digest: 89bb5560389cb725f23b659c047650be468bb8ffbe78de7929eb22deb70c956e
+    home: https://github.com/topiaruss/kogaro
+    keywords:
+    - kubernetes
+    - validation
+    - hygiene
+    - monitoring
+    - controller
+    - observability
+    - security
+    - compliance
+    - networking
+    - connectivity
+    maintainers:
+    - name: topiaruss
+      url: https://github.com/topiaruss
+    name: kogaro
+    sources:
+    - https://github.com/topiaruss/kogaro
+    type: application
+    urls:
+    - https://github.com/topiaruss/kogaro/releases/download/helm-chart-0.3.3/kogaro-0.3.3.tgz
+    version: 0.3.3
+  - annotations:
+      artifacthub.io/license: Apache-2.0
+      artifacthub.io/links: |
+        - name: Chart Source
+          url: https://github.com/topiaruss/kogaro/tree/main/charts/kogaro
+        - name: Documentation
+          url: https://github.com/topiaruss/kogaro/blob/main/docs/DEPLOYMENT-GUIDE.md
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+      category: Monitoring
+    apiVersion: v2
     appVersion: 0.3.2
     created: "2025-06-07T23:02:42.410288604Z"
     description: Kubernetes Configuration Hygiene Agent - validates resource references,
@@ -149,4 +187,4 @@ entries:
     urls:
     - https://github.com/topiaruss/kogaro/releases/download/helm-chart-0.1.2/kogaro-0.1.2.tgz
     version: 0.1.2
-generated: "2025-06-07T23:02:42.41031311Z"
+generated: "2025-06-09T12:21:33.173283981Z"
