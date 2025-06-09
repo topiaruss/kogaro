@@ -142,14 +142,16 @@ kubectl get pods -n kogaro-system</code></pre>
                         <div class="tab-pane" id="docker">
                             <div class="code-block">
                                 <pre><code># Run Kogaro locally with your kubeconfig
-docker run --rm -v ~/.kube:/root/.kube:ro \
+docker run --rm \
+  -v ~/.kube:/home/nonroot/.kube:ro \
+  -e HOME=/home/nonroot \
   topiaruss/kogaro:latest \
   --scan-interval=30s
 
 # Or build from source
 git clone https://github.com/topiaruss/kogaro.git
 cd kogaro && make docker-build</code></pre>
-                                <button class="copy-btn" data-code="docker run --rm -v ~/.kube:/root/.kube:ro topiaruss/kogaro:latest --scan-interval=30s">Copy</button>
+                                <button class="copy-btn" data-code="docker run --rm -v ~/.kube:/home/nonroot/.kube:ro -e HOME=/home/nonroot topiaruss/kogaro:latest --scan-interval=30s">Copy</button>
                             </div>
                         </div>
                     </div>
