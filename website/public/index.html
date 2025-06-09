@@ -143,13 +143,13 @@ kubectl get pods -n kogaro-system</code></pre>
                             <div class="code-block">
                                 <pre><code># Run Kogaro locally with your kubeconfig
 docker run --rm -v ~/.kube:/root/.kube:ro \
-  ghcr.io/topiaruss/kogaro:latest \
+  topiaruss/kogaro:latest \
   --enable-all-validations
 
 # Or build from source
 git clone https://github.com/topiaruss/kogaro.git
 cd kogaro && make docker-build</code></pre>
-                                <button class="copy-btn" data-code="docker run --rm -v ~/.kube:/root/.kube:ro ghcr.io/topiaruss/kogaro:latest --enable-all-validations">Copy</button>
+                                <button class="copy-btn" data-code="docker run --rm -v ~/.kube:/root/.kube:ro topiaruss/kogaro:latest --enable-all-validations">Copy</button>
                             </div>
                         </div>
                     </div>
