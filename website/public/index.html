@@ -123,7 +123,6 @@
                 <div class="install-tabs">
                     <div class="tab-buttons">
                         <button class="tab-btn active" data-tab="helm">Helm</button>
-                        <button class="tab-btn" data-tab="kubectl">kubectl</button>
                         <button class="tab-btn" data-tab="docker">Docker</button>
                     </div>
                     <div class="tab-content">
@@ -138,19 +137,6 @@ helm install kogaro kogaro/kogaro --namespace kogaro-system --create-namespace
 # Verify installation
 kubectl get pods -n kogaro-system</code></pre>
                                 <button class="copy-btn" data-code="helm repo add kogaro https://topiaruss.github.io/kogaro&#10;helm install kogaro kogaro/kogaro --namespace kogaro-system --create-namespace&#10;kubectl get pods -n kogaro-system">Copy</button>
-                            </div>
-                        </div>
-                        <div class="tab-pane" id="kubectl">
-                            <div class="code-block">
-                                <pre><code># Apply Kogaro manifests
-kubectl apply -f https://github.com/topiaruss/kogaro/releases/latest/download/kogaro.yaml
-
-# Check deployment status
-kubectl get deployment kogaro -n kogaro-system
-
-# View logs
-kubectl logs -f deployment/kogaro -n kogaro-system</code></pre>
-                                <button class="copy-btn" data-code="kubectl apply -f https://github.com/topiaruss/kogaro/releases/latest/download/kogaro.yaml&#10;kubectl get deployment kogaro -n kogaro-system&#10;kubectl logs -f deployment/kogaro -n kogaro-system">Copy</button>
                             </div>
                         </div>
                         <div class="tab-pane" id="docker">
