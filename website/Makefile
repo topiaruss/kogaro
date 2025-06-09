@@ -13,12 +13,12 @@ all: website-all
 # Build multi-arch website image
 website-build:
 	@echo "Building multi-arch website image..."
-	docker buildx build --platform linux/amd64,linux/arm64 -t $(WEBSITE_IMAGE):$(VERSION) -t $(WEBSITE_IMAGE):latest $(WEBSITE_DIR)
+	docker buildx build --platform linux/amd64,linux/arm64 --no-cache -t $(WEBSITE_IMAGE):$(VERSION) -t $(WEBSITE_IMAGE):latest $(WEBSITE_DIR)
 
 # Push website image
 website-push:
 	@echo "Building and pushing multi-arch website image..."
-	docker buildx build --platform linux/amd64,linux/arm64 -t $(WEBSITE_IMAGE):$(VERSION) -t $(WEBSITE_IMAGE):latest $(WEBSITE_DIR) --push
+	docker buildx build --platform linux/amd64,linux/arm64 --no-cache -t $(WEBSITE_IMAGE):$(VERSION) -t $(WEBSITE_IMAGE):latest $(WEBSITE_DIR) --push
 
 # Package and push Helm chart
 website-helm:
@@ -30,6 +30,8 @@ website-helm:
 website-deploy:
 	@echo "Deploying website..."
 	helm upgrade kogaro-website . --namespace kogaro-website --create-namespace
+	@echo "Restarting deployment to pull latest image..."
+	kubectl rollout restart deployment/kogaro-website -n kogaro-website
 
 # Full build, push, and deploy pipeline
 website-all: website-push website-deploy
