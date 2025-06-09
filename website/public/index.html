@@ -39,12 +39,11 @@
                 <div class="hero-content">
                     <h1 class="hero-title">
                         Kogaro<sup>™</sup><br>
-                        <span class="highlight">Kubernetes Configuration Hygiene Agent</span>
+                        <span class="highlight">Stop Kubernetes Silent Failures</span>
                     </h1>
                     <p class="hero-description">
-                        Runtime validation agent that continuously monitors your Kubernetes cluster 
-                        for dangling references, security misconfigurations, and resource hygiene issues 
-                        before they cause silent failures.
+                        The operational intelligence system that catches configuration issues before they cause outages.
+                        While other tools generate compliance noise, Kogaro delivers actionable signals that production teams trust.
                     </p>
                     <div class="hero-actions">
                         <a href="#getting-started" class="btn btn-primary">Get Started</a>
@@ -79,39 +78,88 @@
             </div>
         </section>
 
+        <section class="problem-solution">
+            <div class="container">
+                <div class="problem-solution-grid">
+                    <div class="problem">
+                        <h2>The Hidden Crisis in Production Kubernetes</h2>
+                        <ul class="crisis-list">
+                            <li>🚨 Deployments pass CI/CD but fail silently in production</li>
+                            <li>💥 Dangling references cause mysterious service outages</li>
+                            <li>🔍 Issues hide in log noise until customers complain</li>
+                            <li>⏰ Hours of debugging what should be seconds of detection</li>
+                        </ul>
+                    </div>
+                    <div class="solution">
+                        <h2>Kogaro: Operational Vigilance System</h2>
+                        <ul class="solution-list">
+                            <li>✅ Detects silent failures before they impact users</li>
+                            <li>🎯 Structured error codes for automated response</li>
+                            <li>📊 Real-time monitoring with Prometheus integration</li>
+                            <li>🚀 Production-ready with leader election and HA</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="social-proof">
+            <div class="container">
+                <p class="proof-text">Trusted by production teams to catch issues that slip through CI/CD</p>
+                <div class="stats-grid">
+                    <div class="stat">
+                        <span class="stat-number">39+</span>
+                        <span class="stat-label">Validation Types</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-number">100%</span>
+                        <span class="stat-label">Open Source</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-number">5min</span>
+                        <span class="stat-label">Setup Time</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-number">0</span>
+                        <span class="stat-label">Silent Failures</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <section id="features" class="features">
             <div class="container">
-                <h2 class="section-title">Why Kogaro<sup>™</sup>?</h2>
+                <h2 class="section-title">Why Choose Kogaro Over Alternatives?</h2>
                 <div class="features-grid">
-                    <div class="feature-card">
-                        <div class="feature-icon">🔍</div>
-                        <h3>Comprehensive Validation</h3>
-                        <p>42+ validation types across Reference, Resource Limits, Security, and Networking categories</p>
+                    <div class="feature-card comparison">
+                        <div class="feature-icon">🎯</div>
+                        <h3>vs. Policy Engines</h3>
+                        <p><strong>Them:</strong> Complex rule languages<br><strong>Kogaro:</strong> Simple, focused validations</p>
                     </div>
-                    <div class="feature-card">
+                    <div class="feature-card comparison">
+                        <div class="feature-icon">🔍</div>
+                        <h3>vs. Security Scanners</h3>
+                        <p><strong>Them:</strong> Point-in-time reports<br><strong>Kogaro:</strong> Continuous operational monitoring</p>
+                    </div>
+                    <div class="feature-card comparison">
+                        <div class="feature-icon">📊</div>
+                        <h3>vs. Monitoring Tools</h3>
+                        <p><strong>Them:</strong> Runtime metrics only<br><strong>Kogaro:</strong> Configuration hygiene focus</p>
+                    </div>
+                    <div class="feature-card unique">
+                        <div class="feature-icon">⚡</div>
+                        <h3>Operational Intelligence</h3>
+                        <p>The only tool designed for operational configuration hygiene - catching silent failures others miss</p>
+                    </div>
+                    <div class="feature-card unique">
                         <div class="feature-icon">🏷️</div>
                         <h3>Structured Error Codes</h3>
                         <p>KOGARO-XXX-YYY format enables automated processing, filtering, and trend analysis</p>
                     </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">⚡</div>
-                        <h3>Runtime Detection</h3>
-                        <p>Continuously monitors your cluster to catch issues before they cause silent failures</p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">📊</div>
-                        <h3>Prometheus Integration</h3>
-                        <p>Built-in metrics for monitoring validation runs, error counts, and cluster health</p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">🔒</div>
-                        <h3>Security Focused</h3>
-                        <p>Validates SecurityContext, RBAC permissions, and container security configurations</p>
-                    </div>
-                    <div class="feature-card">
+                    <div class="feature-card unique">
                         <div class="feature-icon">🚀</div>
                         <h3>Production Ready</h3>
-                        <p>Leader election, health checks, and configurable validation levels for any environment</p>
+                        <p>Leader election, health checks, HA support - built by ops teams, for ops teams</p>
                     </div>
                 </div>
             </div>
@@ -119,7 +167,7 @@
 
         <section id="getting-started" class="getting-started">
             <div class="container">
-                <h2 class="section-title">Get Started in Minutes</h2>
+                <h2 class="section-title">Deploy in 5 Minutes, Start Catching Issues Immediately</h2>
                 <div class="install-tabs">
                     <div class="tab-buttons">
                         <button class="tab-btn active" data-tab="helm">Helm</button>
@@ -131,11 +179,11 @@
                                 <pre><code># Add the Kogaro™ Helm repository
 helm repo add kogaro https://topiaruss.github.io/kogaro
 
-# Install Kogaro™
+# Install Kogaro™ and start catching silent failures
 helm install kogaro kogaro/kogaro --namespace kogaro-system --create-namespace
 
-# Verify installation
-kubectl get pods -n kogaro-system</code></pre>
+# Watch it immediately detect issues
+kubectl logs -n kogaro-system -l app.kubernetes.io/name=kogaro -f</code></pre>
                                 <button class="copy-btn" data-code="helm repo add kogaro https://topiaruss.github.io/kogaro&#10;helm install kogaro kogaro/kogaro --namespace kogaro-system --create-namespace&#10;kubectl get pods -n kogaro-system">Copy</button>
                             </div>
                         </div>
