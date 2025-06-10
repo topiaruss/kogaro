@@ -119,7 +119,7 @@ func (v *ImageValidator) ValidateCluster(ctx context.Context) error {
 	}
 
 	v.log.Info("validation completed", "validator_type", "image", "total_errors", len(errors))
-	
+
 	// Store errors for CLI reporting
 	v.lastValidationErrors = errors
 	return nil
