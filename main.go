@@ -284,6 +284,14 @@ func main() {
 
 	// Handle validate command
 	if validateMode != "" {
+		// Early validation for one-off mode to catch Helm templates before Kubernetes connection
+		if validateMode == "one-off" && validateConfig != "" {
+			if err := validateConfigFile(validateConfig); err != nil {
+				setupLog.Error(err, "validation failed")
+				os.Exit(1)
+			}
+		}
+
 		// Parse duration if provided
 		var duration time.Duration
 		if validateDuration != "" {
@@ -422,4 +430,21 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+// validateConfigFile performs early validation of config file for Helm template detection
+func validateConfigFile(configPath string) error {
+	// Read the config file
+	configData, err := os.ReadFile(configPath)
+	if err != nil {
+		return fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	// Check for Helm template syntax early
+	configStr := string(configData)
+	if strings.Contains(configStr, "{{") && strings.Contains(configStr, "}}") {
+		return fmt.Errorf("file appears to contain Helm templates. Please render the template first using 'helm template' and validate the resulting YAML")
+	}
+
+	return nil
 }
