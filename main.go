@@ -153,6 +153,16 @@ func main() { // nolint:gocyclo // TODO: Refactor main function to reduce comple
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
+	// Handle one-off validation mode before creating Kubernetes manager
+	if validateMode == "one-off" && validateConfig != "" {
+		if err := validateConfigFile(validateConfig); err != nil {
+			setupLog.Error(err, "validation failed")
+			os.Exit(1)
+		}
+		setupLog.Info("config file validation passed")
+		return
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
 		Metrics: server.Options{
@@ -284,13 +294,6 @@ func main() { // nolint:gocyclo // TODO: Refactor main function to reduce comple
 
 	// Handle validate command
 	if validateMode != "" {
-		// Early validation for one-off mode to catch Helm templates before Kubernetes connection
-		if validateMode == "one-off" && validateConfig != "" {
-			if err := validateConfigFile(validateConfig); err != nil {
-				setupLog.Error(err, "validation failed")
-				os.Exit(1)
-			}
-		}
 
 		// Parse duration if provided
 		var duration time.Duration
