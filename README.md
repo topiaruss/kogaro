@@ -48,9 +48,9 @@ Kogaro provides **operational vigilance** through:
 
 ## Features
 
-### Comprehensive Kubernetes Validation (39+ validation types)
+### Comprehensive Kubernetes Validation (44+ validation types)
 
-Kogaro provides four comprehensive validation categories covering all critical aspects of Kubernetes cluster hygiene:
+Kogaro provides five comprehensive validation categories covering all critical aspects of Kubernetes cluster hygiene:
 
 #### 1. Reference Validation (11 validation types)
 Detects dangling references to non-existent resources:
@@ -105,7 +105,17 @@ Detects security misconfigurations and vulnerabilities:
   - `serviceaccount_cluster_role_binding`: ServiceAccount with ClusterRoleBinding
   - `serviceaccount_excessive_permissions`: ServiceAccount with dangerous RoleBinding
 
-#### 4. Networking Validation (9 validation types)
+#### 4. Image Validation (5 validation types)
+Validates container images and registry accessibility:
+
+- **Image Registry & Architecture** (`--enable-image-validation`)
+  - `invalid_image_reference`: Containers with malformed image references
+  - `missing_image`: Images that don't exist in the registry
+  - `missing_image_warning`: Missing images (when `--allow-missing-images` is enabled)
+  - `architecture_mismatch`: Image architecture incompatible with cluster nodes
+  - `architecture_mismatch_warning`: Architecture mismatches (when `--allow-architecture-mismatch` is enabled)
+
+#### 5. Networking Validation (9 validation types)
 Validates service connectivity and network policies:
 
 - **Service Connectivity** (`--enable-networking-validation`)
@@ -137,6 +147,7 @@ Kogaro assigns structured error codes to all validation issues for easy categori
 - **Reference Validation**: `KOGARO-REF-001` through `KOGARO-REF-011`
 - **Resource Limits**: `KOGARO-RES-001` through `KOGARO-RES-010`
 - **Security Validation**: `KOGARO-SEC-001` through `KOGARO-SEC-012`
+- **Image Validation**: `KOGARO-IMG-001` through `KOGARO-IMG-005`
 - **Networking Validation**: `KOGARO-NET-001` through `KOGARO-NET-009`
 
 **Benefits:**
@@ -154,6 +165,9 @@ kubectl logs kogaro-pod | grep "KOGARO-SEC-"
 
 # Count reference validation errors
 kubectl logs kogaro-pod | grep "KOGARO-REF-" | wc -l
+
+# Check for image-related issues
+kubectl logs kogaro-pod | grep "KOGARO-IMG-"
 ```
 
 ## Quick Start
@@ -182,11 +196,12 @@ helm install kogaro kogaro/kogaro \
   --namespace kogaro-system \
   --create-namespace
 
-# Or install with custom configuration
+# Or install with custom configuration including image validation
 helm install kogaro kogaro/kogaro \
   --namespace kogaro-system \
   --create-namespace \
   --set validation.enableServiceAccountValidation=true \
+  --set validation.enableImageValidation=true \
   --set validation.scanInterval=10m \
   --set resourceLimits.minCPURequest=50m \
   --set security.enableNetworkPolicyValidation=true
@@ -220,8 +235,8 @@ go mod download
 # Run locally against your current kubeconfig
 go run main.go --scan-interval=30s
 
-# Run with specific validations enabled
-go run main.go --enable-secret-validation=false --enable-security-validation=true --min-cpu-request=100m
+# Run with specific validations enabled (including image validation)
+go run main.go --enable-secret-validation=false --enable-security-validation=true --enable-image-validation=true --min-cpu-request=100m
 
 # Or build and run
 make build
@@ -260,6 +275,11 @@ make build
 - `--enable-security-serviceaccount-validation`: Enable ServiceAccount permissions validation (default: true)
 - `--enable-network-policy-validation`: Enable NetworkPolicy validation (default: true)
 - `--security-required-namespaces`: Namespaces requiring NetworkPolicies for security validation
+
+#### Image Validation Flags
+- `--enable-image-validation`: Enable container image validation (default: false)
+- `--allow-missing-images`: Allow deployment if images are not found in registry (default: false)
+- `--allow-architecture-mismatch`: Allow deployment if image architecture doesn't match nodes (default: false)
 
 #### Networking Validation Flags
 - `--enable-networking-validation`: Enable networking connectivity validation (default: true)
@@ -370,6 +390,37 @@ spec:
    Security Risk: HIGH - Root access in container
    Best Practice: Set runAsUser to non-zero value
    Fix: Add securityContext with runAsUser: 1000 and runAsNonRoot: true
+```
+
+### Image Registry Issues
+
+**The Problem**: Container image doesn't exist or has architecture mismatch:
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+spec:
+  template:
+    spec:
+      containers:
+      - name: app
+        image: myregistry/nonexistent:latest  # ❌ Image doesn't exist!
+      - name: sidecar
+        image: arm64/nginx:latest  # ❌ Wrong architecture for AMD64 cluster!
+```
+
+**What happens**: Deployment succeeds ✅, but pods get ImagePullBackOff errors ❌.
+
+**Kogaro prevents the issue**:
+```
+🚨 KOGARO-IMG-002: Container 'app' references non-existent image: myregistry/nonexistent:latest
+   Resource: Deployment/my-app
+   Impact: Pod will fail to start with ImagePullBackOff
+   Fix: Verify image exists in registry or use --allow-missing-images for development
+
+🚨 KOGARO-IMG-004: Container 'sidecar' image architecture (arm64) incompatible with cluster nodes (amd64)
+   Resource: Deployment/my-app
+   Impact: Pod will fail to start on amd64 nodes
+   Fix: Use multi-arch image or specify correct architecture
 ```
 
 ## Documentation

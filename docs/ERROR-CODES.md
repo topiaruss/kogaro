@@ -2,7 +2,7 @@
 
 Kogaro uses structured error codes to categorize and identify validation issues systematically. Each error follows the format `KOGARO-CCC-XXX` where:
 
-- `CCC` = Category (REF, RES, SEC, NET)
+- `CCC` = Category (REF, RES, SEC, IMG, NET)
 - `XXX` = Sequential number within category
 
 ## Error Code Categories
@@ -57,6 +57,17 @@ Validates security contexts, permissions, and compliance.
 | KOGARO-SEC-010 | `missing_container_security_context` | Container | Container has no SecurityContext defined |
 | KOGARO-SEC-011 | `serviceaccount_cluster_role_binding` | ServiceAccount | ServiceAccount has excessive ClusterRoleBinding |
 | KOGARO-SEC-012 | `serviceaccount_excessive_permissions` | ServiceAccount | ServiceAccount has potentially excessive RoleBinding |
+
+### Image Validation (IMG)
+Validates container images, registry accessibility, and architecture compatibility.
+
+| Error Code | Validation Type | Entity | Description |
+|------------|----------------|---------|-----------|
+| KOGARO-IMG-001 | `invalid_image_reference` | Container | Container has invalid image reference format |
+| KOGARO-IMG-002 | `missing_image` | Container | Container references non-existent image in registry |
+| KOGARO-IMG-003 | `missing_image_warning` | Container | Container references non-existent image (warning when allowed) |
+| KOGARO-IMG-004 | `architecture_mismatch` | Container | Image architecture incompatible with cluster nodes |
+| KOGARO-IMG-005 | `architecture_mismatch_warning` | Container | Architecture mismatch (warning when allowed) |
 
 ### Networking Validation (NET)
 Validates service connectivity, network policies, and ingress configurations.
