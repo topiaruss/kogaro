@@ -4,7 +4,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/topiaruss/kogaro)](https://goreportcard.com/report/github.com/topiaruss/kogaro)
 [![codecov](https://codecov.io/gh/topiaruss/kogaro/branch/main/graph/badge.svg)](https://codecov.io/gh/topiaruss/kogaro)
 [![Production Ready](https://img.shields.io/badge/Production-Ready-brightgreen.svg)](https://github.com/topiaruss/kogaro/blob/main/docs/DEPLOYMENT-GUIDE.md)
-[![Validation Types](https://img.shields.io/badge/Validation%20Types-39+-blue.svg)](https://github.com/topiaruss/kogaro/blob/main/docs/ERROR-CODES.md)
+[![Validation Types](https://img.shields.io/badge/Validation%20Types-47+-blue.svg)](https://github.com/topiaruss/kogaro/blob/main/docs/ERROR-CODES.md)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![GitHub release](https://img.shields.io/github/release/topiaruss/kogaro.svg)](https://github.com/topiaruss/kogaro/releases)
 
@@ -27,7 +27,8 @@ Production Kubernetes clusters suffer from **silent configuration failures**:
 
 Kogaro provides **operational vigilance** through:
 
-- **39+ validation types** across Reference, Security, Resource, and Networking categories
+- **47+ validation types** across Reference, Security, Resource, Image, and Networking categories
+- **CI/CD Integration** with scoped validation for pre-deployment validation
 - **Structured error codes** (KOGARO-XXX-YYY) for automated processing
 - **Real-time detection** of configuration drift and dangerous changes  
 - **Prometheus integration** for monitoring and alerting
@@ -48,7 +49,7 @@ Kogaro provides **operational vigilance** through:
 
 ## Features
 
-### Comprehensive Kubernetes Validation (44+ validation types)
+### Comprehensive Kubernetes Validation (47+ validation types)
 
 Kogaro provides five comprehensive validation categories covering all critical aspects of Kubernetes cluster hygiene:
 
@@ -76,7 +77,7 @@ Detects dangling references to non-existent resources:
 - **ServiceAccount References** (`--enable-serviceaccount-validation`)
   - `dangling_service_account`: Missing ServiceAccount references
 
-#### 2. Resource Limits Validation (6 validation types)
+#### 2. Resource Limits Validation (10 validation types)
 Ensures proper resource management and QoS:
 
 - **Resource Constraints** (`--enable-resource-limits-validation`)
@@ -87,7 +88,7 @@ Ensures proper resource management and QoS:
   - `qos_class_issue` (BestEffort): Containers with no resource constraints
   - `qos_class_issue` (Burstable): Containers where requests ≠ limits
 
-#### 3. Security Validation (11+ validation types)
+#### 3. Security Validation (12 validation types)
 Detects security misconfigurations and vulnerabilities:
 
 - **Pod & Container Security** (`--enable-security-validation`)
@@ -242,6 +243,55 @@ go run main.go --enable-secret-validation=false --enable-security-validation=tru
 make build
 ./bin/kogaro --help
 ```
+
+## 🚀 CI/CD Integration 
+
+**NEW: Pre-deployment validation for your CI/CD pipelines**
+
+Kogaro now provides powerful CI/CD integration with **scoped validation** - validate your configuration files before deployment while benefiting from full cluster-aware validation.
+
+### Pre-Deployment Validation
+
+```bash
+# Validate your config file before deployment
+# Shows only errors related to YOUR resources
+helm template my-app ./chart | kogaro --mode=one-off --config=- --scope=file-only
+
+# Or validate a specific YAML file
+kogaro --mode=one-off --config=deployment.yaml --scope=file-only
+```
+
+### Key CI/CD Benefits
+
+- **🎯 Focused Feedback**: `--scope=file-only` shows only errors for resources in your config files
+- **🔍 Full Validation**: Still performs cluster-aware validation (detects conflicts, missing references, etc.)
+- **🐳 Image Validation**: Verifies container images exist in registries and match cluster architecture
+- **⚡ Fast Feedback**: Catch issues before deployment, not after
+- **🤖 Automation Ready**: Structured exit codes and error formats for CI/CD automation
+
+### Example CI/CD Pipeline Integration
+
+```yaml
+# GitHub Actions example
+- name: Validate Kubernetes manifests
+  run: |
+    helm template my-app ./chart | \
+    kogaro --mode=one-off --config=- --scope=file-only \
+           --enable-image-validation=true --output=ci
+    
+# GitLab CI example  
+validate-k8s:
+  script:
+    - helm template my-app ./chart > manifests.yaml
+    - kogaro --mode=one-off --config=manifests.yaml --scope=file-only --enable-image-validation=true
+```
+
+### Validation Scope Options
+
+- **`--scope=all`** (default): Show all validation errors in the cluster
+- **`--scope=file-only`**: Show only errors for resources defined in your config file
+
+**Perfect for**: Pre-deployment validation, CI/CD pipelines, developer workflows
 
 ## Configuration
 
