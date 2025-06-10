@@ -46,12 +46,12 @@ spec:
             name: nonexistent-config
 `
 
-		if err := os.WriteFile(configFile, []byte(plainYAML), 0644); err != nil {
+		if err := os.WriteFile(configFile, []byte(plainYAML), 0600); err != nil {
 			t.Fatalf("Failed to create test YAML file: %v", err)
 		}
 
 		// Run CLI validation
-		cmd := exec.Command("./kogaro-test", "--mode=one-off", "--config="+configFile)
+		cmd := exec.Command("./kogaro-test", "--mode=one-off", "--config="+configFile) // nolint:gosec // Test execution
 		output, _ := cmd.CombinedOutput()
 		
 		// Should parse successfully (no YAML parsing errors)
@@ -70,7 +70,7 @@ spec:
 			t.Skipf("Helm template file not found: %s", helmFile)
 		}
 
-		cmd := exec.Command("./kogaro-test", "--mode=one-off", "--config="+helmFile)
+		cmd := exec.Command("./kogaro-test", "--mode=one-off", "--config="+helmFile) // nolint:gosec // Test execution
 		output, err := cmd.CombinedOutput()
 		
 		// Should fail with parsing error

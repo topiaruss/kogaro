@@ -6,7 +6,6 @@ import (
 
 	"github.com/distribution/reference"
 	"github.com/go-logr/logr"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/topiaruss/kogaro/internal/metrics"
 	appsv1 "k8s.io/api/apps/v1"
@@ -245,7 +244,7 @@ func TestImageValidator_ValidateCluster(t *testing.T) {
 				if validationErrors == nil {
 					t.Fatalf("validation errors metric for %s is nil", expectedError)
 				}
-				errorCount := int(testutil.ToFloat64(validationErrors.(prometheus.Counter)))
+				errorCount := int(testutil.ToFloat64(validationErrors))
 				if errorCount != 1 {
 					t.Errorf("expected 1 validation error for %s, got %d", expectedError, errorCount)
 				}

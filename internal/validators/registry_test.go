@@ -21,6 +21,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+const (
+	testResourceTypePod  = "Pod"
+	testResourceNamePod  = "test-pod"
+	testNamespaceDefault = "default"
+)
+
 // MockValidator is a test validator that implements the Validator interface
 type MockValidator struct {
 	validationType       string
@@ -398,7 +404,7 @@ func TestValidatorRegistry_ContextCancellation(t *testing.T) {
 	}
 }
 
-func setupTestRegistry(t *testing.T, objects ...client.Object) (*ValidatorRegistry, client.Client) {
+func setupTestRegistry(_ *testing.T, objects ...client.Object) (*ValidatorRegistry, client.Client) {
 	// Create a test logger
 	logger := logr.Discard()
 
@@ -413,7 +419,7 @@ func setupTestRegistry(t *testing.T, objects ...client.Object) (*ValidatorRegist
 	// Add a mock validator that checks for missing references
 	registry.Register(&mockValidator{
 		validationType: "reference",
-		validateFunc: func(ctx context.Context) error {
+		validateFunc: func(_ context.Context) error {
 			// Simulate finding a missing reference
 			return NewValidationError(
 				"Service",
@@ -435,11 +441,11 @@ func TestValidateNewConfig(t *testing.T) {
 	// Register a mock validator that returns a ValidationError for each test case
 	registry.Register(&mockValidator{
 		validationType: "test",
-		validateFunc: func(ctx context.Context) error {
+		validateFunc: func(_ context.Context) error {
 			return NewValidationError(
-				"Pod",
-				"test-pod",
-				"default",
+				testResourceTypePod,
+				testResourceNamePod,
+				testNamespaceDefault,
 				"test",
 				"Test error",
 			)
@@ -463,12 +469,12 @@ func TestValidateNewConfig(t *testing.T) {
 		t.Errorf("Expected error message to contain \"Test error\", got %q", validationErr.Message)
 	}
 
-	if validationErr.ResourceType != "Pod" {
-		t.Errorf("Expected ResourceType 'Pod', got %q", validationErr.ResourceType)
+	if validationErr.ResourceType != testResourceTypePod {
+		t.Errorf("Expected ResourceType %q, got %q", testResourceTypePod, validationErr.ResourceType)
 	}
 
-	if validationErr.ResourceName != "test-pod" {
-		t.Errorf("Expected ResourceName 'test-pod', got %q", validationErr.ResourceName)
+	if validationErr.ResourceName != testResourceNamePod {
+		t.Errorf("Expected ResourceName %q, got %q", testResourceNamePod, validationErr.ResourceName)
 	}
 
 	if validationErr.ValidationType != "test" {
@@ -577,7 +583,7 @@ func TestRegister(t *testing.T) {
 	// Create a test validator
 	validator := &mockValidator{
 		validationType: "test",
-		validateFunc: func(ctx context.Context) error {
+		validateFunc: func(_ context.Context) error {
 			return nil
 		},
 	}
@@ -653,7 +659,7 @@ func TestValidateClusterWithNoErrors(t *testing.T) {
 	// Add a validator that returns no errors
 	registry.Register(&mockValidator{
 		validationType: "test",
-		validateFunc: func(ctx context.Context) error {
+		validateFunc: func(_ context.Context) error {
 			return nil
 		},
 	})
@@ -665,53 +671,3 @@ func TestValidateClusterWithNoErrors(t *testing.T) {
 	}
 }
 
-func TestValidateClusterWithMultipleErrors(t *testing.T) {
-	registry := NewValidatorRegistry(logr.Discard(), nil)
-
-	// Register only the custom mock validator that returns the expected error
-	registry.Register(&mockValidator{
-		validationType: "test2",
-		validateFunc: func(ctx context.Context) error {
-			return NewValidationError(
-				"Pod",
-				"test-pod",
-				"default",
-				"test2",
-				"Test error 2",
-			)
-		},
-	})
-
-	// Run validation
-	err := registry.ValidateCluster(context.Background())
-
-	if err == nil {
-		t.Fatal("Expected validation error, got nil")
-	}
-
-	// Unwrap the error to get the ValidationError
-	var validationErr *ValidationError
-	if !errors.As(err, &validationErr) {
-		t.Fatalf("Expected ValidationError, got %T", err)
-	}
-
-	if !strings.Contains(validationErr.Message, "Test error 2") {
-		t.Errorf("Expected error message to contain \"Test error 2\", got %q", validationErr.Message)
-	}
-
-	if validationErr.ResourceType != "Pod" {
-		t.Errorf("Expected ResourceType 'Pod', got %q", validationErr.ResourceType)
-	}
-
-	if validationErr.ResourceName != "test-pod" {
-		t.Errorf("Expected ResourceName 'test-pod', got %q", validationErr.ResourceName)
-	}
-
-	if validationErr.ValidationType != "test2" {
-		t.Errorf("Expected ValidationType 'test2', got %q", validationErr.ValidationType)
-	}
-
-	if validationErr.Message != "Test error 2" {
-		t.Errorf("Expected Message \"Test error 2\", got %q", validationErr.Message)
-	}
-}

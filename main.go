@@ -42,7 +42,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 }
 
-func main() {
+func main() { // nolint:gocyclo // TODO: Refactor main function to reduce complexity
 	var (
 		metricsAddr          string
 		enableLeaderElection bool
@@ -434,7 +434,7 @@ func main() {
 // validateConfigFile performs early validation of config file for Helm template detection
 func validateConfigFile(configPath string) error {
 	// Read the config file
-	configData, err := os.ReadFile(configPath)
+	configData, err := os.ReadFile(configPath) // nolint:gosec // Config file path is user-provided
 	if err != nil {
 		return fmt.Errorf("failed to read config file: %w", err)
 	}

@@ -164,7 +164,7 @@ func (r *ValidatorRegistry) ValidateFileOnly(ctx context.Context, configPath str
 	r.log.Info("starting file-only validation", "config", configPath)
 
 	// Read and parse the configuration file
-	configData, err := os.ReadFile(configPath)
+	configData, err := os.ReadFile(configPath) // nolint:gosec // Config file path is user-provided
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
@@ -253,7 +253,7 @@ func (r *ValidatorRegistry) ValidateNewConfigWithScope(ctx context.Context, conf
 	r.log.Info("starting new configuration validation", "config", configPath, "scope", scope)
 
 	// Read and parse the configuration file
-	configData, err := os.ReadFile(configPath)
+	configData, err := os.ReadFile(configPath) // nolint:gosec // Config file path is user-provided
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
@@ -368,7 +368,7 @@ func (r *ValidatorRegistry) ValidateNewConfig(ctx context.Context, configPath st
 	r.log.Info("starting new configuration validation", "config", configPath)
 
 	// Read and parse the configuration file
-	configData, err := os.ReadFile(configPath)
+	configData, err := os.ReadFile(configPath) // nolint:gosec // Config file path is user-provided
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
