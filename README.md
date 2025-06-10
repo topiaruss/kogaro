@@ -253,6 +253,11 @@ make build
 - `--health-probe-bind-address`: Health probe bind address (default: :8081)
 - `--leader-elect`: Enable leader election for HA deployments (default: false)
 
+#### CLI Validation Flags
+- `--scope`: Control which errors are displayed for one-off validations
+  - `all`: Show all validation errors (default)
+  - `file-only`: Show only errors for resources defined in the config file
+
 #### Reference Validation Flags
 - `--enable-ingress-validation`: Enable Ingress references validation (default: true)
 - `--enable-configmap-validation`: Enable ConfigMap references validation (default: true)
