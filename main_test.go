@@ -14,7 +14,7 @@ func TestCLIValidation(t *testing.T) {
 	if err := buildCmd.Run(); err != nil {
 		t.Fatalf("Failed to build kogaro binary: %v", err)
 	}
-	defer os.Remove("kogaro-test")
+	defer func() { _ = os.Remove("kogaro-test") }()
 
 	t.Run("Plain YAML with ConfigMap reference issue", func(t *testing.T) {
 		// Create plain YAML without Helm templates

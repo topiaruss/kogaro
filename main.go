@@ -357,15 +357,14 @@ func main() {
 					// Output to stderr for CI consumption
 					fmt.Fprintf(os.Stderr, "%s\n", output)
 					os.Exit(result.ExitCode)
-				} else {
-					// Regular output
-					if result.ExitCode > 0 {
-						setupLog.Error(nil, "validation failed",
-							"total_errors", result.Summary.TotalErrors,
-							"missing_refs", result.Summary.MissingRefs,
-							"suggested_refs", result.Summary.SuggestedRefs)
-						os.Exit(result.ExitCode)
-					}
+				}
+				// Regular output
+				if result.ExitCode > 0 {
+					setupLog.Error(nil, "validation failed",
+						"total_errors", result.Summary.TotalErrors,
+						"missing_refs", result.Summary.MissingRefs,
+						"suggested_refs", result.Summary.SuggestedRefs)
+					os.Exit(result.ExitCode)
 				}
 			} else {
 				// Validate existing cluster

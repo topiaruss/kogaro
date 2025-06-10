@@ -23,6 +23,11 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+const (
+	validationTypeMissingReference   = "missing_reference"
+	validationTypeSuggestedReference = "suggested_reference"
+)
+
 // ValidatorRegistry manages a collection of validators and coordinates their execution.
 type ValidatorRegistry struct {
 	validators []Validator
@@ -99,7 +104,7 @@ func (r *ValidatorRegistry) FormatCIOutput(result ValidationResult) (string, err
 	var output strings.Builder
 
 	// Add summary header
-	output.WriteString(fmt.Sprintf("Validation Summary:\n"))
+	output.WriteString("Validation Summary:\n")
 	output.WriteString(fmt.Sprintf("Total Errors: %d\n", result.Summary.TotalErrors))
 	output.WriteString(fmt.Sprintf("Missing References: %d\n", len(result.Summary.MissingRefs)))
 	output.WriteString(fmt.Sprintf("Suggested References: %d\n", len(result.Summary.SuggestedRefs)))
@@ -195,10 +200,10 @@ func (r *ValidatorRegistry) ValidateFileOnly(ctx context.Context, configPath str
 		
 		// Process errors for missing/suggested references
 		for _, ve := range validationErrors {
-			if ve.ValidationType == "missing_reference" {
+			if ve.ValidationType == validationTypeMissingReference {
 				missingRefs = append(missingRefs, ve.Message)
 			}
-			if ve.ValidationType == "suggested_reference" {
+			if ve.ValidationType == validationTypeSuggestedReference {
 				suggestedRefs = append(suggestedRefs, ve.Message)
 			}
 		}
@@ -311,10 +316,10 @@ func (r *ValidatorRegistry) ValidateNewConfigWithScope(ctx context.Context, conf
 		
 		// Process errors for missing/suggested references
 		for _, ve := range validationErrors {
-			if ve.ValidationType == "missing_reference" {
+			if ve.ValidationType == validationTypeMissingReference {
 				missingRefs = append(missingRefs, ve.Message)
 			}
-			if ve.ValidationType == "suggested_reference" {
+			if ve.ValidationType == validationTypeSuggestedReference {
 				suggestedRefs = append(suggestedRefs, ve.Message)
 			}
 		}
@@ -399,10 +404,10 @@ func (r *ValidatorRegistry) ValidateNewConfig(ctx context.Context, configPath st
 		
 		// Process errors for missing/suggested references
 		for _, ve := range validationErrors {
-			if ve.ValidationType == "missing_reference" {
+			if ve.ValidationType == validationTypeMissingReference {
 				missingRefs = append(missingRefs, ve.Message)
 			}
-			if ve.ValidationType == "suggested_reference" {
+			if ve.ValidationType == validationTypeSuggestedReference {
 				suggestedRefs = append(suggestedRefs, ve.Message)
 			}
 		}
