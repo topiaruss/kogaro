@@ -229,9 +229,126 @@ func (r *ValidatorRegistry) ValidateFileOnly(ctx context.Context, configPath str
 	return result, nil
 }
 
+// ValidateNewConfigWithScope validates a new configuration file against the existing cluster state.
+// It performs all standard validations plus additional checks for potential matches
+// when exact references don't exist. The scope parameter controls which errors are returned:
+// - "all": return all validation errors (existing behavior)
+// - "file-only": return only errors for resources defined in the config file
+func (r *ValidatorRegistry) ValidateNewConfigWithScope(ctx context.Context, configPath string, scope string) (*ValidationResult, error) {
+	r.mu.RLock()
+	validators := make([]Validator, len(r.validators))
+	copy(validators, r.validators)
+	r.mu.RUnlock()
+
+	if len(validators) == 0 {
+		r.log.Info("no validators registered, skipping validation")
+		return &ValidationResult{ExitCode: 0}, nil
+	}
+
+	r.log.Info("starting new configuration validation", "config", configPath, "scope", scope)
+
+	// Read and parse the configuration file
+	configData, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	// Parse config file to track which resources are from the file
+	configObjects, err := parseConfigFile(configData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse config file: %w", err)
+	}
+
+	// Create resource key set for filtering
+	configResourceKeys := make(map[string]bool)
+	for _, obj := range configObjects {
+		// Use the object's GVK to get kind
+		gvk := obj.GetObjectKind().GroupVersionKind()
+		key := fmt.Sprintf("%s/%s/%s", gvk.Kind, obj.GetNamespace(), obj.GetName())
+		configResourceKeys[key] = true
+	}
+
+	// Create a temporary client that includes both cluster and new config resources
+	client := r.createTemporaryClient(ctx, configData)
+	if client == nil {
+		return nil, fmt.Errorf("failed to create temporary client")
+	}
+
+	// Run all validators with the temporary client
+	var allErrors []ValidationError
+	var missingRefs []string
+	var suggestedRefs []string
+
+	for _, validator := range validators {
+		validatorType := validator.GetValidationType()
+		r.log.V(1).Info("running validator", "type", validatorType)
+
+		// Update validator's client to use temporary client
+		if err := r.updateValidatorClient(validator, client); err != nil {
+			return nil, fmt.Errorf("failed to update validator client: %w", err)
+		}
+
+		// Run validation and collect errors
+		if err := validator.ValidateCluster(ctx); err != nil {
+			return nil, fmt.Errorf("validator %s failed: %w", validatorType, err)
+		}
+		
+		// Collect validation errors from validator
+		validationErrors := validator.GetLastValidationErrors()
+		
+		// Filter errors based on scope
+		if scope == "file-only" {
+			filteredErrors := r.filterErrorsByScope(validationErrors, configResourceKeys)
+			r.log.V(1).Info("filtered validation errors", 
+				"validator_type", validatorType, 
+				"total_errors", len(validationErrors), 
+				"filtered_errors", len(filteredErrors),
+				"config_resource_keys", len(configResourceKeys))
+			allErrors = append(allErrors, filteredErrors...)
+		} else {
+			allErrors = append(allErrors, validationErrors...)
+		}
+		
+		// Process errors for missing/suggested references
+		for _, ve := range validationErrors {
+			if ve.ValidationType == "missing_reference" {
+				missingRefs = append(missingRefs, ve.Message)
+			}
+			if ve.ValidationType == "suggested_reference" {
+				suggestedRefs = append(suggestedRefs, ve.Message)
+			}
+		}
+
+		r.log.V(1).Info("validator completed", "type", validatorType)
+	}
+
+	// Prepare result
+	result := &ValidationResult{
+		Summary: struct {
+			TotalErrors   int      `json:"total_errors"`
+			MissingRefs   []string `json:"missing_refs,omitempty"`
+			SuggestedRefs []string `json:"suggested_refs,omitempty"`
+		}{
+			TotalErrors:   len(allErrors),
+			MissingRefs:   missingRefs,
+			SuggestedRefs: suggestedRefs,
+		},
+		Errors:    allErrors,
+		ExitCode:  0,
+	}
+
+	if len(allErrors) > 0 {
+		result.ExitCode = 1
+	}
+
+	r.log.Info("new configuration validation completed", "total_errors", len(allErrors), "scope", scope)
+	return result, nil
+}
+
 // ValidateNewConfig validates a new configuration file against the existing cluster state.
 // It performs all standard validations plus additional checks for potential matches
-// when exact references don't exist.
+// when exact references don't exist. Results can be filtered to show only errors 
+// related to the config file resources.
 func (r *ValidatorRegistry) ValidateNewConfig(ctx context.Context, configPath string) (*ValidationResult, error) {
 	r.mu.RLock()
 	validators := make([]Validator, len(r.validators))
@@ -459,4 +576,21 @@ func (r *ValidatorRegistry) updateValidatorClient(validator Validator, client cl
 	// Use the SetClient method on the Validator interface
 	validator.SetClient(client)
 	return nil
+}
+
+// filterErrorsByScope filters validation errors to only include those for resources in the config file
+func (r *ValidatorRegistry) filterErrorsByScope(errors []ValidationError, configResourceKeys map[string]bool) []ValidationError {
+	var filteredErrors []ValidationError
+	
+	for _, err := range errors {
+		// Create resource key for this error
+		key := fmt.Sprintf("%s/%s/%s", err.ResourceType, err.Namespace, err.ResourceName)
+		
+		// Include error if it's for a resource from the config file
+		if configResourceKeys[key] {
+			filteredErrors = append(filteredErrors, err)
+		}
+	}
+	
+	return filteredErrors
 }

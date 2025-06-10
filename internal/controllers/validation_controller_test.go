@@ -22,7 +22,7 @@ import (
 
 func TestValidationController_NeedLeaderElection(t *testing.T) {
 	controller := &ValidationController{}
-	
+
 	// Should require leader election for cluster-wide validation
 	if !controller.NeedLeaderElection() {
 		t.Error("Expected NeedLeaderElection() to return true")
@@ -43,8 +43,8 @@ func TestValidationController_Start(t *testing.T) {
 		EnableIngressValidation: true,
 	}
 	validator := validators.NewReferenceValidator(fakeClient, logr.Discard(), config)
-	
-	registry := validators.NewValidatorRegistry(logr.Discard())
+
+	registry := validators.NewValidatorRegistry(logr.Discard(), fakeClient)
 	registry.Register(validator)
 
 	controller := &ValidationController{

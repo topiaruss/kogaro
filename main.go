@@ -91,6 +91,7 @@ func main() {
 		validateDuration string
 		validateInterval string
 		validateOutput   string
+		validateScope    string
 	)
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
@@ -142,6 +143,7 @@ func main() {
 	flag.StringVar(&validateDuration, "duration", "", "Duration for monitor mode (e.g., 10m)")
 	flag.StringVar(&validateInterval, "interval", "1m", "Interval between validations in monitor mode")
 	flag.StringVar(&validateOutput, "output", "text", "Output format: text, json, or yaml")
+	flag.StringVar(&validateScope, "scope", "all", "Validation scope: all (show all errors) or file-only (show only errors for config file resources)")
 
 	opts := zap.Options{
 		Development: true,
@@ -330,8 +332,8 @@ func main() {
 		switch validateMode {
 		case "one-off":
 			if validateConfig != "" {
-				// Validate new configuration against cluster
-				result, err := registry.ValidateNewConfig(ctx, validateConfig)
+				// Validate new configuration against cluster with scope filtering
+				result, err := registry.ValidateNewConfigWithScope(ctx, validateConfig, validateScope)
 				if err != nil {
 					setupLog.Error(err, "validation failed")
 					os.Exit(1)
