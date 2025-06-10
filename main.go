@@ -138,7 +138,7 @@ func main() { // nolint:gocyclo // TODO: Refactor main function to reduce comple
 	flag.BoolVar(&allowArchitectureMismatch, "allow-architecture-mismatch", false, "Allow deployment even if image architecture doesn't match nodes")
 
 	// Add validate command flags
-	flag.StringVar(&validateMode, "mode", "one-off", "Validation mode: one-off or monitor")
+	flag.StringVar(&validateMode, "mode", "", "Validation mode: one-off or monitor")
 	flag.StringVar(&validateConfig, "config", "", "Path to configuration file to validate")
 	flag.StringVar(&validateDuration, "duration", "", "Duration for monitor mode (e.g., 10m)")
 	flag.StringVar(&validateInterval, "interval", "1m", "Interval between validations in monitor mode")
