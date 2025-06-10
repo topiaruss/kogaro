@@ -33,7 +33,7 @@ const (
 
 // SecurityConfig defines which security validation checks to perform
 type SecurityConfig struct {
-	EnableRootUserValidation       bool
+	EnableRootUserValidation        bool
 	EnableSecurityContextValidation bool
 	EnableServiceAccountValidation  bool
 	EnableNetworkPolicyValidation   bool
@@ -43,10 +43,11 @@ type SecurityConfig struct {
 
 // SecurityValidator validates security configurations across workloads
 type SecurityValidator struct {
-	client       client.Client
-	log          logr.Logger
-	config       SecurityConfig
-	sharedConfig SharedConfig
+	client              client.Client
+	log                 logr.Logger
+	config              SecurityConfig
+	sharedConfig        SharedConfig
+	lastValidationErrors []ValidationError
 }
 
 // NewSecurityValidator creates a new SecurityValidator with the given client, logger and config
@@ -59,6 +60,16 @@ func NewSecurityValidator(client client.Client, log logr.Logger, config Security
 	}
 }
 
+// SetClient updates the client used by the validator
+func (v *SecurityValidator) SetClient(c client.Client) {
+	v.client = c
+}
+
+// GetLastValidationErrors returns the errors from the last validation run
+func (v *SecurityValidator) GetLastValidationErrors() []ValidationError {
+	return v.lastValidationErrors
+}
+
 // GetValidationType returns the validation type identifier for security validation
 func (v *SecurityValidator) GetValidationType() string {
 	return "security_validation"
@@ -67,7 +78,7 @@ func (v *SecurityValidator) GetValidationType() string {
 // ValidateCluster performs comprehensive validation of security configurations across the entire cluster
 func (v *SecurityValidator) ValidateCluster(ctx context.Context) error {
 	metrics.ValidationRuns.Inc()
-	
+
 	var allErrors []ValidationError
 
 	// Validate root user and SecurityContext configurations
@@ -134,6 +145,9 @@ func (v *SecurityValidator) ValidateCluster(ctx context.Context) error {
 	}
 
 	v.log.Info("validation completed", "validator_type", "security", "total_errors", len(allErrors))
+	
+	// Store errors for CLI reporting
+	v.lastValidationErrors = allErrors
 	return nil
 }
 
@@ -414,7 +428,7 @@ func (v *SecurityValidator) validateServiceAccountPermissions(ctx context.Contex
 			for _, subject := range crb.Subjects {
 				if subject.Kind == "ServiceAccount" && subject.Name == sa.Name && subject.Namespace == sa.Namespace {
 					errorCode := v.getSecurityErrorCode("serviceaccount_cluster_role_binding", nil)
-				errors = append(errors, NewValidationErrorWithCode("ServiceAccount", sa.Name, sa.Namespace, "serviceaccount_cluster_role_binding", errorCode, fmt.Sprintf("ServiceAccount has ClusterRoleBinding '%s' with role '%s'", crb.Name, crb.RoleRef.Name)).
+					errors = append(errors, NewValidationErrorWithCode("ServiceAccount", sa.Name, sa.Namespace, "serviceaccount_cluster_role_binding", errorCode, fmt.Sprintf("ServiceAccount has ClusterRoleBinding '%s' with role '%s'", crb.Name, crb.RoleRef.Name)).
 						WithSeverity(SeverityError).
 						WithRemediationHint("Review if cluster-wide permissions are necessary. Consider using namespace-scoped RoleBindings instead of ClusterRoleBindings").
 						WithRelatedResources(fmt.Sprintf("ClusterRoleBinding/%s", crb.Name)).
@@ -512,7 +526,6 @@ func (v *SecurityValidator) validateNetworkPolicyCoverage(ctx context.Context) (
 
 	return errors, nil
 }
-
 
 func (v *SecurityValidator) isProductionLikeNamespace(namespace string) bool {
 	return v.sharedConfig.IsProductionLikeNamespace(namespace)

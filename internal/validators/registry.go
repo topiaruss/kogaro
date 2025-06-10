@@ -143,6 +143,92 @@ func (r *ValidatorRegistry) FormatCIOutput(result ValidationResult) (string, err
 	return output.String(), nil
 }
 
+// ValidateFileOnly validates only the configuration file without any cluster context.
+// This is ideal for CI/CD pipelines where developers only want to see errors in their changes.
+func (r *ValidatorRegistry) ValidateFileOnly(ctx context.Context, configPath string) (*ValidationResult, error) {
+	r.mu.RLock()
+	validators := make([]Validator, len(r.validators))
+	copy(validators, r.validators)
+	r.mu.RUnlock()
+
+	if len(validators) == 0 {
+		r.log.Info("no validators registered, skipping validation")
+		return &ValidationResult{ExitCode: 0}, nil
+	}
+
+	r.log.Info("starting file-only validation", "config", configPath)
+
+	// Read and parse the configuration file
+	configData, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	// Create a fake client with only the file objects (no cluster resources)
+	client := r.createFileOnlyClient(configData)
+	if client == nil {
+		return nil, fmt.Errorf("failed to create file-only client")
+	}
+
+	// Run all validators with the file-only client
+	var allErrors []ValidationError
+	var missingRefs []string
+	var suggestedRefs []string
+
+	for _, validator := range validators {
+		validatorType := validator.GetValidationType()
+		r.log.V(1).Info("running validator", "type", validatorType)
+
+		// Update validator's client to use file-only client
+		if err := r.updateValidatorClient(validator, client); err != nil {
+			return nil, fmt.Errorf("failed to update validator client: %w", err)
+		}
+
+		// Run validation and collect errors
+		if err := validator.ValidateCluster(ctx); err != nil {
+			return nil, fmt.Errorf("validator %s failed: %w", validatorType, err)
+		}
+		
+		// Collect validation errors from validator
+		validationErrors := validator.GetLastValidationErrors()
+		allErrors = append(allErrors, validationErrors...)
+		
+		// Process errors for missing/suggested references
+		for _, ve := range validationErrors {
+			if ve.ValidationType == "missing_reference" {
+				missingRefs = append(missingRefs, ve.Message)
+			}
+			if ve.ValidationType == "suggested_reference" {
+				suggestedRefs = append(suggestedRefs, ve.Message)
+			}
+		}
+
+		r.log.V(1).Info("validator completed", "type", validatorType)
+	}
+
+	// Prepare result
+	result := &ValidationResult{
+		Summary: struct {
+			TotalErrors   int      `json:"total_errors"`
+			MissingRefs   []string `json:"missing_refs,omitempty"`
+			SuggestedRefs []string `json:"suggested_refs,omitempty"`
+		}{
+			TotalErrors:   len(allErrors),
+			MissingRefs:   missingRefs,
+			SuggestedRefs: suggestedRefs,
+		},
+		Errors:    allErrors,
+		ExitCode:  0,
+	}
+
+	if len(allErrors) > 0 {
+		result.ExitCode = 1
+	}
+
+	r.log.Info("file-only validation completed", "total_errors", len(allErrors))
+	return result, nil
+}
+
 // ValidateNewConfig validates a new configuration file against the existing cluster state.
 // It performs all standard validations plus additional checks for potential matches
 // when exact references don't exist.
@@ -187,15 +273,20 @@ func (r *ValidatorRegistry) ValidateNewConfig(ctx context.Context, configPath st
 
 		// Run validation and collect errors
 		if err := validator.ValidateCluster(ctx); err != nil {
-			// Extract validation errors and suggestions
-			if ve, ok := err.(ValidationError); ok {
-				allErrors = append(allErrors, ve)
-				if ve.ValidationType == "missing_reference" {
-					missingRefs = append(missingRefs, ve.Message)
-				}
-				if ve.ValidationType == "suggested_reference" {
-					suggestedRefs = append(suggestedRefs, ve.Message)
-				}
+			return nil, fmt.Errorf("validator %s failed: %w", validatorType, err)
+		}
+		
+		// Collect validation errors from validator
+		validationErrors := validator.GetLastValidationErrors()
+		allErrors = append(allErrors, validationErrors...)
+		
+		// Process errors for missing/suggested references
+		for _, ve := range validationErrors {
+			if ve.ValidationType == "missing_reference" {
+				missingRefs = append(missingRefs, ve.Message)
+			}
+			if ve.ValidationType == "suggested_reference" {
+				suggestedRefs = append(suggestedRefs, ve.Message)
 			}
 		}
 
@@ -223,6 +314,25 @@ func (r *ValidatorRegistry) ValidateNewConfig(ctx context.Context, configPath st
 		"suggested_refs", len(suggestedRefs))
 
 	return result, nil
+}
+
+// createFileOnlyClient creates a client that includes only the config file resources
+func (r *ValidatorRegistry) createFileOnlyClient(configData []byte) client.Client {
+	// Create a fake client builder
+	builder := fake.NewClientBuilder()
+
+	// Parse the config file into Kubernetes objects
+	objects, err := parseConfigFile(configData)
+	if err != nil {
+		r.log.Error(err, "failed to parse config file")
+		return nil
+	}
+
+	// Add only config objects to the fake client (no cluster resources)
+	builder = builder.WithObjects(objects...)
+
+	// Create the file-only client
+	return builder.Build()
 }
 
 // createTemporaryClient creates a client that includes both cluster and new config resources
@@ -263,6 +373,12 @@ func parseConfigFile(data []byte) ([]client.Object, error) {
 	for _, doc := range docs {
 		if len(bytes.TrimSpace(doc)) == 0 {
 			continue
+		}
+
+		// Check for Helm template syntax
+		docStr := string(bytes.TrimSpace(doc))
+		if strings.Contains(docStr, "{{") && strings.Contains(docStr, "}}") {
+			return nil, fmt.Errorf("file appears to contain Helm templates. Please render the template first using 'helm template' and validate the resulting YAML")
 		}
 
 		// Parse the YAML into an unstructured object

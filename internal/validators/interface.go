@@ -141,6 +141,10 @@ type Validator interface {
 
 	// SetClient allows updating the client used by the validator (for testing or dynamic config)
 	SetClient(client.Client)
+
+	// GetLastValidationErrors returns the errors from the last validation run
+	// This is used for CLI mode to collect errors for reporting
+	GetLastValidationErrors() []ValidationError
 }
 
 // ValidationResult represents the result of a validation operation

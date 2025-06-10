@@ -43,10 +43,11 @@ type ResourceLimitsConfig struct {
 
 // ResourceLimitsValidator validates resource requests and limits across workloads
 type ResourceLimitsValidator struct {
-	client       client.Client
-	log          logr.Logger
-	config       ResourceLimitsConfig
-	sharedConfig SharedConfig
+	client              client.Client
+	log                 logr.Logger
+	config              ResourceLimitsConfig
+	sharedConfig        SharedConfig
+	lastValidationErrors []ValidationError
 }
 
 // NewResourceLimitsValidator creates a new ResourceLimitsValidator with the given client, logger and config
@@ -57,6 +58,16 @@ func NewResourceLimitsValidator(client client.Client, log logr.Logger, config Re
 		config:       config,
 		sharedConfig: DefaultSharedConfig(),
 	}
+}
+
+// SetClient updates the client used by the validator
+func (v *ResourceLimitsValidator) SetClient(c client.Client) {
+	v.client = c
+}
+
+// GetLastValidationErrors returns the errors from the last validation run
+func (v *ResourceLimitsValidator) GetLastValidationErrors() []ValidationError {
+	return v.lastValidationErrors
 }
 
 // GetValidationType returns the validation type identifier for resource limits validation
@@ -119,6 +130,9 @@ func (v *ResourceLimitsValidator) ValidateCluster(ctx context.Context) error {
 	}
 
 	v.log.Info("validation completed", "validator_type", "resource_limits", "total_errors", len(allErrors))
+	
+	// Store errors for CLI reporting
+	v.lastValidationErrors = allErrors
 	return nil
 }
 

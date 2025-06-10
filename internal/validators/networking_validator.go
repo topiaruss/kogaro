@@ -7,7 +7,7 @@
 //
 // This package implements validation of networking configurations within
 // a Kubernetes cluster, detecting network connectivity issues that could
-// cause service disruptions. It validates Service selectors, NetworkPolicy 
+// cause service disruptions. It validates Service selectors, NetworkPolicy
 // coverage, and Ingress connectivity to ensure proper network communication.
 package validators
 
@@ -28,9 +28,9 @@ import (
 
 // NetworkingConfig defines which networking validation checks to perform
 type NetworkingConfig struct {
-	EnableServiceValidation     bool
+	EnableServiceValidation       bool
 	EnableNetworkPolicyValidation bool
-	EnableIngressValidation     bool
+	EnableIngressValidation       bool
 	// Namespaces that require NetworkPolicy coverage
 	PolicyRequiredNamespaces []string
 	// Enable warnings for pods not exposed by services
@@ -39,10 +39,11 @@ type NetworkingConfig struct {
 
 // NetworkingValidator validates networking configurations across workloads
 type NetworkingValidator struct {
-	client       client.Client
-	log          logr.Logger
-	config       NetworkingConfig
-	sharedConfig SharedConfig
+	client              client.Client
+	log                 logr.Logger
+	config              NetworkingConfig
+	sharedConfig        SharedConfig
+	lastValidationErrors []ValidationError
 }
 
 // NewNetworkingValidator creates a new NetworkingValidator with the given client, logger and config
@@ -55,6 +56,16 @@ func NewNetworkingValidator(client client.Client, log logr.Logger, config Networ
 	}
 }
 
+// SetClient updates the client used by the validator
+func (v *NetworkingValidator) SetClient(c client.Client) {
+	v.client = c
+}
+
+// GetLastValidationErrors returns the errors from the last validation run
+func (v *NetworkingValidator) GetLastValidationErrors() []ValidationError {
+	return v.lastValidationErrors
+}
+
 // GetValidationType returns the validation type identifier for networking validation
 func (v *NetworkingValidator) GetValidationType() string {
 	return "networking_validation"
@@ -63,7 +74,7 @@ func (v *NetworkingValidator) GetValidationType() string {
 // ValidateCluster performs comprehensive validation of networking configurations across the entire cluster
 func (v *NetworkingValidator) ValidateCluster(ctx context.Context) error {
 	metrics.ValidationRuns.Inc()
-	
+
 	var allErrors []ValidationError
 
 	// Validate Service connectivity
@@ -112,6 +123,9 @@ func (v *NetworkingValidator) ValidateCluster(ctx context.Context) error {
 	}
 
 	v.log.Info("validation completed", "validator_type", "networking", "total_errors", len(allErrors))
+	
+	// Store errors for CLI reporting
+	v.lastValidationErrors = allErrors
 	return nil
 }
 
@@ -140,11 +154,11 @@ func (v *NetworkingValidator) validateServiceConnectivity(ctx context.Context) (
 	podsByNamespace := make(map[string][]corev1.Pod)
 	// TODO: Migrate from deprecated corev1.Endpoints to discoveryv1.EndpointSlice
 	endpointsByName := make(map[string]corev1.Endpoints) //nolint:staticcheck
-	
+
 	for _, pod := range pods.Items {
 		podsByNamespace[pod.Namespace] = append(podsByNamespace[pod.Namespace], pod)
 	}
-	
+
 	for _, ep := range endpoints.Items {
 		key := fmt.Sprintf("%s/%s", ep.Namespace, ep.Name)
 		endpointsByName[key] = ep
@@ -176,7 +190,7 @@ func (v *NetworkingValidator) validateService(service corev1.Service, namespaceP
 	// Check if service selector matches any pods
 	if len(service.Spec.Selector) > 0 {
 		matchingPods := v.findMatchingPods(service.Spec.Selector, namespacePods)
-		
+
 		if len(matchingPods) == 0 {
 			errorCode := v.getNetworkingErrorCode("service_selector_mismatch")
 			errors = append(errors, NewValidationErrorWithCode("Service", service.Name, service.Namespace, "service_selector_mismatch", errorCode, fmt.Sprintf("Service selector %v does not match any pods", service.Spec.Selector)).
@@ -273,15 +287,15 @@ func (v *NetworkingValidator) podHasPort(pod corev1.Pod, targetPort intstr.IntOr
 
 func (v *NetworkingValidator) findMatchingPods(selector map[string]string, pods []corev1.Pod) []corev1.Pod {
 	var matchingPods []corev1.Pod
-	
+
 	selectorLabels := labels.Set(selector)
-	
+
 	for _, pod := range pods {
 		if selectorLabels.AsSelector().Matches(labels.Set(pod.Labels)) {
 			matchingPods = append(matchingPods, pod)
 		}
 	}
-	
+
 	return matchingPods
 }
 
@@ -299,17 +313,17 @@ func (v *NetworkingValidator) isSpecialService(service corev1.Service) bool {
 	if service.Spec.ClusterIP == "None" {
 		return true
 	}
-	
+
 	// Skip services without selectors (external services)
 	if len(service.Spec.Selector) == 0 {
 		return true
 	}
-	
+
 	// Skip system services
 	if v.sharedConfig.IsNetworkingExcludedNamespace(service.Namespace) {
 		return true
 	}
-	
+
 	return false
 }
 
@@ -364,12 +378,12 @@ func (v *NetworkingValidator) isPodTypicallyUnexposed(pod corev1.Pod) bool {
 			return true
 		}
 	}
-	
+
 	// Check for common patterns in pod names that suggest they don't need services
 	if v.sharedConfig.IsUnexposedPodPattern(pod.Name) {
 		return true
 	}
-	
+
 	return false
 }
 
@@ -470,11 +484,11 @@ func (v *NetworkingValidator) isDefaultDenyPolicy(policy networkingv1.NetworkPol
 	// A default deny policy typically:
 	// 1. Selects all pods (empty podSelector)
 	// 2. Has empty ingress and/or egress rules
-	
+
 	if len(policy.Spec.PodSelector.MatchLabels) > 0 {
 		return false
 	}
-	
+
 	if len(policy.Spec.PodSelector.MatchExpressions) > 0 {
 		return false
 	}
@@ -482,7 +496,7 @@ func (v *NetworkingValidator) isDefaultDenyPolicy(policy networkingv1.NetworkPol
 	// Check if it denies ingress (has ingress policy type but no ingress rules)
 	hasIngressDeny := false
 	hasEgressDeny := false
-	
+
 	for _, policyType := range policy.Spec.PolicyTypes {
 		if policyType == networkingv1.PolicyTypeIngress && len(policy.Spec.Ingress) == 0 {
 			hasIngressDeny = true
@@ -529,18 +543,18 @@ func (v *NetworkingValidator) getPodsInNamespace(pods []corev1.Pod, namespace st
 
 func (v *NetworkingValidator) findPodsMatchingPolicy(policy networkingv1.NetworkPolicy, pods []corev1.Pod) []corev1.Pod {
 	var matchingPods []corev1.Pod
-	
+
 	selector, err := metav1.LabelSelectorAsSelector(&policy.Spec.PodSelector)
 	if err != nil {
 		return matchingPods
 	}
-	
+
 	for _, pod := range pods {
 		if selector.Matches(labels.Set(pod.Labels)) {
 			matchingPods = append(matchingPods, pod)
 		}
 	}
-	
+
 	return matchingPods
 }
 
@@ -610,7 +624,7 @@ func (v *NetworkingValidator) validateIngressServiceBackend(ingress networkingv1
 
 	serviceKey := fmt.Sprintf("%s/%s", ingress.Namespace, backend.Name)
 	service, exists := serviceMap[serviceKey]
-	
+
 	if !exists {
 		// This should be caught by reference validator, but let's be thorough
 		errorCode := v.getNetworkingErrorCode("ingress_service_missing")
@@ -636,7 +650,7 @@ func (v *NetworkingValidator) validateIngressServiceBackend(ingress networkingv1
 				break
 			}
 		}
-		
+
 		if !portExists {
 			var portRef string
 			if backend.Port.Number != 0 {
@@ -659,7 +673,7 @@ func (v *NetworkingValidator) validateIngressServiceBackend(ingress networkingv1
 	namespacePods := v.getPodsInNamespace(pods, service.Namespace)
 	matchingPods := v.findMatchingPods(service.Spec.Selector, namespacePods)
 	readyPods := v.filterReadyPods(matchingPods)
-	
+
 	if len(readyPods) == 0 {
 		errorCode := v.getNetworkingErrorCode("ingress_no_backend_pods")
 		errors = append(errors, NewValidationErrorWithCode("Ingress", ingress.Name, ingress.Namespace, "ingress_no_backend_pods", errorCode, fmt.Sprintf("Ingress service '%s' has no ready backend pods", backend.Name)).
@@ -676,13 +690,13 @@ func (v *NetworkingValidator) validateIngressServiceBackend(ingress networkingv1
 
 func (v *NetworkingValidator) filterReadyPods(pods []corev1.Pod) []corev1.Pod {
 	var readyPods []corev1.Pod
-	
+
 	for _, pod := range pods {
 		if v.isPodReady(pod) {
 			readyPods = append(readyPods, pod)
 		}
 	}
-	
+
 	return readyPods
 }
 

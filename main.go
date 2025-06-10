@@ -300,6 +300,24 @@ func main() {
 			os.Exit(1)
 		}
 
+		// Start the manager cache briefly to allow cluster object retrieval
+		setupLog.Info("starting manager cache for CLI validation")
+		cacheCtx, cacheCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cacheCancel()
+		
+		go func() {
+			if err := mgr.Start(cacheCtx); err != nil && err != context.Canceled {
+				setupLog.Error(err, "failed to start manager for cache warmup")
+			}
+		}()
+		
+		// Wait for cache to sync
+		if !mgr.GetCache().WaitForCacheSync(cacheCtx) {
+			setupLog.Error(nil, "failed to sync cache")
+			os.Exit(1)
+		}
+		setupLog.Info("cache synced successfully")
+
 		// Create validation context
 		ctx := context.Background()
 		if duration > 0 {

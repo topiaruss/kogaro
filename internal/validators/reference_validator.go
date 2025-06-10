@@ -25,7 +25,6 @@ import (
 	"github.com/topiaruss/kogaro/internal/metrics"
 )
 
-
 // ValidationConfig defines which types of validation checks to perform
 type ValidationConfig struct {
 	EnableIngressValidation        bool
@@ -37,10 +36,11 @@ type ValidationConfig struct {
 
 // ReferenceValidator validates Kubernetes resource references across the cluster
 type ReferenceValidator struct {
-	client       client.Client
-	log          logr.Logger
-	config       ValidationConfig
-	sharedConfig SharedConfig
+	client              client.Client
+	log                 logr.Logger
+	config              ValidationConfig
+	sharedConfig        SharedConfig
+	lastValidationErrors []ValidationError
 }
 
 // GetValidationType returns the validation type identifier for reference validation
@@ -56,6 +56,16 @@ func NewReferenceValidator(client client.Client, log logr.Logger, config Validat
 		config:       config,
 		sharedConfig: DefaultSharedConfig(),
 	}
+}
+
+// SetClient updates the client used by the validator
+func (v *ReferenceValidator) SetClient(c client.Client) {
+	v.client = c
+}
+
+// GetLastValidationErrors returns the errors from the last validation run
+func (v *ReferenceValidator) GetLastValidationErrors() []ValidationError {
+	return v.lastValidationErrors
 }
 
 // ValidateCluster performs comprehensive validation of resource references across the entire cluster
@@ -128,6 +138,9 @@ func (v *ReferenceValidator) ValidateCluster(ctx context.Context) error {
 	}
 
 	v.log.Info("validation completed", "validator_type", "reference", "total_errors", len(allErrors))
+	
+	// Store errors for CLI reporting
+	v.lastValidationErrors = allErrors
 	return nil
 }
 

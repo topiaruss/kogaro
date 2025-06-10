@@ -30,10 +30,11 @@ type ImageValidatorConfig struct {
 
 // ImageValidator validates container images
 type ImageValidator struct {
-	client    client.Client
-	k8sClient kubernetes.Interface
-	log       logr.Logger
-	config    ImageValidatorConfig
+	client               client.Client
+	k8sClient            kubernetes.Interface
+	log                  logr.Logger
+	config               ImageValidatorConfig
+	lastValidationErrors []ValidationError
 
 	// For testing/mocking
 	checkImageExistsFunc     func(reference.Reference) (bool, error)
@@ -53,6 +54,11 @@ func NewImageValidator(client client.Client, k8sClient kubernetes.Interface, log
 // SetClient updates the client used by the validator
 func (v *ImageValidator) SetClient(c client.Client) {
 	v.client = c
+}
+
+// GetLastValidationErrors returns the errors from the last validation run
+func (v *ImageValidator) GetLastValidationErrors() []ValidationError {
+	return v.lastValidationErrors
 }
 
 // GetValidationType returns the validation type identifier for image validation
@@ -113,6 +119,9 @@ func (v *ImageValidator) ValidateCluster(ctx context.Context) error {
 	}
 
 	v.log.Info("validation completed", "validator_type", "image", "total_errors", len(errors))
+	
+	// Store errors for CLI reporting
+	v.lastValidationErrors = errors
 	return nil
 }
 
