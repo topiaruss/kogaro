@@ -4,7 +4,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/topiaruss/kogaro)](https://goreportcard.com/report/github.com/topiaruss/kogaro)
 [![codecov](https://codecov.io/gh/topiaruss/kogaro/branch/main/graph/badge.svg)](https://codecov.io/gh/topiaruss/kogaro)
 [![Production Ready](https://img.shields.io/badge/Production-Ready-brightgreen.svg)](https://github.com/topiaruss/kogaro/blob/main/docs/DEPLOYMENT-GUIDE.md)
-[![Validation Types](https://img.shields.io/badge/Validation%20Types-47+-blue.svg)](https://github.com/topiaruss/kogaro/blob/main/docs/ERROR-CODES.md)
+[![Validation Types](https://img.shields.io/badge/Validation%20Types-60+-blue.svg)](https://github.com/topiaruss/kogaro/blob/main/docs/ERROR-CODES.md)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![GitHub release](https://img.shields.io/github/release/topiaruss/kogaro.svg)](https://github.com/topiaruss/kogaro/releases)
 
@@ -27,7 +27,7 @@ Production Kubernetes clusters suffer from **silent configuration failures**:
 
 Kogaro provides **operational vigilance** through:
 
-- **47+ validation types** across Reference, Security, Resource, Image, and Networking categories
+- **60+ validation types** across Reference, Security, Resource, Image, and Networking categories
 - **CI/CD Integration** with scoped validation for pre-deployment validation
 - **Structured error codes** (KOGARO-XXX-YYY) for automated processing
 - **Real-time detection** of configuration drift and dangerous changes  

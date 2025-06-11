@@ -9,7 +9,7 @@ image:
   # Image pull policy: Always, IfNotPresent, or Never
   pullPolicy: IfNotPresent
   # Image tag - corresponds to Kogaro version
-  tag: "0.3.0"
+  tag: "0.4.1"
 
 # Secrets for pulling images from private registries
 imagePullSecrets: []
@@ -86,7 +86,7 @@ tolerations: []
 # Pod affinity/anti-affinity rules
 affinity: {}
 
-# Kogaro validation configuration (37+ validation types across 4 categories)
+# Kogaro validation configuration (60+ validation types across 5 categories)
 validation:
   # === REFERENCE VALIDATION (11 validation types) ===
   # Detects dangling references to non-existent resources
