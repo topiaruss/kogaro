@@ -120,8 +120,9 @@ release: check-version check-clean
 	@echo "1. Updating Helm chart version..."
 	@sed -i '' 's/^version: .*/version: $(VERSION_NUMBER)/' charts/kogaro/Chart.yaml
 	@sed -i '' 's/^appVersion: .*/appVersion: "$(VERSION_NUMBER)"/' charts/kogaro/Chart.yaml
+	@sed -i '' 's/^  tag: .*/  tag: "$(VERSION_NUMBER)"/' charts/kogaro/values.yaml
 	@echo "2. Creating git tag..."
-	@git add charts/kogaro/Chart.yaml
+	@git add charts/kogaro/Chart.yaml charts/kogaro/values.yaml
 	@git commit -m "chore: bump version to $(VERSION_NUMBER)"
 	@git tag -a $(VERSION) -m "Release $(VERSION)"
 	@echo "3. Pushing changes..."
