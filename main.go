@@ -14,6 +14,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -436,10 +437,21 @@ func main() { // nolint:gocyclo // TODO: Refactor main function to reduce comple
 
 // validateConfigFile performs early validation of config file for Helm template detection
 func validateConfigFile(configPath string) error {
-	// Read the config file
-	configData, err := os.ReadFile(configPath) // nolint:gosec // Config file path is user-provided
-	if err != nil {
-		return fmt.Errorf("failed to read config file: %w", err)
+	var configData []byte
+	var err error
+
+	// Handle stdin input when configPath is "-"
+	if configPath == "-" {
+		configData, err = io.ReadAll(os.Stdin)
+		if err != nil {
+			return fmt.Errorf("failed to read from stdin: %w", err)
+		}
+	} else {
+		// Read the config file
+		configData, err = os.ReadFile(configPath) // nolint:gosec // Config file path is user-provided
+		if err != nil {
+			return fmt.Errorf("failed to read config file: %w", err)
+		}
 	}
 
 	// Check for Helm template syntax early
