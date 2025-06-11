@@ -49,7 +49,7 @@ Kogaro provides **operational vigilance** through:
 
 ## Features
 
-### Comprehensive Kubernetes Validation (47+ validation types)
+### Comprehensive Kubernetes Validation (60+ validation types)
 
 Kogaro provides five comprehensive validation categories covering all critical aspects of Kubernetes cluster hygiene:
 
