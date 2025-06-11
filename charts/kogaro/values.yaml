@@ -9,7 +9,7 @@ image:
   # Image pull policy: Always, IfNotPresent, or Never
   pullPolicy: IfNotPresent
   # Image tag - corresponds to Kogaro version
-  tag: "0.4.2"
+  tag: "0.4.3"
 
 # Secrets for pulling images from private registries
 imagePullSecrets: []
