@@ -240,6 +240,11 @@ func (r *ValidatorRegistry) ValidateFileOnly(ctx context.Context, configPath str
 // - "all": return all validation errors (existing behavior)
 // - "file-only": return only errors for resources defined in the config file
 func (r *ValidatorRegistry) ValidateNewConfigWithScope(ctx context.Context, configPath string, scope string) (*ValidationResult, error) {
+	return r.ValidateNewConfigWithScopeAndData(ctx, configPath, scope, nil)
+}
+
+// ValidateNewConfigWithScopeAndData validates with optional pre-read data (for stdin support)
+func (r *ValidatorRegistry) ValidateNewConfigWithScopeAndData(ctx context.Context, configPath string, scope string, preReadData []byte) (*ValidationResult, error) {
 	r.mu.RLock()
 	validators := make([]Validator, len(r.validators))
 	copy(validators, r.validators)
@@ -253,9 +258,19 @@ func (r *ValidatorRegistry) ValidateNewConfigWithScope(ctx context.Context, conf
 	r.log.Info("starting new configuration validation", "config", configPath, "scope", scope)
 
 	// Read and parse the configuration file
-	configData, err := os.ReadFile(configPath) // nolint:gosec // Config file path is user-provided
-	if err != nil {
-		return nil, fmt.Errorf("failed to read config file: %w", err)
+	var configData []byte
+	var err error
+	
+	if preReadData != nil {
+		// Use pre-read data (from stdin)
+		configData = preReadData
+	} else if configPath == "-" {
+		return nil, fmt.Errorf("stdin input (-) requires pre-read data to be provided")
+	} else {
+		configData, err = os.ReadFile(configPath) // nolint:gosec // Config file path is user-provided
+		if err != nil {
+			return nil, fmt.Errorf("failed to read config file: %w", err)
+		}
 	}
 
 	// Parse config file to track which resources are from the file

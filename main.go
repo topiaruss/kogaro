@@ -154,14 +154,25 @@ func main() { // nolint:gocyclo // TODO: Refactor main function to reduce comple
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-	// Handle one-off validation mode before creating Kubernetes manager
+	// Handle one-off validation mode - read config once if using stdin
+	var configData []byte
 	if validateMode == "one-off" && validateConfig != "" {
-		if err := validateConfigFile(validateConfig); err != nil {
+		var err error
+		if validateConfig == "-" {
+			// Read stdin once and store for both syntax and full validation
+			configData, err = io.ReadAll(os.Stdin)
+			if err != nil {
+				setupLog.Error(err, "failed to read from stdin")
+				os.Exit(1)
+			}
+		}
+		
+		if err := validateConfigFileSyntax(validateConfig, configData); err != nil {
 			setupLog.Error(err, "validation failed")
 			os.Exit(1)
 		}
-		setupLog.Info("config file validation passed")
-		return
+		setupLog.Info("config file syntax validation passed")
+		// Continue to cluster validation - don't return here
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
@@ -345,7 +356,14 @@ func main() { // nolint:gocyclo // TODO: Refactor main function to reduce comple
 		case "one-off":
 			if validateConfig != "" {
 				// Validate new configuration against cluster with scope filtering
-				result, err := registry.ValidateNewConfigWithScope(ctx, validateConfig, validateScope)
+				var result *validators.ValidationResult
+				var err error
+				if configData != nil {
+					// Use pre-read data for stdin
+					result, err = registry.ValidateNewConfigWithScopeAndData(ctx, validateConfig, validateScope, configData)
+				} else {
+					result, err = registry.ValidateNewConfigWithScope(ctx, validateConfig, validateScope)
+				}
 				if err != nil {
 					setupLog.Error(err, "validation failed")
 					os.Exit(1)
@@ -435,13 +453,15 @@ func main() { // nolint:gocyclo // TODO: Refactor main function to reduce comple
 	}
 }
 
-// validateConfigFile performs early validation of config file for Helm template detection
-func validateConfigFile(configPath string) error {
+// validateConfigFileSyntax performs early validation with optional pre-read data
+func validateConfigFileSyntax(configPath string, preReadData []byte) error {
 	var configData []byte
 	var err error
 
-	// Handle stdin input when configPath is "-"
-	if configPath == "-" {
+	if preReadData != nil {
+		// Use pre-read data (from stdin)
+		configData = preReadData
+	} else if configPath == "-" {
 		configData, err = io.ReadAll(os.Stdin)
 		if err != nil {
 			return fmt.Errorf("failed to read from stdin: %w", err)
