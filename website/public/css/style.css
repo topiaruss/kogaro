@@ -393,49 +393,6 @@ body {
     display: block;
 }
 
-/* Sub-tabs */
-.sub-tabs {
-    margin-top: 16px;
-}
-
-.sub-tab-buttons {
-    display: flex;
-    background: var(--bg-secondary);
-    border-radius: var(--border-radius);
-    padding: 4px;
-    margin-bottom: 16px;
-    border: 1px solid var(--border-color);
-}
-
-.sub-tab-btn {
-    flex: 1;
-    padding: 8px 16px;
-    background: none;
-    border: none;
-    border-radius: calc(var(--border-radius) - 4px);
-    font-weight: 500;
-    font-size: 14px;
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: var(--transition);
-}
-
-.sub-tab-btn.active {
-    background: var(--primary-color);
-    color: white;
-}
-
-.sub-tab-content {
-    position: relative;
-}
-
-.sub-tab-pane {
-    display: none;
-}
-
-.sub-tab-pane.active {
-    display: block;
-}
 
 .code-block {
     position: relative;

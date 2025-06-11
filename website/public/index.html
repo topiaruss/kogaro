@@ -188,33 +188,8 @@ kubectl logs -n kogaro-system -l app.kubernetes.io/name=kogaro -f</code></pre>
                             </div>
                         </div>
                         <div class="tab-pane" id="source">
-                            <div class="sub-tabs">
-                                <div class="sub-tab-buttons">
-                                    <button class="sub-tab-btn active" data-tab="registry">Registry</button>
-                                    <button class="sub-tab-btn" data-tab="kind">Kind</button>
-                                </div>
-                                <div class="sub-tab-content">
-                                    <div class="sub-tab-pane active" id="registry">
-                                        <div class="code-block">
-                                            <pre><code># Build from source and push to your registry
-git clone https://github.com/topiaruss/kogaro.git
-cd kogaro
-
-# Set your registry and build + push
-export DOCKER_IMAGE=your-registry/kogaro
-make docker-push VERSION=v0.5.0-dev
-
-# Install using local Helm chart
-helm install kogaro ./charts/kogaro \
-  --namespace kogaro-system --create-namespace \
-  --set image.repository=your-registry/kogaro \
-  --set image.tag=0.5.0-dev</code></pre>
-                                            <button class="copy-btn" data-code="git clone https://github.com/topiaruss/kogaro.git&#10;cd kogaro&#10;export DOCKER_IMAGE=your-registry/kogaro&#10;make docker-push VERSION=v0.5.0-dev&#10;helm install kogaro ./charts/kogaro --namespace kogaro-system --create-namespace --set image.repository=your-registry/kogaro --set image.tag=0.5.0-dev">Copy</button>
-                                        </div>
-                                    </div>
-                                    <div class="sub-tab-pane" id="kind">
-                                        <div class="code-block">
-                                            <pre><code># Build from source for kind clusters
+                            <div class="code-block">
+                                <pre><code># Build from source for local development
 git clone https://github.com/topiaruss/kogaro.git
 cd kogaro
 
@@ -230,11 +205,11 @@ helm install kogaro ./charts/kogaro \
   --namespace kogaro-system --create-namespace \
   --set image.tag=0.5.0-dev \
   --set image.pullPolicy=Never \
-  --set metrics.serviceMonitor.enabled=false</code></pre>
-                                            <button class="copy-btn" data-code="git clone https://github.com/topiaruss/kogaro.git&#10;cd kogaro&#10;make docker VERSION=v0.5.0-dev&#10;kind create cluster --name kogaro-test&#10;kind load docker-image topiaruss/kogaro:v0.5.0-dev --name kogaro-test&#10;helm install kogaro ./charts/kogaro --namespace kogaro-system --create-namespace --set image.tag=0.5.0-dev --set image.pullPolicy=Never --set metrics.serviceMonitor.enabled=false">Copy</button>
-                                        </div>
-                                    </div>
-                                </div>
+  --set metrics.serviceMonitor.enabled=false
+
+# Watch it immediately detect issues
+kubectl logs -n kogaro-system -l app.kubernetes.io/name=kogaro -f</code></pre>
+                                <button class="copy-btn" data-code="git clone https://github.com/topiaruss/kogaro.git&#10;cd kogaro&#10;make docker VERSION=v0.5.0-dev&#10;kind create cluster --name kogaro-test&#10;kind load docker-image topiaruss/kogaro:v0.5.0-dev --name kogaro-test&#10;helm install kogaro ./charts/kogaro --namespace kogaro-system --create-namespace --set image.tag=0.5.0-dev --set image.pullPolicy=Never --set metrics.serviceMonitor.enabled=false&#10;kubectl logs -n kogaro-system -l app.kubernetes.io/name=kogaro -f">Copy</button>
                             </div>
                         </div>
                     </div>
