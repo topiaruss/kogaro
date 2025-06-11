@@ -5,7 +5,7 @@ WEBSITE_IMAGE=registry.ogaro.com/kogaro-website
 VERSION?=$(shell git describe --tags --always --dirty)
 WEBSITE_DIR=/Users/russ/dev/int/kogaro/website
 
-.PHONY: website-build website-push website-deploy website-all help
+.PHONY: website-build website-push website-deploy website-all website-kind help
 
 # Default target
 all: website-all
@@ -37,6 +37,27 @@ website-deploy:
 website-all: website-push website-deploy
 	@echo "Website build and deployment complete!"
 
+# Local kind testing
+website-kind:
+	@echo "Building website image for kind..."
+	docker build -t $(WEBSITE_IMAGE):$(VERSION) $(WEBSITE_DIR)
+	@echo "Setting up website in kind cluster..."
+	@if ! kind get clusters | grep -q "kogaro-website"; then \
+		echo "Creating kind cluster for website testing..."; \
+		kind create cluster --name kogaro-website; \
+	fi
+	@echo "Loading website image into kind..."
+	kind load docker-image $(WEBSITE_IMAGE):$(VERSION) --name kogaro-website
+	@echo "Deploying website to kind cluster..."
+	helm upgrade --install kogaro-website . \
+		--namespace kogaro-website --create-namespace \
+		--set image.repository=$(WEBSITE_IMAGE) \
+		--set image.tag=$(VERSION) \
+		--set image.pullPolicy=Never
+	@echo "Website deployed! Access via port-forward:"
+	@echo "kubectl port-forward -n kogaro-website svc/kogaro-website 8080:80"
+	@echo "Then visit: http://localhost:8080"
+
 # Help
 help:
 	@echo "Available targets:"
@@ -45,4 +66,5 @@ help:
 	@echo "  website-helm    - Package Helm chart"
 	@echo "  website-deploy  - Deploy website via Helm"
 	@echo "  website-all     - Full pipeline: build, push, deploy"
+	@echo "  website-kind    - Build and deploy website in local kind cluster"
 	@echo "  help           - Show this help"
