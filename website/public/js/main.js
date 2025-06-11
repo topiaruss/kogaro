@@ -27,6 +27,25 @@ tabButtons.forEach(button => {
     });
 });
 
+// Sub-tab functionality
+const subTabButtons = document.querySelectorAll('.sub-tab-btn');
+const subTabPanes = document.querySelectorAll('.sub-tab-pane');
+
+subTabButtons.forEach(button => {
+    button.addEventListener('click', () => {
+        const targetTab = button.getAttribute('data-tab');
+        const parentContainer = button.closest('.sub-tabs');
+        
+        // Remove active class from all sub-tab buttons and panes within this container
+        parentContainer.querySelectorAll('.sub-tab-btn').forEach(btn => btn.classList.remove('active'));
+        parentContainer.querySelectorAll('.sub-tab-pane').forEach(pane => pane.classList.remove('active'));
+        
+        // Add active class to clicked button and corresponding pane
+        button.classList.add('active');
+        parentContainer.querySelector(`#${targetTab}`).classList.add('active');
+    });
+});
+
 // Copy to clipboard functionality
 const copyButtons = document.querySelectorAll('.copy-btn');
 
