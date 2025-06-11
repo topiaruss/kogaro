@@ -200,7 +200,13 @@ func TestValidators_ErrorMessageConsistency(t *testing.T) {
 				v.client = client
 			case *NetworkingValidator:
 				v.client = client
+			case *ImageValidator:
+				v.client = client
 			}
+
+			// Set MockLogReceiver for all validators
+			mockLogReceiver := &MockLogReceiver{}
+			validator.SetLogReceiver(mockLogReceiver)
 
 			// Capture validation errors by running validation
 			// Note: We can't directly access validation errors from ValidateCluster

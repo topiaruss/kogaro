@@ -35,6 +35,7 @@ type ImageValidator struct {
 	log                  logr.Logger
 	config               ImageValidatorConfig
 	lastValidationErrors []ValidationError
+	logReceiver          LogReceiver
 
 	// For testing/mocking
 	checkImageExistsFunc     func(reference.Reference) (bool, error)
@@ -54,6 +55,11 @@ func NewImageValidator(client client.Client, k8sClient kubernetes.Interface, log
 // SetClient updates the client used by the validator
 func (v *ImageValidator) SetClient(c client.Client) {
 	v.client = c
+}
+
+// SetLogReceiver sets the log receiver for validation errors
+func (v *ImageValidator) SetLogReceiver(lr LogReceiver) {
+	v.logReceiver = lr
 }
 
 // GetLastValidationErrors returns the errors from the last validation run
@@ -102,13 +108,14 @@ func (v *ImageValidator) ValidateCluster(ctx context.Context) error {
 
 	// Log validation results
 	for _, validationErr := range errors {
-		v.log.Info("validation error found",
-			"validator_type", "image",
-			"resource_type", validationErr.ResourceType,
-			"resource_name", validationErr.ResourceName,
-			"namespace", validationErr.Namespace,
-			"validation_type", validationErr.ValidationType,
-			"message", validationErr.Message,
+		// Always use LogReceiver for consistent dependency injection
+		v.logReceiver.LogValidationError(
+			"image",
+			validationErr.ResourceType,
+			validationErr.ResourceName,
+			validationErr.Namespace,
+			validationErr.ValidationType,
+			validationErr.Message,
 		)
 
 		metrics.ValidationErrors.WithLabelValues(

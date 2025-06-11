@@ -127,6 +127,11 @@ func (v ValidationError) GetResourceKey() string {
 	return v.ResourceName
 }
 
+// LogReceiver handles validation error logging
+type LogReceiver interface {
+	LogValidationError(validatorType, resourceType, resourceName, namespace, validationType, message string)
+}
+
 // Validator defines the interface that all validators must implement.
 // This allows for a pluggable architecture where different types of
 // validators can be easily added to the system.
@@ -141,6 +146,9 @@ type Validator interface {
 
 	// SetClient allows updating the client used by the validator (for testing or dynamic config)
 	SetClient(client.Client)
+
+	// SetLogReceiver allows injecting a custom log receiver for validation errors
+	SetLogReceiver(LogReceiver)
 
 	// GetLastValidationErrors returns the errors from the last validation run
 	// This is used for CLI mode to collect errors for reporting

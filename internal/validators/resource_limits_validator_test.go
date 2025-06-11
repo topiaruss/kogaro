@@ -289,6 +289,8 @@ func TestResourceLimitsValidator_ValidateCluster(t *testing.T) {
 	}
 
 	validator := NewResourceLimitsValidator(fakeClient, logr.Discard(), config)
+	mockLogReceiver := &MockLogReceiver{}
+	validator.SetLogReceiver(mockLogReceiver)
 
 	err := validator.ValidateCluster(context.TODO())
 	if err != nil {

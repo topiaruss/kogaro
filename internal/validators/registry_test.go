@@ -57,6 +57,10 @@ func (m *MockValidator) SetClient(c client.Client) {
 	m.client = c
 }
 
+func (m *MockValidator) SetLogReceiver(lr LogReceiver) {
+	// Mock implementation - no-op for testing
+}
+
 func (m *MockValidator) GetLastValidationErrors() []ValidationError {
 	return m.lastValidationErrors
 }
@@ -87,6 +91,10 @@ func (m *mockValidator) SetClient(c client.Client) {
 	m.client = c
 }
 
+func (m *mockValidator) SetLogReceiver(lr LogReceiver) {
+	// Mock implementation - no-op for testing
+}
+
 func (m *mockValidator) GetLastValidationErrors() []ValidationError {
 	return m.lastValidationErrors
 }
@@ -112,6 +120,10 @@ func (v *ContextAwareValidator) GetValidationType() string {
 
 func (v *ContextAwareValidator) SetClient(c client.Client) {
 	v.client = c
+}
+
+func (v *ContextAwareValidator) SetLogReceiver(lr LogReceiver) {
+	// Mock implementation - no-op for testing
 }
 
 func (v *ContextAwareValidator) GetLastValidationErrors() []ValidationError {

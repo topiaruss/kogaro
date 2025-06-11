@@ -48,6 +48,7 @@ type ResourceLimitsValidator struct {
 	config              ResourceLimitsConfig
 	sharedConfig        SharedConfig
 	lastValidationErrors []ValidationError
+	logReceiver         LogReceiver
 }
 
 // NewResourceLimitsValidator creates a new ResourceLimitsValidator with the given client, logger and config
@@ -63,6 +64,11 @@ func NewResourceLimitsValidator(client client.Client, log logr.Logger, config Re
 // SetClient updates the client used by the validator
 func (v *ResourceLimitsValidator) SetClient(c client.Client) {
 	v.client = c
+}
+
+// SetLogReceiver updates the log receiver used by the validator
+func (v *ResourceLimitsValidator) SetLogReceiver(lr LogReceiver) {
+	v.logReceiver = lr
 }
 
 // GetLastValidationErrors returns the errors from the last validation run
@@ -113,13 +119,14 @@ func (v *ResourceLimitsValidator) ValidateCluster(ctx context.Context) error {
 
 	// Log all validation errors and update metrics
 	for _, validationErr := range allErrors {
-		v.log.Info("validation error found",
-			"validator_type", "resource_limits",
-			"resource_type", validationErr.ResourceType,
-			"resource_name", validationErr.ResourceName,
-			"namespace", validationErr.Namespace,
-			"validation_type", validationErr.ValidationType,
-			"message", validationErr.Message,
+		// Always use LogReceiver for consistent dependency injection
+		v.logReceiver.LogValidationError(
+			"resource_limits",
+			validationErr.ResourceType,
+			validationErr.ResourceName,
+			validationErr.Namespace,
+			validationErr.ValidationType,
+			validationErr.Message,
 		)
 
 		metrics.ValidationErrors.WithLabelValues(

@@ -203,6 +203,8 @@ func TestSecurityValidator_ValidateCluster_RootUserValidation(t *testing.T) {
 				Build()
 
 			validator := NewSecurityValidator(fakeClient, logr.Discard(), tt.config)
+			mockLogReceiver := &MockLogReceiver{}
+			validator.SetLogReceiver(mockLogReceiver)
 
 			err := validator.ValidateCluster(context.Background())
 			if err != nil {
@@ -354,6 +356,8 @@ func TestSecurityValidator_ValidateCluster_SecurityContextValidation(t *testing.
 				Build()
 
 			validator := NewSecurityValidator(fakeClient, logr.Discard(), tt.config)
+			mockLogReceiver := &MockLogReceiver{}
+			validator.SetLogReceiver(mockLogReceiver)
 
 			err := validator.ValidateCluster(context.Background())
 			if err != nil {
@@ -478,6 +482,8 @@ func TestSecurityValidator_ValidateServiceAccountPermissions(t *testing.T) {
 				Build()
 
 			validator := NewSecurityValidator(fakeClient, logr.Discard(), tt.config)
+			mockLogReceiver := &MockLogReceiver{}
+			validator.SetLogReceiver(mockLogReceiver)
 
 			err := validator.ValidateCluster(context.Background())
 			if err != nil {
@@ -577,6 +583,8 @@ func TestSecurityValidator_ValidateNetworkPolicyCoverage(t *testing.T) {
 				Build()
 
 			validator := NewSecurityValidator(fakeClient, logr.Discard(), tt.config)
+			mockLogReceiver := &MockLogReceiver{}
+			validator.SetLogReceiver(mockLogReceiver)
 
 			err := validator.ValidateCluster(context.Background())
 			if err != nil {
@@ -634,6 +642,8 @@ func TestSecurityValidator_InitContainerValidation(t *testing.T) {
 	}
 
 	validator := NewSecurityValidator(fakeClient, logr.Discard(), config)
+	mockLogReceiver := &MockLogReceiver{}
+	validator.SetLogReceiver(mockLogReceiver)
 
 	err := validator.ValidateCluster(context.Background())
 	if err != nil {
@@ -680,6 +690,8 @@ func TestSecurityValidator_DaemonSetValidation(t *testing.T) {
 	}
 
 	validator := NewSecurityValidator(fakeClient, logr.Discard(), config)
+	mockLogReceiver := &MockLogReceiver{}
+	validator.SetLogReceiver(mockLogReceiver)
 
 	err := validator.ValidateCluster(context.Background())
 	if err != nil {

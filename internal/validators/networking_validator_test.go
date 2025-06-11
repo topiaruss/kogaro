@@ -235,6 +235,8 @@ func TestNetworkingValidator_ValidateServiceConnectivity(t *testing.T) {
 				Build()
 
 			validator := NewNetworkingValidator(fakeClient, logr.Discard(), tt.config)
+			mockLogReceiver := &MockLogReceiver{}
+			validator.SetLogReceiver(mockLogReceiver)
 
 			err := validator.ValidateCluster(context.Background())
 			if err != nil {
@@ -373,6 +375,8 @@ func TestNetworkingValidator_ValidateNetworkPolicyCoverage(t *testing.T) {
 				Build()
 
 			validator := NewNetworkingValidator(fakeClient, logr.Discard(), tt.config)
+			mockLogReceiver := &MockLogReceiver{}
+			validator.SetLogReceiver(mockLogReceiver)
 
 			err := validator.ValidateCluster(context.Background())
 			if err != nil {
@@ -614,6 +618,8 @@ func TestNetworkingValidator_ValidateIngressConnectivity(t *testing.T) {
 				Build()
 
 			validator := NewNetworkingValidator(fakeClient, logr.Discard(), tt.config)
+			mockLogReceiver := &MockLogReceiver{}
+			validator.SetLogReceiver(mockLogReceiver)
 
 			err := validator.ValidateCluster(context.Background())
 			if err != nil {

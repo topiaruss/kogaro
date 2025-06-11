@@ -23,6 +23,60 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+// DirectLogReceiver logs validation errors immediately to the logger
+type DirectLogReceiver struct {
+	log logr.Logger
+}
+
+// LogValidationError logs a validation error immediately
+func (d *DirectLogReceiver) LogValidationError(validatorType, resourceType, resourceName, namespace, validationType, message string) {
+	validatorTypeName := strings.TrimSuffix(validatorType, "_validation")
+	logger := d.log.WithName(validatorTypeName + "-validator")
+	
+	logger.Info("validation error found",
+		"validator_type", validatorTypeName,
+		"resource_type", resourceType,
+		"resource_name", resourceName,
+		"namespace", namespace,
+		"validation_type", validationType,
+		"message", message)
+}
+
+// BufferedLogReceiver buffers validation errors for later filtering
+type BufferedLogReceiver struct {
+	errors []ValidationError
+	mu     sync.Mutex
+}
+
+// LogValidationError buffers a validation error
+func (b *BufferedLogReceiver) LogValidationError(validatorType, resourceType, resourceName, namespace, validationType, message string) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	
+	err := ValidationError{
+		ResourceType:   resourceType,
+		ResourceName:   resourceName,
+		Namespace:      namespace,
+		ValidationType: validationType,
+		Message:        message,
+		ErrorCode:      "", // Will be set by validator if needed
+		Severity:       SeverityError, // Default severity
+	}
+	
+	b.errors = append(b.errors, err)
+}
+
+// GetErrors returns buffered errors and clears the buffer
+func (b *BufferedLogReceiver) GetErrors() []ValidationError {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	
+	errors := make([]ValidationError, len(b.errors))
+	copy(errors, b.errors)
+	b.errors = b.errors[:0] // Clear buffer
+	return errors
+}
+
 const (
 	validationTypeMissingReference   = "missing_reference"
 	validationTypeSuggestedReference = "suggested_reference"
@@ -71,6 +125,10 @@ func (r *ValidatorRegistry) ValidateCluster(ctx context.Context) error {
 	for _, validator := range validators {
 		validatorType := validator.GetValidationType()
 		r.log.V(1).Info("running validator", "type", validatorType)
+
+		// Always use DirectLogReceiver for regular cluster validation
+		directReceiver := &DirectLogReceiver{log: r.log}
+		validator.SetLogReceiver(directReceiver)
 
 		if err := validator.ValidateCluster(ctx); err != nil {
 			return fmt.Errorf("validator %s failed: %w", validatorType, err)
@@ -188,6 +246,10 @@ func (r *ValidatorRegistry) ValidateFileOnly(ctx context.Context, configPath str
 		if err := r.updateValidatorClient(validator, client); err != nil {
 			return nil, fmt.Errorf("failed to update validator client: %w", err)
 		}
+
+		// Use DirectLogReceiver for file-only validation (shows all errors)
+		directReceiver := &DirectLogReceiver{log: r.log}
+		validator.SetLogReceiver(directReceiver)
 
 		// Run validation and collect errors
 		if err := validator.ValidateCluster(ctx); err != nil {
@@ -308,6 +370,17 @@ func (r *ValidatorRegistry) ValidateNewConfigWithScopeAndData(ctx context.Contex
 			return nil, fmt.Errorf("failed to update validator client: %w", err)
 		}
 
+		// Set up logging based on scope
+		if scope == "file-only" {
+			// Use BufferedLogReceiver for file-only scope to filter logs
+			bufferedReceiver := &BufferedLogReceiver{}
+			validator.SetLogReceiver(bufferedReceiver)
+		} else {
+			// For "all" scope, use DirectLogReceiver for immediate logging
+			directReceiver := &DirectLogReceiver{log: r.log}
+			validator.SetLogReceiver(directReceiver)
+		}
+
 		// Run validation and collect errors
 		if err := validator.ValidateCluster(ctx); err != nil {
 			return nil, fmt.Errorf("validator %s failed: %w", validatorType, err)
@@ -316,7 +389,7 @@ func (r *ValidatorRegistry) ValidateNewConfigWithScopeAndData(ctx context.Contex
 		// Collect validation errors from validator
 		validationErrors := validator.GetLastValidationErrors()
 		
-		// Filter errors based on scope
+		// Filter errors based on scope and log appropriately
 		if scope == "file-only" {
 			filteredErrors := r.filterErrorsByScope(validationErrors, configResourceKeys)
 			r.log.V(1).Info("filtered validation errors", 
@@ -324,8 +397,22 @@ func (r *ValidatorRegistry) ValidateNewConfigWithScopeAndData(ctx context.Contex
 				"total_errors", len(validationErrors), 
 				"filtered_errors", len(filteredErrors),
 				"config_resource_keys", len(configResourceKeys))
+			
+			// Log only the filtered errors to maintain consistency with scope
+			directReceiver := &DirectLogReceiver{log: r.log}
+			for _, err := range filteredErrors {
+				directReceiver.LogValidationError(
+					validatorType,
+					err.ResourceType,
+					err.ResourceName,
+					err.Namespace,
+					err.ValidationType,
+					err.Message,
+				)
+			}
 			allErrors = append(allErrors, filteredErrors...)
 		} else {
+			// For "all" scope, validators already logged all errors, so just collect them
 			allErrors = append(allErrors, validationErrors...)
 		}
 		
@@ -407,6 +494,10 @@ func (r *ValidatorRegistry) ValidateNewConfig(ctx context.Context, configPath st
 		if err := r.updateValidatorClient(validator, client); err != nil {
 			return nil, fmt.Errorf("failed to update validator client: %w", err)
 		}
+
+		// Use DirectLogReceiver for new config validation (shows all errors)
+		directReceiver := &DirectLogReceiver{log: r.log}
+		validator.SetLogReceiver(directReceiver)
 
 		// Run validation and collect errors
 		if err := validator.ValidateCluster(ctx); err != nil {
@@ -614,3 +705,4 @@ func (r *ValidatorRegistry) filterErrorsByScope(errors []ValidationError, config
 	
 	return filteredErrors
 }
+

@@ -478,6 +478,8 @@ func TestReferenceValidator_ValidateCluster(t *testing.T) {
 	}
 
 	validator := NewReferenceValidator(fakeClient, zap.New(), config)
+	mockLogReceiver := &MockLogReceiver{}
+	validator.SetLogReceiver(mockLogReceiver)
 
 	err := validator.ValidateCluster(context.TODO())
 	if err != nil {

@@ -48,6 +48,7 @@ type SecurityValidator struct {
 	config              SecurityConfig
 	sharedConfig        SharedConfig
 	lastValidationErrors []ValidationError
+	logReceiver         LogReceiver
 }
 
 // NewSecurityValidator creates a new SecurityValidator with the given client, logger and config
@@ -63,6 +64,11 @@ func NewSecurityValidator(client client.Client, log logr.Logger, config Security
 // SetClient updates the client used by the validator
 func (v *SecurityValidator) SetClient(c client.Client) {
 	v.client = c
+}
+
+// SetLogReceiver updates the log receiver used by the validator
+func (v *SecurityValidator) SetLogReceiver(lr LogReceiver) {
+	v.logReceiver = lr
 }
 
 // GetLastValidationErrors returns the errors from the last validation run
@@ -128,13 +134,14 @@ func (v *SecurityValidator) ValidateCluster(ctx context.Context) error {
 
 	// Log all validation errors and update metrics
 	for _, validationErr := range allErrors {
-		v.log.Info("validation error found",
-			"validator_type", "security",
-			"resource_type", validationErr.ResourceType,
-			"resource_name", validationErr.ResourceName,
-			"namespace", validationErr.Namespace,
-			"validation_type", validationErr.ValidationType,
-			"message", validationErr.Message,
+		// Always use LogReceiver for consistent dependency injection
+		v.logReceiver.LogValidationError(
+			"security",
+			validationErr.ResourceType,
+			validationErr.ResourceName,
+			validationErr.Namespace,
+			validationErr.ValidationType,
+			validationErr.Message,
 		)
 
 		metrics.ValidationErrors.WithLabelValues(

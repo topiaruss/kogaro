@@ -41,6 +41,7 @@ type ReferenceValidator struct {
 	config              ValidationConfig
 	sharedConfig        SharedConfig
 	lastValidationErrors []ValidationError
+	logReceiver         LogReceiver
 }
 
 // GetValidationType returns the validation type identifier for reference validation
@@ -61,6 +62,11 @@ func NewReferenceValidator(client client.Client, log logr.Logger, config Validat
 // SetClient updates the client used by the validator
 func (v *ReferenceValidator) SetClient(c client.Client) {
 	v.client = c
+}
+
+// SetLogReceiver updates the log receiver used by the validator
+func (v *ReferenceValidator) SetLogReceiver(lr LogReceiver) {
+	v.logReceiver = lr
 }
 
 // GetLastValidationErrors returns the errors from the last validation run
@@ -121,13 +127,14 @@ func (v *ReferenceValidator) ValidateCluster(ctx context.Context) error {
 
 	// Log all validation errors and update metrics
 	for _, validationErr := range allErrors {
-		v.log.Info("validation error found",
-			"validator_type", "reference",
-			"resource_type", validationErr.ResourceType,
-			"resource_name", validationErr.ResourceName,
-			"namespace", validationErr.Namespace,
-			"validation_type", validationErr.ValidationType,
-			"message", validationErr.Message,
+		// Always use LogReceiver for consistent dependency injection
+		v.logReceiver.LogValidationError(
+			"reference",
+			validationErr.ResourceType,
+			validationErr.ResourceName,
+			validationErr.Namespace,
+			validationErr.ValidationType,
+			validationErr.Message,
 		)
 
 		metrics.ValidationErrors.WithLabelValues(

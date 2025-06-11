@@ -229,6 +229,9 @@ func TestImageValidator_ValidateCluster(t *testing.T) {
 				return "amd64", nil
 			}
 
+			mockLogReceiver := &MockLogReceiver{}
+			validator.SetLogReceiver(mockLogReceiver)
+
 			err := validator.ValidateCluster(context.Background())
 			if err != nil {
 				t.Errorf("ValidateCluster() error = %v", err)
