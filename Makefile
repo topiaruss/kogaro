@@ -81,7 +81,7 @@ lint:
 
 # Build Docker image
 docker:
-	docker build --platform linux/amd64 -t $(DOCKER_IMAGE):$(VERSION) .
+	docker build -t $(DOCKER_IMAGE):$(VERSION) .
 	docker tag $(DOCKER_IMAGE):$(VERSION) $(DOCKER_IMAGE):latest
 
 # Build Docker image for multiple platforms
