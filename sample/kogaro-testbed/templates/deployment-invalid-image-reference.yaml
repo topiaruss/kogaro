@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kogaro-testbed.fullname" . }}-invalid-image-reference
+  labels:
+    {{- include "kogaro-testbed.labels" . | nindent 4 }}
+    test-case: "invalid-image-reference"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "kogaro-testbed.selectorLabels" . | nindent 6 }}
+      test-case: "invalid-image-reference"
+  template:
+    metadata:
+      labels:
+        {{- include "kogaro-testbed.selectorLabels" . | nindent 8 }}
+        test-case: "invalid-image-reference"
+    spec:
+      containers:
+      - name: invalid-ref-container
+        image: "invalid@image@reference:latest"
+        # Invalid image reference format - contains invalid characters
+        # Should trigger: invalid_image_reference
+        command: ['sleep', '3600']
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+          limits:
+            cpu: 100m
+            memory: 64Mi

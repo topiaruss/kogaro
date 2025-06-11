@@ -4,7 +4,7 @@ This Helm chart contains deliberately misconfigured resources designed to test K
 
 ## Test Cases Coverage
 
-This testbed validates all validation errors that Kogaro detects across three validator types:
+This testbed validates all validation errors that Kogaro detects across five validator types:
 
 ### Reference Validation (11 error types)
 
@@ -142,14 +142,41 @@ This testbed validates all validation errors that Kogaro detects across three va
 - **Test**: Container has no SecurityContext defined
 - **Expected Error**: `Container 'no-security-container' (container) has no SecurityContext defined`
 
+### Image Validation (5 validation types when image validation enabled)
+
+### 27. invalid_image_reference
+- **File**: `deployment-invalid-image-reference.yaml`
+- **Test**: Container with malformed image reference containing invalid characters
+- **Expected Error**: `Container 'invalid-ref-container' has invalid image reference format`
+
+### 28. missing_image
+- **File**: `deployment-missing-image.yaml`
+- **Test**: Container image that doesn't exist in registry
+- **Expected Error**: `Container 'missing-image-container' references non-existent image: registry.example.com/nonexistent/image:v1.0.0`
+
+### 29. missing_image_warning
+- **File**: `deployment-missing-image.yaml` (when using `--allow-missing-images`)
+- **Test**: Missing image treated as warning instead of error
+- **Expected Error**: `Container 'missing-image-container' references potentially missing image (warning)`
+
+### 30. architecture_mismatch
+- **File**: `deployment-architecture-mismatch.yaml`
+- **Test**: Container images with architecture incompatible with cluster nodes (ARM64 on AMD64 cluster)
+- **Expected Error**: `Container 'wrong-arch-container' image architecture (arm64) incompatible with cluster nodes (amd64)`
+
+### 31. architecture_mismatch_warning
+- **File**: `deployment-architecture-mismatch.yaml` (when using `--allow-architecture-mismatch`)
+- **Test**: Architecture mismatch treated as warning instead of error
+- **Expected Error**: `Container 'wrong-arch-container' image architecture mismatch (warning)`
+
 ### ServiceAccount Security (2 additional validation types when SA validation enabled)
 
-### 27. serviceaccount_cluster_role_binding
+### 32. serviceaccount_cluster_role_binding
 - **File**: `serviceaccount-excessive-permissions.yaml`
 - **Test**: ServiceAccount has ClusterRoleBinding with cluster-admin role
 - **Expected Error**: `ServiceAccount has ClusterRoleBinding 'admin-service-account-binding' with role 'cluster-admin'`
 
-### 28. serviceaccount_excessive_permissions
+### 33. serviceaccount_excessive_permissions
 - **File**: `serviceaccount-excessive-permissions.yaml`
 - **Test**: ServiceAccount has potentially excessive RoleBinding with admin role
 - **Expected Error**: `ServiceAccount has potentially excessive RoleBinding 'admin-role-binding' with role 'admin'`
@@ -161,78 +188,78 @@ This testbed validates all validation errors that Kogaro detects across three va
 
 ### Networking Validation (8 error types)
 
-### 29. service_selector_mismatch
+### 34. service_selector_mismatch
 - **File**: `service-no-endpoints.yaml`
 - **Test**: Service selector does not match any pods
 - **Expected Error**: `Service selector {app:nonexistent-app} does not match any pods`
 
-### 30. service_no_endpoints
+### 35. service_no_endpoints
 - **File**: `service-no-endpoints.yaml`
 - **Test**: Service has no ready endpoints despite matching pods
 - **Expected Error**: `Service has no ready endpoints despite matching pods`
 
-### 31. service_port_mismatch
+### 36. service_port_mismatch
 - **File**: `service-port-mismatch.yaml`
 - **Test**: Service targetPort does not match any container ports in matching pods
 - **Expected Error**: `Service port (target: 9999) does not match any container ports in matching pods`
 
-### 32. pod_no_service
+### 37. pod_no_service
 - **File**: `pod-unexposed.yaml`
 - **Test**: Pod is not exposed by any Service (warning when enabled)
 - **Expected Error**: `Pod is not exposed by any Service (consider if this is intentional)`
 
-### 33. network_policy_orphaned
+### 38. network_policy_orphaned
 - **File**: `networkpolicy-orphaned.yaml`
 - **Test**: NetworkPolicy selector does not match any pods in namespace
 - **Expected Error**: `NetworkPolicy selector does not match any pods in namespace`
 
-### 34. missing_network_policy_default_deny
+### 39. missing_network_policy_default_deny
 - **File**: `networkpolicy-missing-default-deny.yaml`
 - **Test**: Namespace has NetworkPolicies but no default deny policy
 - **Expected Error**: `Namespace has NetworkPolicies but no default deny policy`
 
-### 35. ingress_service_missing
+### 40. ingress_service_missing
 - **File**: `ingress-missing-backend-service.yaml`
 - **Test**: Ingress references non-existent service
 - **Expected Error**: `Ingress references non-existent service 'nonexistent-service'`
 
-### 36. ingress_service_port_mismatch
+### 41. ingress_service_port_mismatch
 - **File**: `ingress-port-mismatch.yaml`
 - **Test**: Ingress references service port that doesn't exist
 - **Expected Error**: `Ingress references service 'ingress-backend-service' port that doesn't exist`
 
-### 37. ingress_no_backend_pods
+### 42. ingress_no_backend_pods
 - **File**: `ingress-no-backend-pods.yaml`
 - **Test**: Ingress service has no ready backend pods
 - **Expected Error**: `Ingress service 'empty-backend-service' has no ready backend pods`
 
 ## Enhanced SharedConfig Test Cases (New)
 
-### 38. SharedConfig Custom Values Test
+### 43. SharedConfig Custom Values Test
 - **File**: `deployment-custom-config-test.yaml`
 - **Test**: Deployment using custom user IDs and resource values different from SharedConfig defaults
 - **Expected**: Should validate against configurable thresholds, not hardcoded values
 - **Purpose**: Tests that SharedConfig values are properly used for validation recommendations
 
-### 39. Context-Specific Namespace Exclusions Test  
+### 44. Context-Specific Namespace Exclusions Test  
 - **File**: `deployment-namespace-exclusion-test.yaml`
 - **Test**: Insecure deployment that should be excluded from security validation in system namespaces but still validated for networking
 - **Expected**: Security violations ignored in system namespaces, networking issues still detected
 - **Purpose**: Tests different namespace exclusion sets for security vs networking validation
 
-### 40. Enhanced ValidationError Details Test
+### 45. Enhanced ValidationError Details Test
 - **File**: `deployment-enhanced-errors-test.yaml`
 - **Test**: Multiple validation errors that should generate rich error details with severity levels, remediation hints, and related resources
 - **Expected**: Comprehensive error reporting with actionable guidance
 - **Purpose**: Tests enhanced ValidationError API with detailed error context
 
-### 41. Production Namespace Patterns Test
+### 46. Production Namespace Patterns Test
 - **File**: `deployment-production-patterns-test.yaml`  
 - **Test**: Production-like workload without NetworkPolicies in namespace matching production patterns
 - **Expected**: Security warnings about missing NetworkPolicies for production workloads
 - **Purpose**: Tests SharedConfig production namespace detection patterns
 
-### 42. Batch Workload Patterns Test
+### 47. Batch Workload Patterns Test
 - **File**: `job-batch-patterns-test.yaml`
 - **Test**: Job, CronJob, and migration pods that should be excluded from "unexposed pod" warnings
 - **Expected**: No pod_no_service warnings for batch workloads
@@ -262,16 +289,21 @@ kubectl get all,ingress,pvc -n kogaro-testbed
 
 ## Testing with Kogaro
 
-Once deployed, Kogaro should detect **55+ validation errors** across all four validator types:
+Once deployed, Kogaro should detect **60+ validation errors** across all five validator types:
 - **15 reference validation errors** (includes new ServiceAccount and system namespace tests)
 - **8 resource limits validation errors** (includes minimum threshold tests)
 - **12 security validation errors** (includes enhanced SecurityContext and RBAC tests)
+- **5 image validation errors** (requires `--enable-image-validation=true`)
 - **10 networking validation errors** (includes system namespace exclusion tests) 
 - **10+ enhanced SharedConfig validation errors** (tests for configurable thresholds and exclusion patterns)
 
 ```bash
 # Check Kogaro logs for validation errors
 kubectl logs -l app.kubernetes.io/name=kogaro -n kogaro-system --tail=100
+
+# To test image validation, redeploy Kogaro with image validation enabled
+helm upgrade kogaro charts/kogaro --namespace kogaro-system \
+  --set validation.enableImageValidation=true
 
 # Check Prometheus metrics
 kubectl port-forward -n kogaro-system svc/kogaro 8080:8080

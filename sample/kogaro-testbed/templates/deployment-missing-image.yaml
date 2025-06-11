@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kogaro-testbed.fullname" . }}-missing-image
+  labels:
+    {{- include "kogaro-testbed.labels" . | nindent 4 }}
+    test-case: "missing-image"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "kogaro-testbed.selectorLabels" . | nindent 6 }}
+      test-case: "missing-image"
+  template:
+    metadata:
+      labels:
+        {{- include "kogaro-testbed.selectorLabels" . | nindent 8 }}
+        test-case: "missing-image"
+    spec:
+      containers:
+      - name: missing-image-container
+        image: "registry.example.com/nonexistent/image:v1.0.0"
+        # Image that doesn't exist in registry
+        # Should trigger: missing_image (or missing_image_warning if --allow-missing-images)
+        command: ['sleep', '3600']
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+          limits:
+            cpu: 100m
+            memory: 64Mi

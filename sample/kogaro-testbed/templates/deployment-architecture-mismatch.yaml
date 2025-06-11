@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kogaro-testbed.fullname" . }}-architecture-mismatch
+  labels:
+    {{- include "kogaro-testbed.labels" . | nindent 4 }}
+    test-case: "architecture-mismatch"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "kogaro-testbed.selectorLabels" . | nindent 6 }}
+      test-case: "architecture-mismatch"
+  template:
+    metadata:
+      labels:
+        {{- include "kogaro-testbed.selectorLabels" . | nindent 8 }}
+        test-case: "architecture-mismatch"
+    spec:
+      containers:
+      - name: wrong-arch-container
+        image: "arm64v8/nginx:1.21-alpine"
+        # ARM64 image on AMD64 cluster (or vice versa)
+        # Should trigger: architecture_mismatch (or architecture_mismatch_warning if --allow-architecture-mismatch)
+        command: ['sleep', '3600']
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+          limits:
+            cpu: 100m
+            memory: 64Mi
+      - name: another-wrong-arch-container
+        image: "arm32v7/busybox:1.35"
+        # Another architecture mismatch example
+        command: ['sleep', '3600']
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+          limits:
+            cpu: 100m
+            memory: 64Mi
