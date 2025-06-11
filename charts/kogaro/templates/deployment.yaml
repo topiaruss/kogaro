@@ -58,6 +58,9 @@ spec:
             {{- if .Values.validation.securityRequiredNamespaces }}
             - --security-required-namespaces={{ .Values.validation.securityRequiredNamespaces }}
             {{- end }}
+            - --enable-image-validation={{ .Values.validation.enableImageValidation }}
+            - --allow-missing-images={{ .Values.validation.allowMissingImages }}
+            - --allow-architecture-mismatch={{ .Values.validation.allowArchitectureMismatch }}
             - --enable-networking-validation={{ .Values.validation.enableNetworkingValidation }}
             - --enable-networking-service-validation={{ .Values.validation.enableNetworkingServiceValidation }}
             - --enable-networking-ingress-validation={{ .Values.validation.enableNetworkingIngressValidation }}

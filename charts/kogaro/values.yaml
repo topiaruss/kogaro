@@ -135,6 +135,15 @@ validation:
   # Comma-separated list of namespaces requiring NetworkPolicies for security validation
   # securityRequiredNamespaces: "production,staging,default"
 
+  # === IMAGE VALIDATION (5 validation types) ===
+  # Validates container images and registry accessibility
+  # Enable container image validation (registry existence and architecture)
+  enableImageValidation: false
+  # Allow deployment even if images are not found in registry
+  allowMissingImages: false
+  # Allow deployment even if image architecture doesn't match nodes
+  allowArchitectureMismatch: false
+
   # === NETWORKING VALIDATION (9 validation types) ===
   # Validates service connectivity and network policies
   # Enable networking connectivity validation suite
