@@ -53,7 +53,7 @@ Thumbs.db
 *.yml.backup
 
 /.claude/
-/private_docs/
+/.private_docs/
 
 # accidental binaries
 /kogaro
