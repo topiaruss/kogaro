@@ -7,6 +7,11 @@ DOCKER_IMAGE=topiaruss/kogaro
 VERSION?=$(shell git describe --tags --always --dirty)
 LDFLAGS=-ldflags "-X main.Version=$(VERSION)"
 
+# Kubernetes variables (for main Kogaro application)
+KOGARO_CLUSTER=kogaro-test
+KOGARO_CONTEXT=kind-$(KOGARO_CLUSTER)
+NAMESPACE=kogaro-system
+
 # Go parameters
 GOCMD=go
 GOBUILD=$(GOCMD) build
@@ -77,7 +82,8 @@ vet:
 
 # Lint code (requires golangci-lint)
 lint:
-	golangci-lint run
+	golangci-lint run internal/...
+	golangci-lint run *.go 
 
 # Build Docker image
 docker:
@@ -146,6 +152,40 @@ check-clean:
 		exit 1; \
 	fi
 
+# Kubernetes targets for Kogaro application
+kind-setup:
+	@echo "Setting up kind cluster for Kogaro..."
+	@if ! kind get clusters | grep -q "$(KOGARO_CLUSTER)"; then \
+		echo "Creating kind cluster: $(KOGARO_CLUSTER)"; \
+		kind create cluster --name $(KOGARO_CLUSTER); \
+	fi
+	@echo "Switching to Kogaro context: $(KOGARO_CONTEXT)"
+	kubectl config use-context $(KOGARO_CONTEXT)
+
+kind-deploy: docker kind-setup
+	@echo "Deploying Kogaro to kind cluster..."
+	@echo "Loading Kogaro image into kind..."
+	kind load docker-image $(DOCKER_IMAGE):$(VERSION_NUMBER) --name $(KOGARO_CLUSTER)
+	@echo "Installing Kogaro via Helm..."
+	helm upgrade --install kogaro ./charts/kogaro \
+		--namespace $(NAMESPACE) --create-namespace \
+		--set image.repository=$(DOCKER_IMAGE) \
+		--set image.tag=$(VERSION_NUMBER) \
+		--set image.pullPolicy=Never \
+		--set metrics.serviceMonitor.enabled=false
+	@echo "Kogaro deployed! Check status:"
+	@echo "kubectl get pods -n $(NAMESPACE)"
+
+k8s-logs:
+	@echo "Switching to Kogaro context: $(KOGARO_CONTEXT)"
+	kubectl config use-context $(KOGARO_CONTEXT)
+	kubectl logs -n $(NAMESPACE) -l app.kubernetes.io/name=kogaro -f
+
+k8s-status:
+	@echo "Switching to Kogaro context: $(KOGARO_CONTEXT)"
+	kubectl config use-context $(KOGARO_CONTEXT)
+	kubectl get pods -n $(NAMESPACE)
+
 # Help
 help:
 	@echo "Available targets:"
@@ -168,4 +208,11 @@ help:
 	@echo "  security      - Run security checks (requires gosec)"
 	@echo "  generate      - Generate code"
 	@echo "  release       - Build release binaries for multiple platforms"
+	@echo ""
+	@echo "Kubernetes targets:"
+	@echo "  kind-setup    - Create and setup kogaro-test kind cluster"
+	@echo "  kind-deploy   - Build, load, and deploy Kogaro to kind cluster"
+	@echo "  k8s-logs      - Follow Kogaro logs (switches to kogaro-test context)"
+	@echo "  k8s-status    - Check Kogaro pod status (switches to kogaro-test context)"
+	@echo ""
 	@echo "  help          - Show this help"
