@@ -15,23 +15,23 @@ import (
 type SharedConfig struct {
 	// System namespaces to exclude from various validations
 	SystemNamespaces []string
-	
+
 	// Context-specific namespace exclusion sets
 	SecurityExcludedNamespaces   []string
 	NetworkingExcludedNamespaces []string
-	
+
 	// Default resource recommendations
 	DefaultResourceRecommendations ResourceRecommendations
-	
+
 	// Default security context values
 	DefaultSecurityContext SecurityContextDefaults
-	
+
 	// RBAC configuration
 	RBACConfig RBACConfiguration
-	
+
 	// Namespace classification patterns
 	NamespacePatterns NamespaceClassification
-	
+
 	// Pod classification patterns
 	PodPatterns PodClassification
 }
@@ -40,7 +40,7 @@ type SharedConfig struct {
 type ResourceRecommendations struct {
 	// Default CPU request recommendation
 	DefaultCPURequest string
-	// Default memory request recommendation  
+	// Default memory request recommendation
 	DefaultMemoryRequest string
 	// Default CPU limit recommendation
 	DefaultCPULimit string
@@ -88,16 +88,19 @@ func DefaultSharedConfig() SharedConfig {
 			"kube-public",
 			"kube-node-lease",
 			"default",
+			"monitoring",
 		},
 		SecurityExcludedNamespaces: []string{
 			"kube-system",
 			"kube-public",
 			"kube-node-lease",
+			"monitoring",
 		},
 		NetworkingExcludedNamespaces: []string{
 			"kube-system",
 			"kube-public",
 			"kube-node-lease",
+			"monitoring",
 		},
 		DefaultResourceRecommendations: ResourceRecommendations{
 			DefaultCPURequest:    "100m",
@@ -106,9 +109,9 @@ func DefaultSharedConfig() SharedConfig {
 			DefaultMemoryLimit:   "256Mi",
 		},
 		DefaultSecurityContext: SecurityContextDefaults{
-			RecommendedUserID:          1000,
-			RecommendedGroupID:         3000,
-			RecommendedFSGroup:         2000,
+			RecommendedUserID:         1000,
+			RecommendedGroupID:        3000,
+			RecommendedFSGroup:        2000,
 			DefaultServiceAccountName: "default",
 		},
 		RBACConfig: RBACConfiguration{
@@ -188,10 +191,10 @@ func (c *SharedConfig) IsDangerousRole(roleName string) bool {
 // IsProductionLikeNamespace checks if a namespace appears to be production-like
 func (c *SharedConfig) IsProductionLikeNamespace(namespace string) bool {
 	for _, indicator := range c.NamespacePatterns.ProductionIndicators {
-		if namespace == indicator || 
-		   (len(namespace) > len(indicator) && 
-		    (namespace[:len(indicator)] == indicator || 
-		     namespace[len(namespace)-len(indicator):] == indicator)) {
+		if namespace == indicator ||
+			(len(namespace) > len(indicator) &&
+				(namespace[:len(indicator)] == indicator ||
+					namespace[len(namespace)-len(indicator):] == indicator)) {
 			return true
 		}
 	}
@@ -221,7 +224,7 @@ func (c *SharedConfig) IsBatchOwnerKind(ownerKind string) bool {
 // GetMinResourceThresholds returns parsed minimum resource thresholds if configured
 func GetMinResourceThresholds(minCPU, minMemory string) (*resource.Quantity, *resource.Quantity, error) {
 	var minCPUQuantity, minMemoryQuantity *resource.Quantity
-	
+
 	if minCPU != "" {
 		cpuQuantity, err := resource.ParseQuantity(minCPU)
 		if err != nil {
@@ -229,7 +232,7 @@ func GetMinResourceThresholds(minCPU, minMemory string) (*resource.Quantity, *re
 		}
 		minCPUQuantity = &cpuQuantity
 	}
-	
+
 	if minMemory != "" {
 		memoryQuantity, err := resource.ParseQuantity(minMemory)
 		if err != nil {
@@ -237,6 +240,6 @@ func GetMinResourceThresholds(minCPU, minMemory string) (*resource.Quantity, *re
 		}
 		minMemoryQuantity = &memoryQuantity
 	}
-	
+
 	return minCPUQuantity, minMemoryQuantity, nil
 }

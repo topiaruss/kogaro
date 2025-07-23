@@ -79,6 +79,7 @@ global:
 # Prometheus configuration
 prometheus:
   enabled: true
+
   ingress:
     enabled: true
     hosts:
@@ -158,4 +159,26 @@ alertmanager:
       requests:
         cpu: 12m
         memory: 25Mi
-    retention: 120h 
+    retention: 120h
+
+# Node Exporter configuration
+nodeExporter:
+  enabled: true
+  resources:
+    limits:
+      cpu: 100m
+      memory: 100Mi
+    requests:
+      cpu: 50m
+      memory: 50Mi
+
+# Kube State Metrics configuration
+kubeStateMetrics:
+  enabled: true
+  resources:
+    limits:
+      cpu: 100m
+      memory: 100Mi
+    requests:
+      cpu: 50m
+      memory: 50Mi 

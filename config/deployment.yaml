@@ -20,7 +20,7 @@ spec:
       containers:
         - name: manager
           image: kogaro:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Never
           args:
             - --metrics-bind-address=:8080
             - --health-probe-bind-address=:8081
