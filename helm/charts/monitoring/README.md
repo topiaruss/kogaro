@@ -1,237 +1,133 @@
-# Kogaro Monitoring Chart
+# Kogaro Monitoring Stack
 
-This Helm chart provides a complete monitoring stack for Kogaro development and testing environments. It includes Prometheus, Grafana, and Alertmanager with pre-configured settings.
+This Helm chart deploys a production-ready monitoring stack for Kogaro with Prometheus, Grafana, and Alertmanager.
 
-## Overview
+## 🔒 Security-First Deployment
 
-The monitoring stack includes:
-- Prometheus for metrics collection
-- Grafana for visualization
-- Alertmanager for alert handling
-- Node Exporter for system metrics
-- Kube State Metrics for Kubernetes metrics
+**IMPORTANT**: This repository is public. Never commit passwords or sensitive credentials to version control.
 
-## Development Tools
+### Quick Start (Recommended)
 
-### Pre-commit Hooks
-
-The repository includes pre-commit hooks to ensure code quality and prevent common issues. These hooks run automatically before each commit.
-
-#### Required Tools
-
-Install the required tools:
-
-```bash
-# Install Helm (if not already installed)
-brew install helm
-
-# Install kubeconform for Kubernetes manifest validation
-brew install kubeconform
-
-# Install yamllint for YAML file linting
-brew install yamllint
-```
-
-#### What the Hooks Check
-
-The pre-commit hooks perform the following checks:
-
-1. **Sensitive Data Detection**
-   - Scans for potential secrets, passwords, tokens, and keys
-   - Prevents accidental commit of sensitive information
-   - Checks for patterns like `password:`, `secret:`, `token:`, etc.
-
-2. **Helm Chart Validation**
-   - Runs `helm lint` on all charts
-   - Ensures charts follow Helm best practices
-   - Validates chart structure and dependencies
-
-3. **Kubernetes Manifest Validation**
-   - Uses `kubeconform` to validate rendered manifests
-   - Ensures compatibility with Kubernetes API
-   - Validates against the correct Kubernetes version
-
-4. **YAML Linting**
-   - Enforces consistent YAML formatting
-   - Checks for syntax errors
-   - Validates against YAML best practices
-
-#### Troubleshooting Pre-commit Hooks
-
-If a pre-commit hook fails:
-
-1. **Sensitive Data Found**
-   - Review the file for actual sensitive data
-   - If it's a false positive, consider adding the pattern to `.gitignore`
-   - If it's real sensitive data, remove it and use secrets management
-
-2. **Helm Lint Failures**
-   - Check the error message for specific issues
-   - Common issues include:
-     - Missing required fields
-     - Invalid template syntax
-     - Dependency issues
-
-3. **Kubernetes Validation Failures**
-   - Review the `kubeconform` output
-   - Check for API version mismatches
-   - Verify resource specifications
-
-4. **YAML Lint Errors**
-   - Fix formatting issues
-   - Ensure consistent indentation
-   - Check for syntax errors
-
-#### Bypassing Hooks (Not Recommended)
-
-In rare cases, you might need to bypass the hooks:
-
-```bash
-git commit -m "your message" --no-verify
-```
-
-⚠️ **Warning**: Only bypass hooks if you're absolutely sure it's necessary. The hooks are there to prevent common issues and maintain code quality.
-
-## Prerequisites
-
-1. Create a `.env` file in the chart directory with the following variables:
-```bash
-MONITORING_USERNAME=your-username
-MONITORING_PASSWORD=your-password
-```
-
-## Installation
-
-### Quick Start
-
-The easiest way to deploy the monitoring stack is using the provided setup script:
-
-```bash
-# Make the script executable
-chmod +x setup-test-monitoring.sh
-
-# Run the setup script
-./setup-test-monitoring.sh
-```
-
-The script will:
-1. Create the monitoring namespace
-2. Set up basic authentication secrets
-3. Install the monitoring stack
-4. Wait for all components to be ready
-
-### Manual Installation
-
-If you prefer to install manually:
-
-```bash
-# Create the monitoring namespace
-kubectl create namespace monitoring
-
-# Create basic auth secrets
-echo "${MONITORING_USERNAME}:$(openssl passwd -apr1 '${MONITORING_PASSWORD}')" > auth
-kubectl create secret generic prometheus-basic-auth --from-file=auth -n monitoring
-kubectl create secret generic alertmanager-basic-auth --from-file=auth -n monitoring
-rm auth
-
-# Install the monitoring stack
-helm install monitoring . -n monitoring
-```
-
-## Accessing the Services
-
-After installation, you can access:
-- Prometheus: https://prometheus.ogaro.com
-- Alertmanager: https://alertmanager.ogaro.com
-- Grafana: https://grafana.ogaro.com
-
-Both Prometheus and Alertmanager require authentication using the credentials from your `.env` file.
-
-Note: Browsers will cache these credentials. To test the authentication:
-- Use an incognito/private window
-- Clear your browser cache
-- Or use a different browser
-
-## Security Considerations
-
-### Basic Authentication
-The monitoring stack uses basic authentication for Prometheus and Alertmanager. The credentials are managed through:
-1. A `.env` file containing the username and password
-2. Kubernetes secrets created during installation
-
-If you need to update the credentials:
-1. Update the `.env` file
-2. Delete the existing secrets:
+1. **Set up environment variables**:
    ```bash
-   kubectl delete secret prometheus-basic-auth alertmanager-basic-auth -n monitoring
+   cp env.example .env
+   # Edit .env with your actual passwords and domain
    ```
-3. Recreate the secrets using the setup script or manual commands
 
-### TLS Configuration
-All components are configured to use TLS by default with certificates managed by cert-manager.
+2. **Deploy securely**:
+   ```bash
+   ./deploy.sh monitoring
+   ```
+
+### Manual Deployment (Not Recommended for Production)
+
+If you must deploy manually, ensure you change the default passwords in `values.yaml`:
+
+```bash
+helm upgrade --install monitoring . -n monitoring
+```
+
+## Environment Variables
+
+Copy `env.example` to `.env` and configure:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DOMAIN` | Your domain for ingress hosts | `ogaro.com` |
+| `GRAFANA_ADMIN_USER` | Grafana admin username | `admin` |
+| `GRAFANA_ADMIN_PASSWORD` | **REQUIRED** - Grafana admin password | - |
+| `PROMETHEUS_BASIC_AUTH_USER` | Prometheus basic auth username | `prometheus` |
+| `PROMETHEUS_BASIC_AUTH_PASSWORD` | **REQUIRED** - Prometheus basic auth password | - |
+| `ALERTMANAGER_BASIC_AUTH_USER` | Alertmanager basic auth username | `alertmanager` |
+| `ALERTMANAGER_BASIC_AUTH_PASSWORD` | **REQUIRED** - Alertmanager basic auth password | - |
+| `TLS_SECRET_NAME` | TLS certificate secret name | `kogaro-monitoring-tls` |
+
+## Components
+
+### Prometheus
+- **URL**: `https://prometheus.{DOMAIN}`
+- **Authentication**: Basic auth
+- **Storage**: 5Gi PVC with 15-day retention
+- **Resources**: Configurable CPU/memory limits
+
+### Grafana
+- **URL**: `https://grafana.{DOMAIN}`
+- **Authentication**: Admin credentials from environment
+- **Dashboards**: Pre-configured Kogaro Temporal Intelligence dashboards
+- **Resources**: Configurable CPU/memory limits
+
+### Alertmanager
+- **URL**: `https://alertmanager.{DOMAIN}`
+- **Authentication**: Basic auth
+- **Retention**: 120 hours
+- **Resources**: Optimized for monitoring workloads
+
+## Security Features
+
+- **TLS/SSL**: All ingress endpoints use HTTPS
+- **Security Headers**: HSTS, X-Frame-Options, XSS Protection
+- **Basic Authentication**: Prometheus and Alertmanager protected
+- **Environment Variables**: No secrets in version control
+- **Resource Limits**: Prevent resource exhaustion
+
+## Monitoring Features
+
+### Temporal Intelligence
+- **Error Age Classification**: New, Recent, Stable, Resolved
+- **Workload Categories**: Application vs Infrastructure
+- **Trend Analysis**: Historical validation patterns
+- **Alerting**: Configurable thresholds for error trends
+
+### Dashboards
+- **Kogaro Overview**: High-level validation metrics
+- **Temporal Intelligence**: Error age and category analysis
+- **Validation Details**: Per-validator breakdowns
+- **Cluster Health**: Resource usage and performance
 
 ## Troubleshooting
 
-### 503 Errors
-If you see 503 errors when accessing Prometheus or Alertmanager:
-1. Check that the basic auth secrets exist:
-   ```bash
-   kubectl get secret -n monitoring | grep -E 'prometheus-basic-auth|alertmanager-basic-auth'
-   ```
-2. Verify the `.env` file exists and contains valid credentials
-3. Recreate the secrets if needed
-
-### Pod Issues
-Check pod status and logs:
+### Check Deployment Status
 ```bash
 kubectl get pods -n monitoring
-kubectl logs -n monitoring <pod-name>
+helm list -n monitoring
 ```
 
-## Configuration
-
-### Global Settings
-
-```yaml
-global:
-  domain: "ogaro.com"
-  tls:
-    enabled: true
-    secretName: "kogaro-monitoring-tls"
-    hosts:
-      - alertmanager.ogaro.com
-      - grafana.ogaro.com
-      - prometheus.ogaro.com
-  ingress:
-    annotations:
-      cert-manager.io/cluster-issuer: letsencrypt-prod
-    className: ingress-nginx
+### View Logs
+```bash
+kubectl logs -n monitoring deployment/monitoring-prometheus
+kubectl logs -n monitoring deployment/monitoring-grafana
+kubectl logs -n monitoring deployment/monitoring-alertmanager
 ```
 
-### Component-Specific Settings
+### Access Credentials
+```bash
+# Grafana admin password
+kubectl get secret monitoring-grafana -n monitoring -o jsonpath='{.data.admin-password}' | base64 -d
 
-Each component (Prometheus, Grafana, Alertmanager) can be configured independently in `values.yaml`. See the file for detailed configuration options.
+# Basic auth passwords (if using manual deployment)
+kubectl get secret prometheus-basic-auth -n monitoring -o jsonpath='{.data.auth}' | base64 -d
+kubectl get secret alertmanager-basic-auth -n monitoring -o jsonpath='{.data.auth}' | base64 -d
+```
 
-## Usage
+## Upgrading
 
-### Development/Testing Environment
+1. Update your `.env` file if needed
+2. Run the deployment script:
+   ```bash
+   ./deploy.sh monitoring
+   ```
 
-To deploy the complete monitoring stack:
+## Uninstalling
 
 ```bash
-# Add the Prometheus Helm repository
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-helm repo update
-
-# Create the monitoring namespace
-kubectl create namespace monitoring
-
-# Create basic auth secrets (required before installation)
-echo "admin:$(openssl passwd -apr1 'your-password')" > auth
-kubectl create secret generic prometheus-basic-auth --from-file=auth -n monitoring
-kubectl create secret generic alertmanager-basic-auth --from-file=auth -n monitoring
-rm auth
-
-# Install the monitoring stack
-helm install monitoring ./charts/monitoring
+helm uninstall monitoring -n monitoring
+kubectl delete namespace monitoring
 ```
+
+## Contributing
+
+When adding new configuration options:
+1. Add environment variable support in `generate-values.sh`
+2. Update `env.example` with the new variable
+3. Document the variable in this README
+4. Ensure the variable has a secure default
