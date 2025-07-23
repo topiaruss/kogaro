@@ -1,0 +1,146 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kogaro-temporal-rules
+  namespace: monitoring
+  labels:
+    prometheus: kube-prometheus
+    role: alert-rules
+    app: kogaro
+spec:
+  groups:
+  - name: kogaro.temporal.critical
+    interval: 30s
+    rules:
+    
+    # CRITICAL: NEW application issues (< 1 hour old)
+    - alert: KogaroValidationNewCritical
+      expr: |
+        kogaro_validation_errors_total{workload_category="application",expected_pattern="false"} > 0
+        and 
+        (time() - kogaro_validation_first_seen_timestamp) < 3600
+      for: 0m
+      labels:
+        severity: critical
+        temporal_state: new
+        team: platform
+        escalation: immediate
+      annotations:
+        summary: "🚨 URGENT: New application validation error - $labels.validation_type"
+        description: |
+          **NEW ISSUE DETECTED** - Immediate attention required!
+          
+          Resource: $labels.resource_type/$labels.resource_name
+          Namespace: $labels.namespace
+          Validation: $labels.validation_type
+          
+          This appears to be a NEW issue that may indicate:
+          - Recent deployment failure
+          - Configuration drift
+          - Service disruption
+          
+          Action: Investigate immediately - this was working before!
+
+    # HIGH: NEW infrastructure issues (< 1 hour old)
+    - alert: KogaroValidationNewInfrastructure
+      expr: |
+        kogaro_validation_errors_total{workload_category="infrastructure",expected_pattern="false"} > 0
+        and 
+        (time() - kogaro_validation_first_seen_timestamp) < 3600
+      for: 5m
+      labels:
+        severity: warning
+        temporal_state: new
+        team: platform
+        escalation: standard
+      annotations:
+        summary: "🟡 NEW infrastructure validation error - $labels.validation_type"
+        description: |
+          New validation error detected in infrastructure component.
+          Resource: $labels.resource_type/$labels.resource_name
+          Namespace: $labels.namespace
+          
+          This may be expected for infrastructure components, but worth reviewing.
+
+  - name: kogaro.temporal.recent
+    interval: 5m
+    rules:
+    
+    # MEDIUM: RECENT issues (1-24 hours old)
+    - alert: KogaroValidationRecent
+      expr: |
+        kogaro_validation_errors_total{expected_pattern="false"} > 0
+        and
+        (time() - kogaro_validation_first_seen_timestamp) >= 3600
+        and 
+        (time() - kogaro_validation_first_seen_timestamp) < 86400
+      for: 10m
+      labels:
+        severity: warning
+        temporal_state: recent
+        team: platform
+        escalation: standard
+      annotations:
+        summary: "🟡 RECENT validation error: $labels.validation_type"
+        description: |
+          Validation error that has persisted for several hours.
+          
+          Resource: $labels.resource_type/$labels.resource_name
+          Namespace: $labels.namespace
+          
+          Consider investigating if this should be resolved or accepted as operational pattern.
+
+  - name: kogaro.temporal.stable
+    interval: 1h
+    rules:
+    
+    # LOW: STABLE patterns (> 24 hours old) - Digest only
+    - alert: KogaroValidationStable
+      expr: |
+        kogaro_validation_errors_total{expected_pattern="false"} > 0
+        and
+        (time() - kogaro_validation_first_seen_timestamp) >= 86400
+      for: 4h
+      labels:
+        severity: info
+        temporal_state: stable
+        team: platform
+        escalation: none
+      annotations:
+        summary: "📊 STABLE validation pattern: $labels.validation_type"
+        description: |
+          Long-standing validation pattern - consider if this is acceptable operational state.
+          
+          Resource: $labels.resource_type/$labels.resource_name
+          Namespace: $labels.namespace
+          
+          Actions:
+          - Mark as `expected_pattern="true"` if acceptable
+          - Create remediation plan if this should be fixed
+          - Silence if this is known infrastructure limitation
+
+  - name: kogaro.temporal.resolution
+    interval: 1m
+    rules:
+    
+    # POSITIVE: Issues that got resolved
+    - alert: KogaroValidationResolved
+      expr: |
+        (kogaro_validation_errors_total offset 5m) > 0
+        unless  
+        kogaro_validation_errors_total > 0
+      for: 2m
+      labels:
+        severity: info
+        temporal_state: resolved
+        team: platform
+        escalation: none
+      annotations:
+        summary: "✅ RESOLVED: $labels.validation_type fixed"
+        description: |
+          Previously detected validation error has been resolved!
+          
+          Resource: $labels.resource_type/$labels.resource_name
+          Namespace: $labels.namespace
+          
+          Great work! The issue has been fixed. 

@@ -1,0 +1,375 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kogaro-temporal-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+    app: kogaro
+data:
+  kogaro-temporal-dashboard.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "Kogaro Temporal Intelligence",
+        "tags": ["kogaro", "temporal", "validation"],
+        "timezone": "browser",
+        "refresh": "30s",
+        "time": {
+          "from": "now-6h",
+          "to": "now"
+        },
+        "panels": [
+          {
+            "id": 1,
+            "title": "🚨 URGENT: New Issues (< 1 hour)",
+            "type": "stat",
+            "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+            "fieldConfig": {
+              "defaults": {
+                "color": {"mode": "thresholds"},
+                "thresholds": {
+                  "steps": [
+                    {"color": "green", "value": null},
+                    {"color": "red", "value": 1}
+                  ]
+                },
+                "unit": "short"
+              }
+            },
+            "targets": [
+              {
+                "expr": "count(kogaro_validation_errors_total{workload_category=\"application\"} > 0 and (time() - kogaro_validation_first_seen_timestamp) < 3600)",
+                "legendFormat": "New Critical Issues"
+              }
+            ]
+          },
+          {
+            "id": 2, 
+            "title": "🟡 Recent Issues (1-24 hours)",
+            "type": "stat",
+            "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+            "fieldConfig": {
+              "defaults": {
+                "color": {"mode": "thresholds"},
+                "thresholds": {
+                  "steps": [
+                    {"color": "green", "value": null},
+                    {"color": "yellow", "value": 1},
+                    {"color": "orange", "value": 5}
+                  ]
+                }
+              }
+            },
+            "targets": [
+              {
+                "expr": "count(kogaro_validation_errors_total > 0 and (time() - kogaro_validation_first_seen_timestamp) >= 3600 and (time() - kogaro_validation_first_seen_timestamp) < 86400)",
+                "legendFormat": "Recent Issues"
+              }
+            ]
+          },
+          {
+            "id": 3,
+            "title": "📊 Stable Patterns (> 24 hours)", 
+            "type": "stat",
+            "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+            "fieldConfig": {
+              "defaults": {
+                "color": {"mode": "thresholds"},
+                "thresholds": {
+                  "steps": [
+                    {"color": "blue", "value": null}
+                  ]
+                }
+              }
+            },
+            "targets": [
+              {
+                "expr": "count(kogaro_validation_errors_total > 0 and (time() - kogaro_validation_first_seen_timestamp) >= 86400)",
+                "legendFormat": "Stable Patterns"
+              }
+            ]
+          },
+          {
+            "id": 4,
+            "title": "✅ Resolved Today",
+            "type": "stat", 
+            "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+            "fieldConfig": {
+              "defaults": {
+                "color": {"mode": "thresholds"},
+                "thresholds": {
+                  "steps": [
+                    {"color": "green", "value": null}
+                  ]
+                }
+              }
+            },
+            "targets": [
+              {
+                "expr": "increase(kogaro_validation_resolved_total[24h])",
+                "legendFormat": "Resolved Today"
+              }
+            ]
+          },
+          {
+            "id": 5,
+            "title": "Temporal State Timeline",
+            "type": "timeseries",
+            "gridPos": {"h": 8, "w": 24, "x": 0, "y": 4},
+            "fieldConfig": {
+              "defaults": {
+                "custom": {
+                  "drawStyle": "line",
+                  "lineInterpolation": "linear",
+                  "fillOpacity": 10,
+                  "gradientMode": "none",
+                  "stack": "normal"
+                },
+                "color": {"mode": "palette-classic"}
+              },
+              "overrides": [
+                {
+                  "matcher": {"id": "byName", "options": "new"},
+                  "properties": [
+                    {"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}
+                  ]
+                },
+                {
+                  "matcher": {"id": "byName", "options": "recent"},
+                  "properties": [
+                    {"id": "color", "value": {"mode": "fixed", "fixedColor": "yellow"}}
+                  ]
+                },
+                {
+                  "matcher": {"id": "byName", "options": "stable"},
+                  "properties": [
+                    {"id": "color", "value": {"mode": "fixed", "fixedColor": "blue"}}
+                  ]
+                }
+              ]
+            },
+            "targets": [
+              {
+                "expr": "count by (temporal_state) (kogaro_validation_errors_total > 0)",
+                "legendFormat": "$temporal_state"
+              }
+            ]
+          },
+          {
+            "id": 6,
+            "title": "New Issues by Namespace (Last 6 Hours)",
+            "type": "bargauge",
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+            "fieldConfig": {
+              "defaults": {
+                "color": {"mode": "continuous-GrYlRd"},
+                "custom": {
+                  "orientation": "horizontal",
+                  "displayMode": "basic"
+                },
+                "thresholds": {
+                  "steps": [
+                    {"color": "green", "value": null},
+                    {"color": "red", "value": 1}
+                  ]
+                }
+              }
+            },
+            "targets": [
+              {
+                "expr": "count by (namespace) (kogaro_validation_errors_total{workload_category=\"application\"} > 0 and (time() - kogaro_validation_first_seen_timestamp) < 21600)",
+                "legendFormat": "$namespace"
+              }
+            ]
+          },
+          {
+            "id": 7,
+            "title": "Issue Age Distribution",
+            "type": "heatmap",
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+            "fieldConfig": {
+              "defaults": {
+                "custom": {
+                  "hideFrom": {"legend": false, "tooltip": false, "vis": false}
+                }
+              }
+            },
+            "options": {
+              "calculate": false,
+              "cellGap": 2,
+              "color": {
+                "exponent": 0.5,
+                "fill": "dark-orange",
+                "mode": "spectrum",
+                "reverse": false,
+                "scale": "exponential",
+                "scheme": "Oranges",
+                "steps": 64
+              },
+              "legend": {"show": true},
+              "tooltip": {"show": true, "yHistogram": false},
+              "yAxis": {
+                "axisPlacement": "left",
+                "reverse": false,
+                "unit": "h"
+              }
+            },
+            "targets": [
+              {
+                "expr": "sum(rate(kogaro_validation_age_hours_bucket[5m])) by (le)",
+                "format": "heatmap",
+                "legendFormat": "$le"
+              }
+            ]
+          },
+          {
+            "id": 8,
+            "title": "Recent Issues Details",
+            "type": "table",
+            "gridPos": {"h": 10, "w": 24, "x": 0, "y": 20},
+            "fieldConfig": {
+              "defaults": {
+                "custom": {
+                  "align": "auto",
+                  "displayMode": "auto",
+                  "filterable": true
+                },
+                "thresholds": {
+                  "steps": [
+                    {"color": "green", "value": null},
+                    {"color": "red", "value": 80}
+                  ]
+                },
+                "color": {"mode": "thresholds"}
+              },
+              "overrides": [
+                {
+                  "matcher": {"id": "byName", "options": "temporal_state"},
+                  "properties": [
+                    {
+                      "id": "custom.displayMode",
+                      "value": "color-background"
+                    },
+                    {
+                      "id": "mappings",
+                      "value": [
+                        {"options": {"new": {"color": "red", "index": 0}}},
+                        {"options": {"recent": {"color": "yellow", "index": 1}}},
+                        {"options": {"stable": {"color": "blue", "index": 2}}}
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            "options": {
+              "showHeader": true,
+              "sortBy": [
+                {"desc": false, "displayName": "Age (hours)"}
+              ]
+            },
+            "targets": [
+              {
+                "expr": "kogaro_validation_age_hours{temporal_state=~\"new|recent\"}",
+                "format": "table",
+                "instant": true
+              }
+            ],
+            "transformations": [
+              {
+                "id": "organize",
+                "options": {
+                  "excludeByName": {"Time": true, "__name__": true},
+                  "indexByName": {
+                    "namespace": 0,
+                    "resource_type": 1,
+                    "resource_name": 2,
+                    "validation_type": 3,
+                    "temporal_state": 4,
+                    "Value": 5
+                  },
+                  "renameByName": {
+                    "Value": "Age (hours)",
+                    "namespace": "Namespace",
+                    "resource_type": "Resource Type",
+                    "resource_name": "Resource Name", 
+                    "validation_type": "Validation Type",
+                    "temporal_state": "State"
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "templating": {
+          "list": [
+            {
+              "current": {"selected": false, "text": "All", "value": "$__all"},
+              "hide": 0,
+              "includeAll": true,
+              "multi": true,
+              "name": "namespace",
+              "options": [],
+              "query": "label_values(kogaro_validation_errors_total, namespace)",
+              "refresh": 1,
+              "regex": "",
+              "skipUrlSync": false,
+              "sort": 1,
+              "type": "query"
+            },
+            {
+              "current": {"selected": false, "text": "All", "value": "$__all"},
+              "hide": 0,
+              "includeAll": true,
+              "multi": true,
+              "name": "temporal_state",
+              "options": [],
+              "query": "label_values(kogaro_validation_age_hours, temporal_state)",
+              "refresh": 1,
+              "regex": "",
+              "skipUrlSync": false,
+              "sort": 1,
+              "type": "query"
+            }
+          ]
+        },
+        "annotations": {
+          "list": [
+            {
+              "builtIn": 1,
+              "datasource": "-- Grafana --",
+              "enable": true,
+              "hide": true,
+              "iconColor": "rgba(0, 211, 255, 1)",
+              "name": "Annotations & Alerts",
+              "type": "dashboard"
+            },
+            {
+              "datasource": "Prometheus",
+              "enable": true,
+              "expr": "kogaro_validation_state_changes_total{change_type=\"new\"}",
+              "iconColor": "red",
+              "name": "New Issues",
+              "showIn": 0,
+              "step": "1m",
+              "tagKeys": "namespace,resource_name,validation_type",
+              "textFormat": "NEW: $validation_type in $namespace/$resource_name",
+              "titleFormat": "New Validation Issue"
+            },
+            {
+              "datasource": "Prometheus", 
+              "enable": true,
+              "expr": "kogaro_validation_resolved_total",
+              "iconColor": "green",
+              "name": "Resolved Issues",
+              "showIn": 0,
+              "step": "1m",
+              "tagKeys": "namespace,resource_name,validation_type",
+              "textFormat": "RESOLVED: $validation_type in $namespace/$resource_name",
+              "titleFormat": "Issue Resolved"
+            }
+          ]
+        }
+      }
+    } 
