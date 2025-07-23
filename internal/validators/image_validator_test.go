@@ -240,7 +240,16 @@ func TestImageValidator_ValidateCluster(t *testing.T) {
 
 			// Check for the correct metric label for each error type
 			for _, expectedError := range tt.expectedErrors {
-				validationErrors, err := metrics.ValidationErrors.GetMetricWithLabelValues("Deployment", expectedError, "default")
+				// Determine the correct severity and expected pattern based on error type
+				severity := "error"
+				expectedPattern := "false"
+
+				// Warning errors have different severity
+				if expectedError == "missing_image_warning" || expectedError == "architecture_mismatch_warning" {
+					severity = "warning"
+				}
+
+				validationErrors, err := metrics.ValidationErrors.GetMetricWithLabelValues("Deployment", expectedError, "default", severity, "application", expectedPattern)
 				if err != nil {
 					t.Fatalf("failed to get validation errors metric for %s: %v", expectedError, err)
 				}

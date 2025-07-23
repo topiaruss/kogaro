@@ -39,12 +39,12 @@ type NetworkingConfig struct {
 
 // NetworkingValidator validates networking configurations across workloads
 type NetworkingValidator struct {
-	client              client.Client
-	log                 logr.Logger
-	config              NetworkingConfig
-	sharedConfig        SharedConfig
+	client               client.Client
+	log                  logr.Logger
+	config               NetworkingConfig
+	sharedConfig         SharedConfig
 	lastValidationErrors []ValidationError
-	logReceiver         LogReceiver
+	logReceiver          LogReceiver
 }
 
 // NewNetworkingValidator creates a new NetworkingValidator with the given client, logger and config
@@ -122,15 +122,19 @@ func (v *NetworkingValidator) ValidateCluster(ctx context.Context) error {
 			validationErr.Message,
 		)
 
-		metrics.ValidationErrors.WithLabelValues(
+		// Use new temporal-aware metrics recording
+		metrics.RecordValidationErrorWithState(
 			validationErr.ResourceType,
-			validationErr.ValidationType,
+			validationErr.ResourceName,
 			validationErr.Namespace,
-		).Inc()
+			validationErr.ValidationType,
+			string(validationErr.Severity),
+			false, // expectedPattern - false for actual errors
+		)
 	}
 
 	v.log.Info("validation completed", "validator_type", "networking", "total_errors", len(allErrors))
-	
+
 	// Store errors for CLI reporting
 	v.lastValidationErrors = allErrors
 	return nil

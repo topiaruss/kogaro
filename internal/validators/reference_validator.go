@@ -36,12 +36,12 @@ type ValidationConfig struct {
 
 // ReferenceValidator validates Kubernetes resource references across the cluster
 type ReferenceValidator struct {
-	client              client.Client
-	log                 logr.Logger
-	config              ValidationConfig
-	sharedConfig        SharedConfig
+	client               client.Client
+	log                  logr.Logger
+	config               ValidationConfig
+	sharedConfig         SharedConfig
 	lastValidationErrors []ValidationError
-	logReceiver         LogReceiver
+	logReceiver          LogReceiver
 }
 
 // GetValidationType returns the validation type identifier for reference validation
@@ -137,15 +137,19 @@ func (v *ReferenceValidator) ValidateCluster(ctx context.Context) error {
 			validationErr.Message,
 		)
 
-		metrics.ValidationErrors.WithLabelValues(
+		// Use new temporal-aware metrics recording
+		metrics.RecordValidationErrorWithState(
 			validationErr.ResourceType,
-			validationErr.ValidationType,
+			validationErr.ResourceName,
 			validationErr.Namespace,
-		).Inc()
+			validationErr.ValidationType,
+			string(validationErr.Severity),
+			false, // expectedPattern - false for actual errors
+		)
 	}
 
 	v.log.Info("validation completed", "validator_type", "reference", "total_errors", len(allErrors))
-	
+
 	// Store errors for CLI reporting
 	v.lastValidationErrors = allErrors
 	return nil

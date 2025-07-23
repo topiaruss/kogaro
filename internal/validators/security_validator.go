@@ -43,12 +43,12 @@ type SecurityConfig struct {
 
 // SecurityValidator validates security configurations across workloads
 type SecurityValidator struct {
-	client              client.Client
-	log                 logr.Logger
-	config              SecurityConfig
-	sharedConfig        SharedConfig
+	client               client.Client
+	log                  logr.Logger
+	config               SecurityConfig
+	sharedConfig         SharedConfig
 	lastValidationErrors []ValidationError
-	logReceiver         LogReceiver
+	logReceiver          LogReceiver
 }
 
 // NewSecurityValidator creates a new SecurityValidator with the given client, logger and config
@@ -144,15 +144,19 @@ func (v *SecurityValidator) ValidateCluster(ctx context.Context) error {
 			validationErr.Message,
 		)
 
-		metrics.ValidationErrors.WithLabelValues(
+		// Use new temporal-aware metrics recording
+		metrics.RecordValidationErrorWithState(
 			validationErr.ResourceType,
-			validationErr.ValidationType,
+			validationErr.ResourceName,
 			validationErr.Namespace,
-		).Inc()
+			validationErr.ValidationType,
+			string(validationErr.Severity),
+			false, // expectedPattern - false for actual errors
+		)
 	}
 
 	v.log.Info("validation completed", "validator_type", "security", "total_errors", len(allErrors))
-	
+
 	// Store errors for CLI reporting
 	v.lastValidationErrors = allErrors
 	return nil

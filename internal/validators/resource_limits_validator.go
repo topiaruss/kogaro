@@ -43,12 +43,12 @@ type ResourceLimitsConfig struct {
 
 // ResourceLimitsValidator validates resource requests and limits across workloads
 type ResourceLimitsValidator struct {
-	client              client.Client
-	log                 logr.Logger
-	config              ResourceLimitsConfig
-	sharedConfig        SharedConfig
+	client               client.Client
+	log                  logr.Logger
+	config               ResourceLimitsConfig
+	sharedConfig         SharedConfig
 	lastValidationErrors []ValidationError
-	logReceiver         LogReceiver
+	logReceiver          LogReceiver
 }
 
 // NewResourceLimitsValidator creates a new ResourceLimitsValidator with the given client, logger and config
@@ -129,15 +129,19 @@ func (v *ResourceLimitsValidator) ValidateCluster(ctx context.Context) error {
 			validationErr.Message,
 		)
 
-		metrics.ValidationErrors.WithLabelValues(
+		// Use new temporal-aware metrics recording
+		metrics.RecordValidationErrorWithState(
 			validationErr.ResourceType,
-			validationErr.ValidationType,
+			validationErr.ResourceName,
 			validationErr.Namespace,
-		).Inc()
+			validationErr.ValidationType,
+			string(validationErr.Severity),
+			false, // expectedPattern - false for actual errors
+		)
 	}
 
 	v.log.Info("validation completed", "validator_type", "resource_limits", "total_errors", len(allErrors))
-	
+
 	// Store errors for CLI reporting
 	v.lastValidationErrors = allErrors
 	return nil
