@@ -482,6 +482,8 @@ spec:
 
 - **[Error Codes Reference](docs/ERROR-CODES.md)** - Complete mapping of structured error codes for all validation types
 - **[Deployment Guide](docs/DEPLOYMENT-GUIDE.md)** - Comprehensive deployment and configuration instructions
+- **[Monitoring Guide](docs/MONITORING-GUIDE.md)** - Prometheus metrics, Grafana dashboards, and temporal intelligence setup
+- **[Temporal Intelligence Reference](docs/TEMPORAL-INTELLIGENCE-REFERENCE.md)** - Quick reference for temporal state classification and alerting
 - **[Contributing Guide](CONTRIBUTING.md)** - Development setup and contribution guidelines
 - **[Security Policy](SECURITY.md)** - Security considerations and vulnerability reporting
 
@@ -508,7 +510,9 @@ spec:
 
 ## Future Roadmap
 
-- **Temporal Intelligence**: Distinguish NEW issues from stable patterns
+- **✅ Temporal Intelligence**: Distinguish NEW issues from stable patterns (v0.4.4+)
+- **Provenance-Aware Remediation**: Link validation errors back to source files and provide intelligent fixes
+- **AI-Powered Automation**: Automated configuration fixing and PR/MR generation
 - **Custom Validations**: Plugin system for organization-specific rules  
 - **GitOps Integration**: Pre-deployment validation in CI/CD pipelines
 - **Advanced Alerting**: Slack, PagerDuty, and custom webhook integration
