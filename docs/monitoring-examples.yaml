@@ -1,0 +1,71 @@
+# Kogaro Monitoring Configuration Examples
+# Copy and customize these examples for your environment
+
+---
+# Example 1: Monitoring Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+
+---
+# Example 2: Alertmanager Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kogaro-alertmanager-config
+  namespace: monitoring
+data:
+  alertmanager.yml: |
+    global:
+      slack_api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+
+    route:
+      group_by: ['alertname', 'namespace', 'workload_category']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+      receiver: 'slack-notifications'
+      routes:
+        - match:
+            severity: critical
+            workload_category: application
+          receiver: 'pager-duty-critical'
+          continue: true
+        - match:
+            severity: warning
+            workload_category: infrastructure
+          receiver: 'slack-infrastructure'
+          continue: true
+
+    receivers:
+      - name: 'slack-notifications'
+        slack_configs:
+          - channel: '#kogaro-alerts'
+            title: >-
+              {{ if eq .GroupLabels.severity "critical" }}🚨{{ else }}⚠️{{ end }}
+              {{ .GroupLabels.validation_type }}
+            text: |
+              *Namespace:* {{ .GroupLabels.namespace }}
+              *Resource:* {{ .GroupLabels.resource_name }}
+              *Age:* {{ $value }} hours
+              *State:* {{ .GroupLabels.state }}
+              *Error Code:* {{ .GroupLabels.error_code }}
+
+      - name: 'slack-infrastructure'
+        slack_configs:
+          - channel: '#infrastructure-alerts'
+            title: '🔧 Infrastructure: {{ .GroupLabels.validation_type }}'
+            text: |
+              *Namespace:* {{ .GroupLabels.namespace }}
+              *Resource:* {{ .GroupLabels.resource_name }}
+              *Age:* {{ $value }} hours
+
+      - name: 'pager-duty-critical'
+        pagerduty_configs:
+          - routing_key: 'YOUR_PAGERDUTY_ROUTING_KEY'
+            description: >-
+              Kogaro {{ .GroupLabels.severity }}: {{ .GroupLabels.validation_type }}
+              in {{ .GroupLabels.namespace }}
+            severity: >-
+              {{ if eq .GroupLabels.severity "critical" }}critical{{ else }}warning{{ end }}
