@@ -246,13 +246,14 @@ func TestImageValidator_ValidateCluster(t *testing.T) {
 				errorCode := "KOGARO-IMG-001" // Default error code
 
 				// Warning errors have different severity and error codes
-				if expectedError == "missing_image_warning" {
+				switch expectedError {
+				case "missing_image_warning":
 					severity = "warning"
 					errorCode = "KOGARO-IMG-003"
-				} else if expectedError == "architecture_mismatch_warning" {
+				case "architecture_mismatch_warning":
 					severity = "warning"
 					errorCode = "KOGARO-IMG-005"
-				} else if expectedError == "invalid_image_reference" {
+				case "invalid_image_reference":
 					errorCode = "KOGARO-IMG-001"
 				}
 
