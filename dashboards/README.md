@@ -1,94 +1,136 @@
-# Kogaro Temporal Intelligence Dashboards
+# Kogaro Grafana Dashboards
 
-This directory contains Grafana dashboards for monitoring Kogaro's Temporal Intelligence features.
+This directory contains Grafana dashboards for Kogaro Temporal Intelligence monitoring and analysis.
 
-## Current Dashboard
+## Available Dashboards
 
-### `kogaro-temporal-dashboard-enhanced.json` ⭐ **RECOMMENDED**
-- **Purpose**: Enhanced Temporal Intelligence dashboard with filtering capabilities
-- **Features**:
-  - **Temporal Intelligence Panels**: URGENT (< 1h), Recent (1h-24h), Stable (> 24h), Total Issues
-  - **Filtering Dropdowns**: Namespace, Severity, Workload Category filters
-  - **Real-time Charts**: Validation errors by workload category, severity, and namespace
-  - **Issue Age Tracking**: Temporal visualization of validation error ages
-  - **Label Consistency**: Works with new consistent Prometheus metric labels
-  - **Graceful Legacy Handling**: Ignores old inconsistent data gracefully
+### 1. **Kogaro Temporal Intelligence - Error Code Enhanced** ⭐ **NEW**
+**File**: `kogaro-temporal-dashboard-error-codes.json`  
+**Features**:
+- **Error Code Filtering**: Filter by specific error codes (KOGARO-IMG-001, KOGARO-RES-001, etc.)
+- **Heatmap Visualization**: 2D matrix showing error types vs namespaces
+- **Enhanced Filtering**: Namespace, Severity, Workload Category, and Error Code filters
+- **Temporal Intelligence**: Issue age tracking with error codes
+- **Top Error Codes Table**: Most frequent error codes with details
+
+**Use Cases**:
+- Identify security issues constrained to specific namespaces
+- Analyze cross-namespace error patterns
+- Track error code distribution and trends
+- Plan remediation efforts based on error code frequency
+
+### 2. **Kogaro Temporal Intelligence - Enhanced**
+**File**: `kogaro-temporal-dashboard-enhanced.json`  
+**Features**:
+- Filtering dropdowns for Namespace, Severity, and Workload Category
+- Temporal intelligence with issue age tracking
+- Validation error breakdowns by category
+- Improved temporal queries with consistent labels
+
+### 3. **Kogaro Temporal Intelligence - Simple**
+**File**: `kogaro-temporal-dashboard-simple.json`  
+**Features**:
+- Basic temporal intelligence metrics
+- Simplified queries for immediate data visibility
+- Good starting point for understanding the data
+
+### 4. **Kogaro Temporal Intelligence - Working**
+**File**: `kogaro-temporal-dashboard-working.json`  
+**Features**:
+- Experimental version with attempted fixes
+- Reference implementation for troubleshooting
 
 ## Import Instructions
 
-1. **Access Grafana**: Navigate to http://localhost:3000
-2. **Login**: Use `admin` / `[password from .env file]`
-3. **Import Dashboard**:
-   - Click the "+" icon → "Import"
-   - Copy the JSON content from `kogaro-temporal-dashboard-enhanced.json`
-   - Paste into the import dialog
-   - Click "Load" then "Import"
+### Using the Import Script
+```bash
+# Import the new error code enhanced dashboard
+./dashboards/import-dashboards.sh import kogaro-temporal-dashboard-error-codes.json
+
+# Import all dashboards
+./dashboards/import-dashboards.sh import-all
+
+# List available dashboards
+./dashboards/import-dashboards.sh list
+```
+
+### Manual Import
+1. Open Grafana (http://localhost:3000)
+2. Go to Dashboards → Import
+3. Upload the JSON file or paste the content
+4. Select Prometheus as the data source
+5. Click Import
 
 ## Metrics Structure
 
-### Key Metrics
-- `kogaro_validation_errors_total`: Total validation errors with consistent labels
-- `kogaro_validation_first_seen_timestamp`: When validation errors were first detected
+### Core Metrics
+- `kogaro_validation_errors_total`: Total validation errors with labels
+- `kogaro_validation_first_seen_timestamp`: When errors were first detected
+- `kogaro_validation_last_seen_timestamp`: When errors were last seen
+- `kogaro_validation_age_hours`: Age of validation errors in hours
 
-### Labels (Consistent)
+### Labels Available
+- `resource_type`: Type of Kubernetes resource (Pod, Deployment, Service, etc.)
+- `validation_type`: Type of validation (missing_resource_requests, pod_running_as_root, etc.)
 - `exported_namespace`: Kubernetes namespace
-- `resource_type`: Type of Kubernetes resource
-- `resource_name`: Name of the resource
-- `validation_type`: Type of validation error
-- `severity`: Error or warning
-- `workload_category`: Application or infrastructure
-- `expected_pattern`: Boolean indicating expected vs unexpected patterns
+- `resource_name`: Name of the specific resource
+- `severity`: Error severity (error, warning, info)
+- `workload_category`: Workload classification (application, infrastructure)
+- `expected_pattern`: Whether this matches expected patterns
+- `error_code`: Specific error code (KOGARO-IMG-001, KOGARO-RES-001, etc.)
+
+### Error Code Categories
+- **KOGARO-IMG-XXX**: Image validation errors
+- **KOGARO-RES-XXX**: Resource limits and requests errors
+- **KOGARO-NET-XXX**: Networking validation errors
+- **KOGARO-SEC-XXX**: Security validation errors
+- **KOGARO-REF-XXX**: Reference validation errors
 
 ## Current Status
 
 ### ✅ Working Features
-- **Real-time filtering** by namespace, severity, and workload category
-- **Temporal intelligence** tracking for new validation errors
-- **Consistent label joins** for proper temporal analysis
-- **Graceful handling** of legacy inconsistent data
-- **Responsive dashboard** with 30-second refresh
+- All dashboards import successfully
+- Temporal intelligence metrics collecting
+- Error code filtering operational
+- Heatmap visualization functional
+- Cross-namespace pattern analysis
 
-### 📊 Expected Behavior
-- **Temporal panels** will populate as new validation errors emerge
-- **Issue age tracking** shows age distribution of existing issues
-- **Filtering** allows focused analysis of specific namespaces/workloads
-- **Real-time updates** as validation state changes
+### 🔄 In Development
+- Advanced temporal state classification (New/Recent/Stable/Resolved)
+- Error code class analysis
+- Automated alerting based on error patterns
 
 ## Usage Examples
 
-### Focus on Testbed
-1. Set Namespace filter to "kogaro-testbed"
-2. Observe validation patterns specific to test environment
-3. Monitor temporal progression of testbed issues
+### Security Analysis
+1. Use the **Error Code Enhanced** dashboard
+2. Filter by `error_code` starting with "KOGARO-SEC"
+3. Use the heatmap to see which namespaces have security issues
+4. Identify if security problems are isolated or widespread
 
-### Monitor Application vs Infrastructure
-1. Use Workload Category filter to compare application vs infrastructure issues
-2. Analyze severity distribution across workload types
-3. Track temporal patterns by workload category
+### Resource Planning
+1. Filter by `error_code` starting with "KOGARO-RES"
+2. Use the heatmap to identify namespaces with resource issues
+3. Prioritize remediation based on error frequency
 
-### Track New Issues
-1. Watch URGENT panel for issues detected in last hour
-2. Monitor Recent panel for issues 1-24 hours old
-3. Observe Stable panel for long-standing patterns
-
-## Management Script
-
-Use `import-dashboards.sh` for automated dashboard management:
-
-```bash
-# List available dashboards
-./dashboards/import-dashboards.sh list
-
-# Show dashboard information
-./dashboards/import-dashboards.sh info kogaro-temporal-dashboard-enhanced.json
-
-# Import the enhanced dashboard
-./dashboards/import-dashboards.sh import kogaro-temporal-dashboard-enhanced.json
-```
+### Cross-Namespace Analysis
+1. Use the heatmap to identify error types that span multiple namespaces
+2. Look for patterns that indicate systemic issues
+3. Plan organization-wide fixes for widespread problems
 
 ## Maintenance Notes
 
-- **Label Consistency**: Dashboard works with new consistent metric labels
-- **Legacy Data**: Old inconsistent data is gracefully ignored
-- **Temporal Intelligence**: New validation errors are properly tracked
-- **Filtering**: All panels respect filter selections for focused analysis 
+### Dashboard Updates
+- All dashboards are compatible with Grafana 12.0.2
+- Error codes are automatically populated from Prometheus metrics
+- Filtering variables are dynamically populated from available data
+
+### Troubleshooting
+- If error codes don't appear, ensure Kogaro is running with error code integration
+- If heatmap is empty, check that validation errors are being generated
+- If filters don't populate, verify Prometheus is scraping Kogaro metrics
+
+### Performance
+- Dashboards refresh every 5 seconds
+- Heatmap uses exponential color scaling for better visualization
+- Large datasets may require longer load times 
