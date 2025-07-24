@@ -156,6 +156,11 @@ func (v *ResourceLimitsValidator) validateDeploymentResources(ctx context.Contex
 	}
 
 	for _, deployment := range deployments.Items {
+		// Skip system namespaces
+		if v.sharedConfig.IsSystemNamespace(deployment.Namespace) {
+			continue
+		}
+
 		containerErrors := v.validateContainerResources(deployment.Spec.Template.Spec.Containers, "Deployment", deployment.Name, deployment.Namespace)
 		errors = append(errors, containerErrors...)
 
@@ -175,6 +180,11 @@ func (v *ResourceLimitsValidator) validateStatefulSetResources(ctx context.Conte
 	}
 
 	for _, statefulSet := range statefulSets.Items {
+		// Skip system namespaces
+		if v.sharedConfig.IsSystemNamespace(statefulSet.Namespace) {
+			continue
+		}
+
 		containerErrors := v.validateContainerResources(statefulSet.Spec.Template.Spec.Containers, "StatefulSet", statefulSet.Name, statefulSet.Namespace)
 		errors = append(errors, containerErrors...)
 
@@ -194,6 +204,11 @@ func (v *ResourceLimitsValidator) validateDaemonSetResources(ctx context.Context
 	}
 
 	for _, daemonSet := range daemonSets.Items {
+		// Skip system namespaces
+		if v.sharedConfig.IsSystemNamespace(daemonSet.Namespace) {
+			continue
+		}
+
 		containerErrors := v.validateContainerResources(daemonSet.Spec.Template.Spec.Containers, "DaemonSet", daemonSet.Name, daemonSet.Namespace)
 		errors = append(errors, containerErrors...)
 
@@ -213,6 +228,11 @@ func (v *ResourceLimitsValidator) validatePodResources(ctx context.Context) ([]V
 	}
 
 	for _, pod := range pods.Items {
+		// Skip system namespaces
+		if v.sharedConfig.IsSystemNamespace(pod.Namespace) {
+			continue
+		}
+
 		// Skip pods managed by controllers (they're validated via their controllers)
 		if len(pod.OwnerReferences) > 0 {
 			continue

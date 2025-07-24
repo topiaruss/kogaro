@@ -178,6 +178,11 @@ func (v *ReferenceValidator) validateIngressReferences(ctx context.Context) ([]V
 
 	// Validate each Ingress
 	for _, ingress := range ingresses.Items {
+		// Skip system namespaces
+		if v.sharedConfig.IsSystemNamespace(ingress.Namespace) {
+			continue
+		}
+
 		if ingress.Spec.IngressClassName != nil {
 			className := *ingress.Spec.IngressClassName
 			if !existingClasses[className] {
@@ -228,6 +233,11 @@ func (v *ReferenceValidator) validateConfigMapReferences(ctx context.Context) ([
 	}
 
 	for _, pod := range pods.Items {
+		// Skip system namespaces
+		if v.sharedConfig.IsSystemNamespace(pod.Namespace) {
+			continue
+		}
+
 		// Check ConfigMap references in volumes
 		for _, volume := range pod.Spec.Volumes {
 			if volume.ConfigMap != nil {
@@ -282,6 +292,11 @@ func (v *ReferenceValidator) validateSecretReferences(ctx context.Context) ([]Va
 	}
 
 	for _, pod := range pods.Items {
+		// Skip system namespaces
+		if v.sharedConfig.IsSystemNamespace(pod.Namespace) {
+			continue
+		}
+
 		// Check Secret references in volumes
 		for _, volume := range pod.Spec.Volumes {
 			if volume.Secret != nil {
@@ -337,6 +352,11 @@ func (v *ReferenceValidator) validateSecretReferences(ctx context.Context) ([]Va
 	}
 
 	for _, ingress := range ingresses.Items {
+		// Skip system namespaces
+		if v.sharedConfig.IsSystemNamespace(ingress.Namespace) {
+			continue
+		}
+
 		for _, tls := range ingress.Spec.TLS {
 			if tls.SecretName != "" {
 				if err := v.validateSecretExists(ctx, tls.SecretName, ingress.Namespace); err != nil {
@@ -376,6 +396,11 @@ func (v *ReferenceValidator) validatePVCReferences(ctx context.Context) ([]Valid
 	}
 
 	for _, pvc := range pvcs.Items {
+		// Skip system namespaces
+		if v.sharedConfig.IsSystemNamespace(pvc.Namespace) {
+			continue
+		}
+
 		if pvc.Spec.StorageClassName != nil {
 			className := *pvc.Spec.StorageClassName
 			if !existingClasses[className] {
@@ -395,6 +420,11 @@ func (v *ReferenceValidator) validatePVCReferences(ctx context.Context) ([]Valid
 	}
 
 	for _, pod := range pods.Items {
+		// Skip system namespaces
+		if v.sharedConfig.IsSystemNamespace(pod.Namespace) {
+			continue
+		}
+
 		for _, volume := range pod.Spec.Volumes {
 			if volume.PersistentVolumeClaim != nil {
 				pvcName := volume.PersistentVolumeClaim.ClaimName
@@ -402,7 +432,6 @@ func (v *ReferenceValidator) validatePVCReferences(ctx context.Context) ([]Valid
 					errors = append(errors, NewValidationErrorWithCode("Pod", pod.Name, pod.Namespace, "dangling_pvc_reference", "KOGARO-REF-010", fmt.Sprintf("PVC '%s' referenced in volume does not exist", pvcName)).
 						WithSeverity(SeverityError).
 						WithRemediationHint(fmt.Sprintf("Create PVC '%s' in namespace '%s' or update the volume reference to use an existing PVC", pvcName, pod.Namespace)).
-						WithRelatedResources(fmt.Sprintf("PersistentVolumeClaim/%s", pvcName)).
 						WithDetail("missing_pvc", pvcName).
 						WithDetail("volume_name", volume.Name))
 				}
@@ -423,6 +452,11 @@ func (v *ReferenceValidator) validateServiceAccountReferences(ctx context.Contex
 	}
 
 	for _, pod := range pods.Items {
+		// Skip system namespaces
+		if v.sharedConfig.IsSystemNamespace(pod.Namespace) {
+			continue
+		}
+
 		saName := pod.Spec.ServiceAccountName
 		if saName == "" {
 			saName = v.sharedConfig.DefaultSecurityContext.DefaultServiceAccountName

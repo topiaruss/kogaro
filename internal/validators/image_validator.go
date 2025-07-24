@@ -34,6 +34,7 @@ type ImageValidator struct {
 	k8sClient            kubernetes.Interface
 	log                  logr.Logger
 	config               ImageValidatorConfig
+	sharedConfig         SharedConfig
 	lastValidationErrors []ValidationError
 	logReceiver          LogReceiver
 
@@ -45,10 +46,11 @@ type ImageValidator struct {
 // NewImageValidator creates a new ImageValidator
 func NewImageValidator(client client.Client, k8sClient kubernetes.Interface, log logr.Logger, config ImageValidatorConfig) *ImageValidator {
 	return &ImageValidator{
-		client:    client,
-		k8sClient: k8sClient,
-		log:       log,
-		config:    config,
+		client:       client,
+		k8sClient:    k8sClient,
+		log:          log,
+		config:       config,
+		sharedConfig: DefaultSharedConfig(),
 	}
 }
 
@@ -145,6 +147,11 @@ func (v *ImageValidator) validateDeploymentImages(ctx context.Context, nodeArchi
 	}
 
 	for _, deployment := range deployments.Items {
+		// Skip system namespaces
+		if v.sharedConfig.IsSystemNamespace(deployment.Namespace) {
+			continue
+		}
+
 		// Validate main containers
 		containerErrors := v.validateContainerImages(deployment.Spec.Template.Spec.Containers, "Deployment", deployment.Name, deployment.Namespace, nodeArchitectures)
 		errors = append(errors, containerErrors...)
@@ -166,6 +173,11 @@ func (v *ImageValidator) validatePodImages(ctx context.Context, nodeArchitecture
 	}
 
 	for _, pod := range pods.Items {
+		// Skip system namespaces
+		if v.sharedConfig.IsSystemNamespace(pod.Namespace) {
+			continue
+		}
+
 		// Skip pods managed by controllers (they're validated via their controllers)
 		if len(pod.OwnerReferences) > 0 {
 			continue
