@@ -19,6 +19,7 @@ type ValidationState struct {
 	State       TemporalState
 	ChangeCount int
 	Resolved    bool
+	ErrorCode   string
 }
 
 // StateTracker manages validation state persistence across runs
@@ -40,7 +41,7 @@ func GetStateKey(namespace, resourceType, resourceName, validationType string) s
 }
 
 // UpdateState updates the state of a validation error and returns the updated state
-func (st *StateTracker) UpdateState(key string, currentTime time.Time) *ValidationState {
+func (st *StateTracker) UpdateState(key string, currentTime time.Time, errorCode string) *ValidationState {
 	st.mu.Lock()
 	defer st.mu.Unlock()
 
@@ -53,12 +54,14 @@ func (st *StateTracker) UpdateState(key string, currentTime time.Time) *Validati
 			State:       TemporalStateNew,
 			ChangeCount: 1,
 			Resolved:    false,
+			ErrorCode:   errorCode,
 		}
 		st.states[key] = state
 	} else {
 		// Existing issue
 		state.LastSeen = currentTime
 		state.ChangeCount++
+		state.ErrorCode = errorCode // Update error code
 
 		// Update temporal state
 		age := currentTime.Sub(state.FirstSeen)
@@ -89,7 +92,7 @@ func (st *StateTracker) MarkResolved(key string, resolutionTime time.Time) *Vali
 	// Record resolution metrics
 	namespace, resourceType, resourceName, validationType := parseStateKey(key)
 	RecordValidationResolved(
-		namespace, resourceType, resourceName, validationType,
+		namespace, resourceType, resourceName, validationType, "error", state.ErrorCode, // Default severity for resolved errors
 		resolutionDuration.Hours(),
 	)
 
@@ -149,7 +152,7 @@ func GetGlobalStateTracker() *StateTracker {
 
 // RecordValidationErrorWithState records a validation error with proper state tracking
 func RecordValidationErrorWithState(
-	resourceType, resourceName, namespace, validationType, severity string,
+	resourceType, resourceName, namespace, validationType, severity, errorCode string,
 	expectedPattern bool,
 ) {
 	// Classify workload
@@ -160,18 +163,21 @@ func RecordValidationErrorWithState(
 		resourceType,
 		validationType,
 		namespace,
+		resourceName,
 		severity,
 		string(workloadCategory),
 		fmt.Sprintf("%t", expectedPattern),
+		errorCode,
 	).Inc()
 
 	// Update state tracking
 	key := GetStateKey(namespace, resourceType, resourceName, validationType)
-	state := globalStateTracker.UpdateState(key, time.Now())
+	state := globalStateTracker.UpdateState(key, time.Now(), errorCode)
+	state.ErrorCode = errorCode // Set the error code on the state
 
 	// Record temporal metrics
 	now := float64(time.Now().Unix())
-	firstSeenMetric := ValidationFirstSeen.WithLabelValues(namespace, resourceType, resourceName, validationType)
+	firstSeenMetric := ValidationFirstSeen.WithLabelValues(namespace, resourceType, resourceName, validationType, severity, string(workloadCategory), fmt.Sprintf("%t", expectedPattern), errorCode)
 	lastSeenMetric := ValidationLastSeen.WithLabelValues(namespace, resourceType, resourceName, validationType)
 
 	// Set timestamps

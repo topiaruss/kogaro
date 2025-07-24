@@ -26,7 +26,7 @@ var (
 			Name: "kogaro_validation_errors_total",
 			Help: "Total number of validation errors found",
 		},
-		[]string{"resource_type", "validation_type", "namespace", "severity", "workload_category", "expected_pattern"},
+		[]string{"resource_type", "validation_type", "namespace", "resource_name", "severity", "workload_category", "expected_pattern", "error_code"},
 	)
 
 	// ValidationFirstSeen tracks when validation errors were first detected
@@ -35,7 +35,7 @@ var (
 			Name: "kogaro_validation_first_seen_timestamp",
 			Help: "Timestamp when validation error was first detected",
 		},
-		[]string{"namespace", "resource_type", "resource_name", "validation_type"},
+		[]string{"namespace", "resource_type", "resource_name", "validation_type", "severity", "workload_category", "expected_pattern", "error_code"},
 	)
 
 	// ValidationLastSeen tracks when validation errors were last seen
@@ -168,12 +168,12 @@ func RecordValidationError(
 	resourceType, resourceName, namespace, validationType, severity string,
 	expectedPattern bool,
 ) {
-	RecordValidationErrorWithState(resourceType, resourceName, namespace, validationType, severity, expectedPattern)
+	RecordValidationErrorWithState(resourceType, resourceName, namespace, validationType, severity, "", expectedPattern)
 }
 
 // RecordValidationResolved records when a validation error is resolved
 func RecordValidationResolved(
-	namespace, resourceType, resourceName, validationType string,
+	namespace, resourceType, resourceName, validationType, severity, errorCode string,
 	resolutionDurationHours float64,
 ) {
 	// Record resolution
@@ -188,7 +188,8 @@ func RecordValidationResolved(
 	).Inc()
 
 	// Remove temporal metrics for resolved errors
-	ValidationFirstSeen.WithLabelValues(namespace, resourceType, resourceName, validationType).Set(0)
+	// Note: We need to provide all required labels, but we'll use empty strings for missing ones
+	ValidationFirstSeen.WithLabelValues(namespace, resourceType, resourceName, validationType, severity, "", "", errorCode).Set(0)
 	ValidationLastSeen.WithLabelValues(namespace, resourceType, resourceName, validationType).Set(0)
 	ValidationAge.WithLabelValues(namespace, resourceType, resourceName, validationType, "resolved").Set(0)
 }

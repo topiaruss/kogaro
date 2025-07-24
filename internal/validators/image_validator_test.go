@@ -34,7 +34,7 @@ func TestImageValidator_ValidateCluster(t *testing.T) {
 				&appsv1.Deployment{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-deployment",
-						Namespace: "default",
+						Namespace: "test-namespace",
 					},
 					Spec: appsv1.DeploymentSpec{
 						Template: corev1.PodTemplateSpec{
@@ -73,7 +73,7 @@ func TestImageValidator_ValidateCluster(t *testing.T) {
 				&appsv1.Deployment{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-deployment",
-						Namespace: "default",
+						Namespace: "test-namespace",
 					},
 					Spec: appsv1.DeploymentSpec{
 						Template: corev1.PodTemplateSpec{
@@ -112,7 +112,7 @@ func TestImageValidator_ValidateCluster(t *testing.T) {
 				&appsv1.Deployment{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-deployment",
-						Namespace: "default",
+						Namespace: "test-namespace",
 					},
 					Spec: appsv1.DeploymentSpec{
 						Template: corev1.PodTemplateSpec{
@@ -152,7 +152,7 @@ func TestImageValidator_ValidateCluster(t *testing.T) {
 				&appsv1.Deployment{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-deployment",
-						Namespace: "default",
+						Namespace: "test-namespace",
 					},
 					Spec: appsv1.DeploymentSpec{
 						Template: corev1.PodTemplateSpec{
@@ -243,13 +243,20 @@ func TestImageValidator_ValidateCluster(t *testing.T) {
 				// Determine the correct severity and expected pattern based on error type
 				severity := "error"
 				expectedPattern := "false"
+				errorCode := "KOGARO-IMG-001" // Default error code
 
-				// Warning errors have different severity
-				if expectedError == "missing_image_warning" || expectedError == "architecture_mismatch_warning" {
+				// Warning errors have different severity and error codes
+				if expectedError == "missing_image_warning" {
 					severity = "warning"
+					errorCode = "KOGARO-IMG-003"
+				} else if expectedError == "architecture_mismatch_warning" {
+					severity = "warning"
+					errorCode = "KOGARO-IMG-005"
+				} else if expectedError == "invalid_image_reference" {
+					errorCode = "KOGARO-IMG-001"
 				}
 
-				validationErrors, err := metrics.ValidationErrors.GetMetricWithLabelValues("Deployment", expectedError, "default", severity, "application", expectedPattern)
+				validationErrors, err := metrics.ValidationErrors.GetMetricWithLabelValues("Deployment", expectedError, "test-namespace", "test-deployment", severity, "application", expectedPattern, errorCode)
 				if err != nil {
 					t.Fatalf("failed to get validation errors metric for %s: %v", expectedError, err)
 				}

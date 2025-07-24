@@ -136,6 +136,7 @@ func (v *ResourceLimitsValidator) ValidateCluster(ctx context.Context) error {
 			validationErr.Namespace,
 			validationErr.ValidationType,
 			string(validationErr.Severity),
+			validationErr.ErrorCode,
 			false, // expectedPattern - false for actual errors
 		)
 	}

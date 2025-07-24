@@ -101,7 +101,7 @@ func TestStateTracker(t *testing.T) {
 
 	// Test new state creation
 	key := "default/Pod/test-pod/missing_resource_requests"
-	state := tracker.UpdateState(key, time.Now())
+	state := tracker.UpdateState(key, time.Now(), "KOGARO-RES-001")
 
 	if state == nil {
 		t.Fatal("Expected state to be created")
@@ -117,7 +117,7 @@ func TestStateTracker(t *testing.T) {
 
 	// Test state update
 	time.Sleep(100 * time.Millisecond) // Small delay to ensure different timestamp
-	updatedState := tracker.UpdateState(key, time.Now())
+	updatedState := tracker.UpdateState(key, time.Now(), "KOGARO-RES-001")
 
 	if updatedState.ChangeCount != 2 {
 		t.Errorf("Expected change count to be 2, got %d", updatedState.ChangeCount)
@@ -157,6 +157,7 @@ func TestRecordValidationErrorWithState(t *testing.T) {
 		"default",
 		"missing_resource_requests",
 		"error",
+		"KOGARO-RES-001",
 		false,
 	)
 
