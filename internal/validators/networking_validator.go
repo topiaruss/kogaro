@@ -113,14 +113,7 @@ func (v *NetworkingValidator) ValidateCluster(ctx context.Context) error {
 	// Log all validation errors and update metrics
 	for _, validationErr := range allErrors {
 		// Always use LogReceiver for consistent dependency injection
-		v.logReceiver.LogValidationError(
-			"networking",
-			validationErr.ResourceType,
-			validationErr.ResourceName,
-			validationErr.Namespace,
-			validationErr.ValidationType,
-			validationErr.Message,
-		)
+		v.logReceiver.LogValidationError("networking", validationErr)
 
 		// Use new temporal-aware metrics recording
 		metrics.RecordValidationErrorWithState(

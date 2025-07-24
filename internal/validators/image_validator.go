@@ -111,14 +111,7 @@ func (v *ImageValidator) ValidateCluster(ctx context.Context) error {
 	// Log validation results
 	for _, validationErr := range errors {
 		// Always use LogReceiver for consistent dependency injection
-		v.logReceiver.LogValidationError(
-			"image",
-			validationErr.ResourceType,
-			validationErr.ResourceName,
-			validationErr.Namespace,
-			validationErr.ValidationType,
-			validationErr.Message,
-		)
+		v.logReceiver.LogValidationError("image", validationErr)
 
 		// Use new temporal-aware metrics recording
 		metrics.RecordValidationErrorWithState(

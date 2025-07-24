@@ -29,17 +29,18 @@ type DirectLogReceiver struct {
 }
 
 // LogValidationError logs a validation error immediately
-func (d *DirectLogReceiver) LogValidationError(validatorType, resourceType, resourceName, namespace, validationType, message string) {
+func (d *DirectLogReceiver) LogValidationError(validatorType string, validationError ValidationError) {
 	validatorTypeName := strings.TrimSuffix(validatorType, "_validation")
 	logger := d.log.WithName(validatorTypeName + "-validator")
-	
+
 	logger.Info("validation error found",
 		"validator_type", validatorTypeName,
-		"resource_type", resourceType,
-		"resource_name", resourceName,
-		"namespace", namespace,
-		"validation_type", validationType,
-		"message", message)
+		"resource_type", validationError.ResourceType,
+		"resource_name", validationError.ResourceName,
+		"namespace", validationError.Namespace,
+		"validation_type", validationError.ValidationType,
+		"error_code", validationError.ErrorCode,
+		"message", validationError.Message)
 }
 
 // BufferedLogReceiver buffers validation errors for later filtering
@@ -49,28 +50,18 @@ type BufferedLogReceiver struct {
 }
 
 // LogValidationError buffers a validation error
-func (b *BufferedLogReceiver) LogValidationError(validatorType, resourceType, resourceName, namespace, validationType, message string) {
+func (b *BufferedLogReceiver) LogValidationError(validatorType string, validationError ValidationError) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	
-	err := ValidationError{
-		ResourceType:   resourceType,
-		ResourceName:   resourceName,
-		Namespace:      namespace,
-		ValidationType: validationType,
-		Message:        message,
-		ErrorCode:      "", // Will be set by validator if needed
-		Severity:       SeverityError, // Default severity
-	}
-	
-	b.errors = append(b.errors, err)
+
+	b.errors = append(b.errors, validationError)
 }
 
 // GetErrors returns buffered errors and clears the buffer
 func (b *BufferedLogReceiver) GetErrors() []ValidationError {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	
+
 	errors := make([]ValidationError, len(b.errors))
 	copy(errors, b.errors)
 	b.errors = b.errors[:0] // Clear buffer
@@ -255,11 +246,11 @@ func (r *ValidatorRegistry) ValidateFileOnly(ctx context.Context, configPath str
 		if err := validator.ValidateCluster(ctx); err != nil {
 			return nil, fmt.Errorf("validator %s failed: %w", validatorType, err)
 		}
-		
+
 		// Collect validation errors from validator
 		validationErrors := validator.GetLastValidationErrors()
 		allErrors = append(allErrors, validationErrors...)
-		
+
 		// Process errors for missing/suggested references
 		for _, ve := range validationErrors {
 			if ve.ValidationType == validationTypeMissingReference {
@@ -284,8 +275,8 @@ func (r *ValidatorRegistry) ValidateFileOnly(ctx context.Context, configPath str
 			MissingRefs:   missingRefs,
 			SuggestedRefs: suggestedRefs,
 		},
-		Errors:    allErrors,
-		ExitCode:  0,
+		Errors:   allErrors,
+		ExitCode: 0,
 	}
 
 	if len(allErrors) > 0 {
@@ -322,7 +313,7 @@ func (r *ValidatorRegistry) ValidateNewConfigWithScopeAndData(ctx context.Contex
 	// Read and parse the configuration file
 	var configData []byte
 	var err error
-	
+
 	if preReadData != nil {
 		// Use pre-read data (from stdin)
 		configData = preReadData
@@ -385,37 +376,30 @@ func (r *ValidatorRegistry) ValidateNewConfigWithScopeAndData(ctx context.Contex
 		if err := validator.ValidateCluster(ctx); err != nil {
 			return nil, fmt.Errorf("validator %s failed: %w", validatorType, err)
 		}
-		
+
 		// Collect validation errors from validator
 		validationErrors := validator.GetLastValidationErrors()
-		
+
 		// Filter errors based on scope and log appropriately
 		if scope == "file-only" {
 			filteredErrors := r.filterErrorsByScope(validationErrors, configResourceKeys)
-			r.log.V(1).Info("filtered validation errors", 
-				"validator_type", validatorType, 
-				"total_errors", len(validationErrors), 
+			r.log.V(1).Info("filtered validation errors",
+				"validator_type", validatorType,
+				"total_errors", len(validationErrors),
 				"filtered_errors", len(filteredErrors),
 				"config_resource_keys", len(configResourceKeys))
-			
+
 			// Log only the filtered errors to maintain consistency with scope
 			directReceiver := &DirectLogReceiver{log: r.log}
 			for _, err := range filteredErrors {
-				directReceiver.LogValidationError(
-					validatorType,
-					err.ResourceType,
-					err.ResourceName,
-					err.Namespace,
-					err.ValidationType,
-					err.Message,
-				)
+				directReceiver.LogValidationError(validatorType, err)
 			}
 			allErrors = append(allErrors, filteredErrors...)
 		} else {
 			// For "all" scope, validators already logged all errors, so just collect them
 			allErrors = append(allErrors, validationErrors...)
 		}
-		
+
 		// Process errors for missing/suggested references
 		for _, ve := range validationErrors {
 			if ve.ValidationType == validationTypeMissingReference {
@@ -440,8 +424,8 @@ func (r *ValidatorRegistry) ValidateNewConfigWithScopeAndData(ctx context.Contex
 			MissingRefs:   missingRefs,
 			SuggestedRefs: suggestedRefs,
 		},
-		Errors:    allErrors,
-		ExitCode:  0,
+		Errors:   allErrors,
+		ExitCode: 0,
 	}
 
 	if len(allErrors) > 0 {
@@ -454,7 +438,7 @@ func (r *ValidatorRegistry) ValidateNewConfigWithScopeAndData(ctx context.Contex
 
 // ValidateNewConfig validates a new configuration file against the existing cluster state.
 // It performs all standard validations plus additional checks for potential matches
-// when exact references don't exist. Results can be filtered to show only errors 
+// when exact references don't exist. Results can be filtered to show only errors
 // related to the config file resources.
 func (r *ValidatorRegistry) ValidateNewConfig(ctx context.Context, configPath string) (*ValidationResult, error) {
 	r.mu.RLock()
@@ -503,11 +487,11 @@ func (r *ValidatorRegistry) ValidateNewConfig(ctx context.Context, configPath st
 		if err := validator.ValidateCluster(ctx); err != nil {
 			return nil, fmt.Errorf("validator %s failed: %w", validatorType, err)
 		}
-		
+
 		// Collect validation errors from validator
 		validationErrors := validator.GetLastValidationErrors()
 		allErrors = append(allErrors, validationErrors...)
-		
+
 		// Process errors for missing/suggested references
 		for _, ve := range validationErrors {
 			if ve.ValidationType == validationTypeMissingReference {
@@ -692,17 +676,16 @@ func (r *ValidatorRegistry) updateValidatorClient(validator Validator, client cl
 // filterErrorsByScope filters validation errors to only include those for resources in the config file
 func (r *ValidatorRegistry) filterErrorsByScope(errors []ValidationError, configResourceKeys map[string]bool) []ValidationError {
 	var filteredErrors []ValidationError
-	
+
 	for _, err := range errors {
 		// Create resource key for this error
 		key := fmt.Sprintf("%s/%s/%s", err.ResourceType, err.Namespace, err.ResourceName)
-		
+
 		// Include error if it's for a resource from the config file
 		if configResourceKeys[key] {
 			filteredErrors = append(filteredErrors, err)
 		}
 	}
-	
+
 	return filteredErrors
 }
-

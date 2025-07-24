@@ -34,17 +34,18 @@ type LoggedError struct {
 	ResourceName   string
 	Namespace      string
 	ValidationType string
+	ErrorCode      string
 	Message        string
 }
 
-func (m *MockLogReceiver) LogValidationError(validatorType, resourceType, resourceName, namespace, validationType, message string) {
+func (m *MockLogReceiver) LogValidationError(validatorType string, validationError ValidationError) {
 	m.LoggedErrors = append(m.LoggedErrors, LoggedError{
 		ValidatorType:  validatorType,
-		ResourceType:   resourceType,
-		ResourceName:   resourceName,
-		Namespace:      namespace,
-		ValidationType: validationType,
-		Message:        message,
+		ResourceType:   validationError.ResourceType,
+		ResourceName:   validationError.ResourceName,
+		Namespace:      validationError.Namespace,
+		ValidationType: validationError.ValidationType,
+		ErrorCode:      validationError.ErrorCode,
+		Message:        validationError.Message,
 	})
 }
-

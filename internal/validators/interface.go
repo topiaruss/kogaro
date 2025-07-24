@@ -129,7 +129,7 @@ func (v ValidationError) GetResourceKey() string {
 
 // LogReceiver handles validation error logging
 type LogReceiver interface {
-	LogValidationError(validatorType, resourceType, resourceName, namespace, validationType, message string)
+	LogValidationError(validatorType string, validationError ValidationError)
 }
 
 // Validator defines the interface that all validators must implement.
