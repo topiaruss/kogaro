@@ -165,6 +165,10 @@ func (v *SecurityValidator) validateDeploymentSecurity(ctx context.Context) ([]V
 	}
 
 	for _, deployment := range deployments.Items {
+		// Skip system namespaces
+		if v.sharedConfig.IsSecurityExcludedNamespace(deployment.Namespace) {
+			continue
+		}
 		securityErrors := v.validatePodTemplateSecurity(deployment.Spec.Template, "Deployment", deployment.Name, deployment.Namespace)
 		errors = append(errors, securityErrors...)
 	}
@@ -181,6 +185,10 @@ func (v *SecurityValidator) validateStatefulSetSecurity(ctx context.Context) ([]
 	}
 
 	for _, statefulSet := range statefulSets.Items {
+		// Skip system namespaces
+		if v.sharedConfig.IsSecurityExcludedNamespace(statefulSet.Namespace) {
+			continue
+		}
 		securityErrors := v.validatePodTemplateSecurity(statefulSet.Spec.Template, "StatefulSet", statefulSet.Name, statefulSet.Namespace)
 		errors = append(errors, securityErrors...)
 	}
@@ -197,6 +205,10 @@ func (v *SecurityValidator) validateDaemonSetSecurity(ctx context.Context) ([]Va
 	}
 
 	for _, daemonSet := range daemonSets.Items {
+		// Skip system namespaces
+		if v.sharedConfig.IsSecurityExcludedNamespace(daemonSet.Namespace) {
+			continue
+		}
 		securityErrors := v.validatePodTemplateSecurity(daemonSet.Spec.Template, "DaemonSet", daemonSet.Name, daemonSet.Namespace)
 		errors = append(errors, securityErrors...)
 	}
@@ -213,6 +225,11 @@ func (v *SecurityValidator) validatePodSecurity(ctx context.Context) ([]Validati
 	}
 
 	for _, pod := range pods.Items {
+		// Skip system namespaces
+		if v.sharedConfig.IsSecurityExcludedNamespace(pod.Namespace) {
+			continue
+		}
+
 		// Skip pods managed by controllers (they're validated via their controllers)
 		if utils.HasOwnerReferences(pod) {
 			continue
@@ -423,6 +440,11 @@ func (v *SecurityValidator) validateServiceAccountPermissions(ctx context.Contex
 
 	// Check for ServiceAccounts with potentially excessive permissions
 	for _, sa := range serviceAccounts.Items {
+		// Skip system namespaces
+		if v.sharedConfig.IsSecurityExcludedNamespace(sa.Namespace) {
+			continue
+		}
+
 		// Skip default and system ServiceAccounts for some checks
 		if sa.Name == DefaultResourceName && sa.Namespace == DefaultResourceName {
 			continue
