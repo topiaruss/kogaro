@@ -91,6 +91,7 @@ func DefaultSharedConfig() SharedConfig {
 			"monitoring",
 			"cert-manager",
 			"kogaro-system",
+			"hcloud-csi",
 		},
 		SecurityExcludedNamespaces: []string{
 			"kube-system",
@@ -99,6 +100,7 @@ func DefaultSharedConfig() SharedConfig {
 			"monitoring",
 			"cert-manager",
 			"kogaro-system",
+			"hcloud-csi",
 		},
 		NetworkingExcludedNamespaces: []string{
 			"kube-system",
@@ -107,6 +109,7 @@ func DefaultSharedConfig() SharedConfig {
 			"monitoring",
 			"cert-manager",
 			"kogaro-system",
+			"hcloud-csi",
 		},
 		DefaultResourceRecommendations: ResourceRecommendations{
 			DefaultCPURequest:    "100m",
