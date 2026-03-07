@@ -37,7 +37,7 @@ func TestResourceLimitsValidator_ValidateDeploymentResources(t *testing.T) {
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-deployment",
-						Namespace: "default",
+						Namespace: "test-ns",
 					},
 					Spec: appsv1.DeploymentSpec{
 						Template: corev1.PodTemplateSpec{
@@ -68,7 +68,7 @@ func TestResourceLimitsValidator_ValidateDeploymentResources(t *testing.T) {
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-deployment",
-						Namespace: "default",
+						Namespace: "test-ns",
 					},
 					Spec: appsv1.DeploymentSpec{
 						Template: corev1.PodTemplateSpec{
@@ -105,7 +105,7 @@ func TestResourceLimitsValidator_ValidateDeploymentResources(t *testing.T) {
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-deployment",
-						Namespace: "default",
+						Namespace: "test-ns",
 					},
 					Spec: appsv1.DeploymentSpec{
 						Template: corev1.PodTemplateSpec{
@@ -145,7 +145,7 @@ func TestResourceLimitsValidator_ValidateDeploymentResources(t *testing.T) {
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-deployment",
-						Namespace: "default",
+						Namespace: "test-ns",
 					},
 					Spec: appsv1.DeploymentSpec{
 						Template: corev1.PodTemplateSpec{
@@ -180,7 +180,7 @@ func TestResourceLimitsValidator_ValidateDeploymentResources(t *testing.T) {
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-deployment",
-						Namespace: "default",
+						Namespace: "test-ns",
 					},
 					Spec: appsv1.DeploymentSpec{
 						Template: corev1.PodTemplateSpec{
@@ -260,7 +260,7 @@ func TestResourceLimitsValidator_ValidateCluster(t *testing.T) {
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-deployment",
-			Namespace: "default",
+			Namespace: "test-ns",
 		},
 		Spec: appsv1.DeploymentSpec{
 			Template: corev1.PodTemplateSpec{

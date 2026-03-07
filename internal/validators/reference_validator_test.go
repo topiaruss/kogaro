@@ -38,10 +38,10 @@ func TestReferenceValidator_ValidateIngressReferences(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{Name: "nginx"},
 				},
 				&corev1.Service{
-					ObjectMeta: metav1.ObjectMeta{Name: "test-service", Namespace: "default"},
+					ObjectMeta: metav1.ObjectMeta{Name: "test-service", Namespace: "test-ns"},
 				},
 				&networkingv1.Ingress{
-					ObjectMeta: metav1.ObjectMeta{Name: "test-ingress", Namespace: "default"},
+					ObjectMeta: metav1.ObjectMeta{Name: "test-ingress", Namespace: "test-ns"},
 					Spec: networkingv1.IngressSpec{
 						IngressClassName: stringPtr("nginx"),
 						Rules: []networkingv1.IngressRule{
@@ -71,7 +71,7 @@ func TestReferenceValidator_ValidateIngressReferences(t *testing.T) {
 			name: "ingress with missing ingressclass",
 			objects: []client.Object{
 				&networkingv1.Ingress{
-					ObjectMeta: metav1.ObjectMeta{Name: "test-ingress", Namespace: "default"},
+					ObjectMeta: metav1.ObjectMeta{Name: "test-ingress", Namespace: "test-ns"},
 					Spec: networkingv1.IngressSpec{
 						IngressClassName: stringPtr("missing-class"),
 					},
@@ -87,7 +87,7 @@ func TestReferenceValidator_ValidateIngressReferences(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{Name: "nginx"},
 				},
 				&networkingv1.Ingress{
-					ObjectMeta: metav1.ObjectMeta{Name: "test-ingress", Namespace: "default"},
+					ObjectMeta: metav1.ObjectMeta{Name: "test-ingress", Namespace: "test-ns"},
 					Spec: networkingv1.IngressSpec{
 						IngressClassName: stringPtr("nginx"),
 						Rules: []networkingv1.IngressRule{
@@ -161,10 +161,10 @@ func TestReferenceValidator_ValidateConfigMapReferences(t *testing.T) {
 			name: "pod with existing configmap",
 			objects: []client.Object{
 				&corev1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{Name: "test-config", Namespace: "default"},
+					ObjectMeta: metav1.ObjectMeta{Name: "test-config", Namespace: "test-ns"},
 				},
 				&corev1.Pod{
-					ObjectMeta: metav1.ObjectMeta{Name: "test-pod", Namespace: "default"},
+					ObjectMeta: metav1.ObjectMeta{Name: "test-pod", Namespace: "test-ns"},
 					Spec: corev1.PodSpec{
 						Volumes: []corev1.Volume{
 							{
@@ -203,7 +203,7 @@ func TestReferenceValidator_ValidateConfigMapReferences(t *testing.T) {
 			name: "pod with missing configmap in volume",
 			objects: []client.Object{
 				&corev1.Pod{
-					ObjectMeta: metav1.ObjectMeta{Name: "test-pod", Namespace: "default"},
+					ObjectMeta: metav1.ObjectMeta{Name: "test-pod", Namespace: "test-ns"},
 					Spec: corev1.PodSpec{
 						Volumes: []corev1.Volume{
 							{
@@ -233,7 +233,7 @@ func TestReferenceValidator_ValidateConfigMapReferences(t *testing.T) {
 			name: "pod with missing configmap in envfrom",
 			objects: []client.Object{
 				&corev1.Pod{
-					ObjectMeta: metav1.ObjectMeta{Name: "test-pod", Namespace: "default"},
+					ObjectMeta: metav1.ObjectMeta{Name: "test-pod", Namespace: "test-ns"},
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{
 							{
@@ -305,10 +305,10 @@ func TestReferenceValidator_ValidateSecretReferences(t *testing.T) {
 			name: "pod with existing secret",
 			objects: []client.Object{
 				&corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{Name: "test-secret", Namespace: "default"},
+					ObjectMeta: metav1.ObjectMeta{Name: "test-secret", Namespace: "test-ns"},
 				},
 				&corev1.Pod{
-					ObjectMeta: metav1.ObjectMeta{Name: "test-pod", Namespace: "default"},
+					ObjectMeta: metav1.ObjectMeta{Name: "test-pod", Namespace: "test-ns"},
 					Spec: corev1.PodSpec{
 						Volumes: []corev1.Volume{
 							{
@@ -336,7 +336,7 @@ func TestReferenceValidator_ValidateSecretReferences(t *testing.T) {
 			name: "ingress with missing tls secret",
 			objects: []client.Object{
 				&networkingv1.Ingress{
-					ObjectMeta: metav1.ObjectMeta{Name: "test-ingress", Namespace: "default"},
+					ObjectMeta: metav1.ObjectMeta{Name: "test-ingress", Namespace: "test-ns"},
 					Spec: networkingv1.IngressSpec{
 						TLS: []networkingv1.IngressTLS{
 							{
@@ -401,7 +401,7 @@ func TestReferenceValidator_ValidatePVCReferences(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{Name: "fast-ssd"},
 				},
 				&corev1.PersistentVolumeClaim{
-					ObjectMeta: metav1.ObjectMeta{Name: "test-pvc", Namespace: "default"},
+					ObjectMeta: metav1.ObjectMeta{Name: "test-pvc", Namespace: "test-ns"},
 					Spec: corev1.PersistentVolumeClaimSpec{
 						StorageClassName: stringPtr("fast-ssd"),
 					},
@@ -414,7 +414,7 @@ func TestReferenceValidator_ValidatePVCReferences(t *testing.T) {
 			name: "pvc with missing storageclass",
 			objects: []client.Object{
 				&corev1.PersistentVolumeClaim{
-					ObjectMeta: metav1.ObjectMeta{Name: "test-pvc", Namespace: "default"},
+					ObjectMeta: metav1.ObjectMeta{Name: "test-pvc", Namespace: "test-ns"},
 					Spec: corev1.PersistentVolumeClaimSpec{
 						StorageClassName: stringPtr("missing-class"),
 					},

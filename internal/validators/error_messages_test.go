@@ -13,6 +13,7 @@ import (
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -28,6 +29,7 @@ func TestValidators_ErrorMessageConsistency(t *testing.T) {
 	scheme := runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)
 	_ = appsv1.AddToScheme(scheme)
+	_ = discoveryv1.AddToScheme(scheme)
 	_ = networkingv1.AddToScheme(scheme)
 	_ = storagev1.AddToScheme(scheme)
 	_ = rbacv1.AddToScheme(scheme)
