@@ -24,6 +24,22 @@
                     <li><a href="#documentation" class="nav-link">Docs</a></li>
                     <li><a href="https://github.com/topiaruss/kogaro" class="nav-link" target="_blank">GitHub</a></li>
                 </ul>
+                <button class="theme-toggle" aria-label="Toggle dark mode">
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
                 <button class="nav-toggle" aria-label="Toggle navigation">
                     <span></span>
                     <span></span>
@@ -66,7 +82,7 @@
                             <span class="code-title">kubectl logs kogaro</span>
                         </div>
                         <div class="code-content">
-                            <pre><code><span class="code-timestamp">2024-01-15T10:30:42Z</span> <span class="code-level">ERROR</span> validation error found
+                            <pre><code><span class="code-timestamp">2026-03-07T10:30:42Z</span> <span class="code-level">ERROR</span> validation error found
   <span class="code-key">resource_type</span>=<span class="code-value">Ingress</span> 
   <span class="code-key">resource_name</span>=<span class="code-value">my-app</span> 
   <span class="code-key">validation_type</span>=<span class="code-value">dangling_ingress_class</span>
@@ -280,7 +296,7 @@ kubectl logs -n kogaro-system -l app.kubernetes.io/name=kogaro -f</code></pre>
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2025 Russell Ferriday. Licensed under Apache 2.0.</p>
+                <p>&copy; 2025-2026 Russell Ferriday. Licensed under Apache 2.0.</p>
             </div>
         </div>
     </footer>
