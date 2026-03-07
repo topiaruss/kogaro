@@ -691,7 +691,7 @@ func TestNetworkingValidator_HelperFunctions(t *testing.T) {
 				},
 			},
 		}
-		if !validator.isPodReady(readyPod) {
+		if !IsPodReady(readyPod) {
 			t.Error("Expected pod with Ready=True condition to be ready")
 		}
 
@@ -702,7 +702,7 @@ func TestNetworkingValidator_HelperFunctions(t *testing.T) {
 				},
 			},
 		}
-		if validator.isPodReady(notReadyPod) {
+		if IsPodReady(notReadyPod) {
 			t.Error("Expected pod with Ready=False condition to not be ready")
 		}
 	})

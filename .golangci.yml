@@ -1,0 +1,44 @@
+# Golangci-lint configuration for Kogaro
+# Enforces code quality standards across the codebase
+
+version: 2
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  enable:
+    # Core linters
+    - govet          # Reports suspicious constructs
+    - errcheck       # Checks for unchecked errors
+    - staticcheck    # Go static analysis
+    - unused         # Checks for unused constants, variables, functions and types
+    - ineffassign    # Detects ineffectual assignments
+
+    # Complexity
+    - gocyclo        # Computes cyclomatic complexity
+
+linters-settings:
+  gocyclo:
+    min-complexity: 15  # Maximum cyclomatic complexity
+
+  errcheck:
+    check-blank: false
+    check-type-assertions: true
+
+issues:
+  exclude-rules:
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - errcheck
+
+    # Exclude complexity checks for main.go (refactored but still complex)
+    - path: main\.go
+      linters:
+        - gocyclo
+
+  max-issues-per-linter: 0
+  max-same-issues: 0

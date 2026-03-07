@@ -118,21 +118,7 @@ func (v *ResourceLimitsValidator) ValidateCluster(ctx context.Context) error {
 	}
 
 	// Log all validation errors and update metrics
-	for _, validationErr := range allErrors {
-		// Always use LogReceiver for consistent dependency injection
-		v.logReceiver.LogValidationError("resource_limits", validationErr)
-
-		// Use new temporal-aware metrics recording
-		metrics.RecordValidationErrorWithState(
-			validationErr.ResourceType,
-			validationErr.ResourceName,
-			validationErr.Namespace,
-			validationErr.ValidationType,
-			string(validationErr.Severity),
-			validationErr.ErrorCode,
-			false, // expectedPattern - false for actual errors
-		)
-	}
+	LogAndRecordErrors(v.logReceiver, "resource_limits", allErrors)
 
 	v.log.Info("validation completed", "validator_type", "resource_limits", "total_errors", len(allErrors))
 
@@ -250,7 +236,7 @@ func (v *ResourceLimitsValidator) validateContainerResources(containers []corev1
 		if v.config.EnableMissingRequestsValidation {
 			if container.Resources.Requests == nil ||
 				(container.Resources.Requests.Cpu().IsZero() && container.Resources.Requests.Memory().IsZero()) {
-				errorCode := v.getResourceLimitsErrorCode("missing_resource_requests", resourceType, "", false)
+				errorCode := GetResourceLimitsErrorCode("missing_resource_requests", resourceType, "", false)
 				errors = append(errors, NewValidationErrorWithCode(resourceType, resourceName, namespace, "missing_resource_requests", errorCode, fmt.Sprintf("Container '%s' has no resource requests defined", container.Name)).
 					WithSeverity(SeverityError).
 					WithRemediationHint(fmt.Sprintf("Add resource requests to prevent resource contention (e.g., cpu: %s, memory: %s)", v.sharedConfig.DefaultResourceRecommendations.DefaultCPURequest, v.sharedConfig.DefaultResourceRecommendations.DefaultMemoryRequest)).
@@ -261,7 +247,7 @@ func (v *ResourceLimitsValidator) validateContainerResources(containers []corev1
 			} else {
 				// Check minimum CPU request
 				if v.config.MinCPURequest != nil && container.Resources.Requests.Cpu().Cmp(*v.config.MinCPURequest) < 0 {
-					errorCode := v.getResourceLimitsErrorCode("insufficient_cpu_request", resourceType, "", true)
+					errorCode := GetResourceLimitsErrorCode("insufficient_cpu_request", resourceType, "", true)
 					errors = append(errors, NewValidationErrorWithCode(resourceType, resourceName, namespace, "insufficient_cpu_request", errorCode, fmt.Sprintf("Container '%s' CPU request %s is below minimum %s", container.Name, container.Resources.Requests.Cpu().String(), v.config.MinCPURequest.String())).
 						WithSeverity(SeverityError).
 						WithRemediationHint(fmt.Sprintf("Increase CPU request to at least %s to meet minimum requirements", v.config.MinCPURequest.String())).
@@ -273,7 +259,7 @@ func (v *ResourceLimitsValidator) validateContainerResources(containers []corev1
 
 				// Check minimum memory request
 				if v.config.MinMemoryRequest != nil && container.Resources.Requests.Memory().Cmp(*v.config.MinMemoryRequest) < 0 {
-					errorCode := v.getResourceLimitsErrorCode("insufficient_memory_request", resourceType, "", true)
+					errorCode := GetResourceLimitsErrorCode("insufficient_memory_request", resourceType, "", true)
 					errors = append(errors, NewValidationErrorWithCode(resourceType, resourceName, namespace, "insufficient_memory_request", errorCode, fmt.Sprintf("Container '%s' memory request %s is below minimum %s", container.Name, container.Resources.Requests.Memory().String(), v.config.MinMemoryRequest.String())).
 						WithSeverity(SeverityError).
 						WithRemediationHint(fmt.Sprintf("Increase memory request to at least %s to meet minimum requirements", v.config.MinMemoryRequest.String())).
@@ -292,7 +278,7 @@ func (v *ResourceLimitsValidator) validateContainerResources(containers []corev1
 				// Check if container has resource requests to determine the error code context
 				hasRequests := container.Resources.Requests != nil &&
 					(!container.Resources.Requests.Cpu().IsZero() || !container.Resources.Requests.Memory().IsZero())
-				errorCode := v.getResourceLimitsErrorCode("missing_resource_limits", resourceType, "", hasRequests)
+				errorCode := GetResourceLimitsErrorCode("missing_resource_limits", resourceType, "", hasRequests)
 				errors = append(errors, NewValidationErrorWithCode(resourceType, resourceName, namespace, "missing_resource_limits", errorCode, fmt.Sprintf("Container '%s' has no resource limits defined", container.Name)).
 					WithSeverity(SeverityError).
 					WithRemediationHint(fmt.Sprintf("Add resource limits to prevent resource overconsumption (e.g., cpu: %s, memory: %s)", v.sharedConfig.DefaultResourceRecommendations.DefaultCPULimit, v.sharedConfig.DefaultResourceRecommendations.DefaultMemoryLimit)).
@@ -323,7 +309,7 @@ func (v *ResourceLimitsValidator) validateContainerResources(containers []corev1
 					remediationHint = "Review resource configuration for optimal QoS class assignment"
 				}
 
-				errorCode := v.getResourceLimitsErrorCode("qos_class_issue", resourceType, issue, false)
+				errorCode := GetResourceLimitsErrorCode("qos_class_issue", resourceType, issue, false)
 				errors = append(errors, NewValidationErrorWithCode(resourceType, resourceName, namespace, "qos_class_issue", errorCode, fmt.Sprintf("Container '%s': %s", container.Name, issue)).
 					WithSeverity(severity).
 					WithRemediationHint(remediationHint).
@@ -365,44 +351,3 @@ func (v *ResourceLimitsValidator) analyzeQoSClass(container corev1.Container) []
 }
 
 // getResourceLimitsErrorCode returns the appropriate error code for resource limits validations
-func (v *ResourceLimitsValidator) getResourceLimitsErrorCode(validationType, resourceType, issueDetail string, hasRequests bool) string {
-	switch validationType {
-	case "missing_resource_requests":
-		switch resourceType {
-		case DeploymentType:
-			return "KOGARO-RES-001"
-		case StatefulSetType:
-			return "KOGARO-RES-002"
-		}
-	case "missing_resource_limits":
-		switch resourceType {
-		case DeploymentType:
-			if hasRequests {
-				// Has requests but missing limits
-				return "KOGARO-RES-004"
-			}
-			// Complete absence of resource constraints
-			return "KOGARO-RES-003"
-		case StatefulSetType:
-			return "KOGARO-RES-005"
-		}
-	case "insufficient_cpu_request":
-		return "KOGARO-RES-006"
-	case "insufficient_memory_request":
-		return "KOGARO-RES-007"
-	case "qos_class_issue":
-		// Determine QoS issue type from the issue detail
-		if strings.Contains(issueDetail, "BestEffort") {
-			switch resourceType {
-			case DeploymentType:
-				return "KOGARO-RES-008"
-			case StatefulSetType:
-				return "KOGARO-RES-009"
-			}
-		} else if strings.Contains(issueDetail, "Burstable") && strings.Contains(issueDetail, "requests != limits") {
-			return "KOGARO-RES-010"
-		}
-	}
-	// Fallback - should not happen if mapping is complete
-	return "KOGARO-RES-UNKNOWN"
-}

@@ -10,7 +10,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/topiaruss/kogaro/internal/metrics"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -109,21 +108,7 @@ func (v *ImageValidator) ValidateCluster(ctx context.Context) error {
 	errors = append(errors, podErrors...)
 
 	// Log validation results
-	for _, validationErr := range errors {
-		// Always use LogReceiver for consistent dependency injection
-		v.logReceiver.LogValidationError("image", validationErr)
-
-		// Use new temporal-aware metrics recording
-		metrics.RecordValidationErrorWithState(
-			validationErr.ResourceType,
-			validationErr.ResourceName,
-			validationErr.Namespace,
-			validationErr.ValidationType,
-			string(validationErr.Severity),
-			validationErr.ErrorCode,
-			false, // expectedPattern - false for actual errors
-		)
-	}
+	LogAndRecordErrors(v.logReceiver, "image", errors)
 
 	v.log.Info("validation completed", "validator_type", "image", "total_errors", len(errors))
 

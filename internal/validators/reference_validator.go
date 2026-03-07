@@ -126,21 +126,7 @@ func (v *ReferenceValidator) ValidateCluster(ctx context.Context) error {
 	}
 
 	// Log all validation errors and update metrics
-	for _, validationErr := range allErrors {
-		// Always use LogReceiver for consistent dependency injection
-		v.logReceiver.LogValidationError("reference", validationErr)
-
-		// Use new temporal-aware metrics recording
-		metrics.RecordValidationErrorWithState(
-			validationErr.ResourceType,
-			validationErr.ResourceName,
-			validationErr.Namespace,
-			validationErr.ValidationType,
-			string(validationErr.Severity),
-			validationErr.ErrorCode,
-			false, // expectedPattern - false for actual errors
-		)
-	}
+	LogAndRecordErrors(v.logReceiver, "reference", allErrors)
 
 	v.log.Info("validation completed", "validator_type", "reference", "total_errors", len(allErrors))
 
