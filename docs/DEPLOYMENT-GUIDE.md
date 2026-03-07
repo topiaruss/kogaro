@@ -149,6 +149,64 @@ validation:
   scanInterval: "5m"  # How often to run validation (1m, 5m, 15m, 1h)
 ```
 
+### Namespace Exclusions and Infrastructure Considerations
+
+**Important**: Configure namespace exclusions early in your deployment to reduce noise and focus on application-specific issues.
+
+#### Infrastructure Namespaces to Exclude
+
+Kogaro validates all namespaces by default, but infrastructure components often have different security and resource requirements that may trigger false positives. Consider excluding these infrastructure namespaces:
+
+```yaml
+# Infrastructure namespaces that should typically be excluded
+infrastructureNamespaces:
+  - cert-manager          # Certificate management (requires privileged access)
+  - hcloud-csi           # Cloud storage interface (requires privileged access)
+  - ingress-nginx        # Ingress controller (requires privileged access)
+  - kube-system          # Kubernetes system components
+  - monitoring           # Prometheus, Grafana, etc.
+  - kogaro-system        # Kogaro itself
+```
+
+#### What Counts as Infrastructure?
+
+Infrastructure components that should typically be excluded include:
+
+- **CSI Drivers** (Container Storage Interface): `hcloud-csi`, `aws-ebs-csi-driver`, `gcp-pd-csi-driver`
+- **Certificate Managers**: `cert-manager`, `letsencrypt`
+- **Ingress Controllers**: `ingress-nginx`, `traefik`, `haproxy-ingress`
+- **Monitoring Stack**: `prometheus`, `grafana`, `monitoring`
+- **Service Meshes**: `istio-system`, `linkerd`
+- **Cluster Operators**: `kube-system`, `openshift-*`
+- **Security Tools**: `falco`, `kyverno`, `opa-gatekeeper`
+
+#### Benefits of Early Exclusion
+
+1. **Reduced Noise**: Focus on application-specific issues rather than infrastructure components
+2. **Better Signal-to-Noise Ratio**: Easier to identify real problems in application namespaces
+3. **Infrastructure Independence**: Infrastructure components are often vendor-managed and have different security requirements
+4. **Operational Efficiency**: Less time spent investigating expected infrastructure behaviors
+
+#### Implementation
+
+Currently, namespace exclusions are configured in the Kogaro source code. See `internal/validators/config.go` for the current exclusion lists:
+
+```go
+// Example from config.go
+SystemNamespaces: []string{
+    "kube-system",
+    "kube-public", 
+    "kube-node-lease",
+    "default",
+    "monitoring",
+    "cert-manager",
+    "kogaro-system",
+    "hcloud-csi",
+},
+```
+
+**Future Enhancement**: A Custom Resource Definition (CRD) is planned to allow dynamic configuration of namespace exclusions without code changes. See `private_docs/KOGARO_CRD.md` for details.
+
 ### Resource Management
 
 Set appropriate resource limits based on cluster size:

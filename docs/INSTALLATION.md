@@ -138,6 +138,19 @@ kubectl port-forward -n kogaro-system svc/kogaro 8080:8080
 curl http://localhost:8080/metrics | grep kogaro
 ```
 
+## Important: Configure Namespace Exclusions
+
+**Before running Kogaro in production, configure namespace exclusions for infrastructure components.** This will significantly reduce noise and help you focus on application-specific issues.
+
+Infrastructure namespaces that should typically be excluded include:
+- CSI drivers (`hcloud-csi`, `aws-ebs-csi-driver`)
+- Certificate managers (`cert-manager`)
+- Ingress controllers (`ingress-nginx`)
+- Monitoring stacks (`prometheus`, `grafana`)
+- Service meshes (`istio-system`)
+
+See the [Deployment Guide](DEPLOYMENT-GUIDE.md#namespace-exclusions-and-infrastructure-considerations) for detailed guidance on namespace exclusions and infrastructure considerations.
+
 ## Upgrading
 
 ### Helm Repository

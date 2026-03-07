@@ -92,6 +92,7 @@ func DefaultSharedConfig() SharedConfig {
 			"cert-manager",
 			"kogaro-system",
 			"hcloud-csi",
+			"ingress-nginx",
 		},
 		SecurityExcludedNamespaces: []string{
 			"kube-system",
@@ -101,6 +102,7 @@ func DefaultSharedConfig() SharedConfig {
 			"cert-manager",
 			"kogaro-system",
 			"hcloud-csi",
+			"ingress-nginx",
 		},
 		NetworkingExcludedNamespaces: []string{
 			"kube-system",
@@ -110,6 +112,7 @@ func DefaultSharedConfig() SharedConfig {
 			"cert-manager",
 			"kogaro-system",
 			"hcloud-csi",
+			"ingress-nginx",
 		},
 		DefaultResourceRecommendations: ResourceRecommendations{
 			DefaultCPURequest:    "100m",

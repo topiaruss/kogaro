@@ -178,6 +178,35 @@
 - **Dashboard Analysis**: Use the cleaned dashboard to identify real application issues
 - **Real Issue Fixing**: Focus on actual security/resource problems in application namespaces
 
+### Documentation Update:
+- **✅ Added Infrastructure Exclusion Guidance**: Updated DEPLOYMENT-GUIDE.md with comprehensive section on namespace exclusions
+- **✅ Added Quick Reference**: Updated INSTALLATION.md with important note about configuring exclusions early
+- **✅ Documented CSI and Infrastructure Components**: Clear guidance on what counts as infrastructure (CSI drivers, cert-managers, ingress controllers, etc.)
+
+### Diagram Needs Identified:
+- **Ingress-Service Port Mismatch (KOGARO-NET-008)**: Need visual diagram showing how Ingress → Service port mismatches cause silent failures
+  - Example: Grafana Ingress expects port 80, but Service exposes port 443
+  - Diagram should show: Client → Ingress (port 80) → Service (port 443) → ❌ Connection Failure
+  - This illustrates the "dangling reference" problem Kogaro detects
+  - Would help users understand why this validation is important
+
+### Real Issue Fixes - Success Stories:
+- **✅ Grafana Ingress Port Mismatch (KOGARO-NET-008)**: Fixed Ingress-Service port mismatch in monitoring namespace
+  - **Problem**: Grafana Ingress configured for port 3000, but monitoring-grafana service exposes port 80
+  - **Impact**: Silent connection failure - Ingress appeared correct but traffic would fail
+  - **Solution**: Updated Ingress to use correct port 80
+  - **Result**: 1 networking validation error eliminated, Grafana now accessible via Ingress
+  - **Feature Value**: Perfect example of Kogaro detecting real configuration issues that cause silent failures
+  - **Documentation**: Should be featured as a case study showing Kogaro's value in production environments
+
+- **✅ Ingress-Nginx Infrastructure Exclusion**: Added ingress-nginx to namespace exclusion lists
+  - **Problem**: 11 validation errors from ingress-nginx (security, resource limits, networking)
+  - **Impact**: High noise from infrastructure component with required privileged configurations
+  - **Solution**: Added ingress-nginx to SystemNamespaces, SecurityExcludedNamespaces, and NetworkingExcludedNamespaces
+  - **Result**: 11 validation errors eliminated (6 resource + 4 security + 1 networking)
+  - **Feature Value**: Demonstrates importance of excluding infrastructure components early
+  - **Learning**: Infrastructure components often have "issues" that are actually required for functionality
+
 ---
 
 ## Previous Session Notes
