@@ -1,0 +1,26 @@
+from graphviz import Digraph
+
+# Create a Graphviz DOT diagram mockup
+dot = Digraph('KogaroIssueMockup', format='svg')
+
+# Define styles for healthy vs problematic nodes
+dot.attr('node', shape='rectangle', style='filled', fontname='Helvetica')
+
+# Nodes: Pod, Service, Ingress (Service has a missing connection)
+dot.node('ingress', 'Ingress\n(my-app.example.com)', fillcolor='lightgray')
+dot.node('service', 'Service\n(my-app-svc)', fillcolor='mistyrose', color='red', penwidth='2')  # broken
+dot.node('pod', 'Pod\n(my-app-pod)', fillcolor='white', color='black')
+
+# Draw edges (Service to Pod is missing – shown as dashed red line)
+dot.edge('ingress', 'service', label='HTTP:80', color='black')
+dot.edge('service', 'pod', label='TCP:8080', style='dashed', color='red')
+
+# Dangling Service port (to represent an unconnected port)
+dot.node('missing', '⚠ Missing endpoint', shape='plaintext', fontcolor='red')
+dot.edge('service', 'missing', style='dotted', color='red')
+
+# Render diagram
+mockup_path = './kogaro_issue_mockup'
+dot.render(mockup_path, format='png', cleanup=True)
+
+mockup_path + '.png'

@@ -43,108 +43,113 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 }
 
-func main() { // nolint:gocyclo // TODO: Refactor main function to reduce complexity
-	var (
-		metricsAddr          string
-		enableLeaderElection bool
-		probeAddr            string
-		scanInterval         string
+// FlagConfig holds all CLI flag values
+type FlagConfig struct {
+	// Manager settings
+	MetricsAddr          string
+	EnableLeaderElection bool
+	ProbeAddr            string
+	ScanInterval         string
 
-		// Reference validation flags
-		enableIngressValidation        bool
-		enableConfigMapValidation      bool
-		enableSecretValidation         bool
-		enablePVCValidation            bool
-		enableServiceAccountValidation bool
+	// Reference validation flags
+	EnableIngressValidation        bool
+	EnableConfigMapValidation      bool
+	EnableSecretValidation         bool
+	EnablePVCValidation            bool
+	EnableServiceAccountValidation bool
 
-		// Resource limits validation flags
-		enableResourceLimitsValidation  bool
-		enableMissingRequestsValidation bool
-		enableMissingLimitsValidation   bool
-		enableQoSValidation             bool
-		minCPURequest                   string
-		minMemoryRequest                string
+	// Resource limits validation flags
+	EnableResourceLimitsValidation  bool
+	EnableMissingRequestsValidation bool
+	EnableMissingLimitsValidation   bool
+	EnableQoSValidation             bool
+	MinCPURequest                   string
+	MinMemoryRequest                string
 
-		// Security validation flags
-		enableSecurityValidation               bool
-		enableRootUserValidation               bool
-		enableSecurityContextValidation        bool
-		enableSecurityServiceAccountValidation bool
-		enableNetworkPolicyValidation          bool
-		securitySensitiveNamespaces            string
+	// Security validation flags
+	EnableSecurityValidation               bool
+	EnableRootUserValidation               bool
+	EnableSecurityContextValidation        bool
+	EnableSecurityServiceAccountValidation bool
+	EnableNetworkPolicyValidation          bool
+	SecuritySensitiveNamespaces            string
 
-		// Networking validation flags
-		enableNetworkingValidation         bool
-		enableNetworkingServiceValidation  bool
-		enableNetworkingIngressValidation  bool
-		enableNetworkingPolicyValidation   bool
-		networkingPolicyRequiredNamespaces string
-		warnUnexposedPods                  bool
+	// Networking validation flags
+	EnableNetworkingValidation         bool
+	EnableNetworkingServiceValidation  bool
+	EnableNetworkingIngressValidation  bool
+	EnableNetworkingPolicyValidation   bool
+	NetworkingPolicyRequiredNamespaces string
+	WarnUnexposedPods                  bool
 
-		// Image validation flags
-		enableImageValidation        bool
-		allowMissingImages           bool
-		allowArchitectureMismatch    bool
+	// Image validation flags
+	EnableImageValidation     bool
+	AllowMissingImages        bool
+	AllowArchitectureMismatch bool
 
-		// New validate command flags
-		validateMode     string
-		validateConfig   string
-		validateDuration string
-		validateInterval string
-		validateOutput   string
-		validateScope    string
-	)
+	// Validate command flags
+	ValidateMode     string
+	ValidateConfig   string
+	ValidateDuration string
+	ValidateInterval string
+	ValidateOutput   string
+	ValidateScope    string
+}
 
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
+// registerFlags defines and parses all CLI flags
+func registerFlags() *FlagConfig {
+	config := &FlagConfig{}
+
+	flag.StringVar(&config.MetricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
+	flag.StringVar(&config.ProbeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.BoolVar(&config.EnableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	flag.StringVar(&scanInterval, "scan-interval", "5m", "Interval between cluster scans for reference validation")
+	flag.StringVar(&config.ScanInterval, "scan-interval", "5m", "Interval between cluster scans for reference validation")
 
 	// Reference validation configuration flags
-	flag.BoolVar(&enableIngressValidation, "enable-ingress-validation", true, "Enable validation of Ingress references (IngressClass, Services)")
-	flag.BoolVar(&enableConfigMapValidation, "enable-configmap-validation", true, "Enable validation of ConfigMap references in Pods")
-	flag.BoolVar(&enableSecretValidation, "enable-secret-validation", true, "Enable validation of Secret references (volumes, env, TLS)")
-	flag.BoolVar(&enablePVCValidation, "enable-pvc-validation", true, "Enable validation of PVC and StorageClass references")
-	flag.BoolVar(&enableServiceAccountValidation, "enable-reference-serviceaccount-validation", false, "Enable validation of ServiceAccount references (may be noisy)")
+	flag.BoolVar(&config.EnableIngressValidation, "enable-ingress-validation", true, "Enable validation of Ingress references (IngressClass, Services)")
+	flag.BoolVar(&config.EnableConfigMapValidation, "enable-configmap-validation", true, "Enable validation of ConfigMap references in Pods")
+	flag.BoolVar(&config.EnableSecretValidation, "enable-secret-validation", true, "Enable validation of Secret references (volumes, env, TLS)")
+	flag.BoolVar(&config.EnablePVCValidation, "enable-pvc-validation", true, "Enable validation of PVC and StorageClass references")
+	flag.BoolVar(&config.EnableServiceAccountValidation, "enable-reference-serviceaccount-validation", false, "Enable validation of ServiceAccount references (may be noisy)")
 
 	// Resource limits validation configuration flags
-	flag.BoolVar(&enableResourceLimitsValidation, "enable-resource-limits-validation", true, "Enable validation of resource requests and limits")
-	flag.BoolVar(&enableMissingRequestsValidation, "enable-missing-requests-validation", true, "Enable validation for missing resource requests")
-	flag.BoolVar(&enableMissingLimitsValidation, "enable-missing-limits-validation", true, "Enable validation for missing resource limits")
-	flag.BoolVar(&enableQoSValidation, "enable-qos-validation", true, "Enable QoS class analysis and validation")
-	flag.StringVar(&minCPURequest, "min-cpu-request", "", "Minimum CPU request threshold (e.g., '10m')")
-	flag.StringVar(&minMemoryRequest, "min-memory-request", "", "Minimum memory request threshold (e.g., '16Mi')")
+	flag.BoolVar(&config.EnableResourceLimitsValidation, "enable-resource-limits-validation", true, "Enable validation of resource requests and limits")
+	flag.BoolVar(&config.EnableMissingRequestsValidation, "enable-missing-requests-validation", true, "Enable validation for missing resource requests")
+	flag.BoolVar(&config.EnableMissingLimitsValidation, "enable-missing-limits-validation", true, "Enable validation for missing resource limits")
+	flag.BoolVar(&config.EnableQoSValidation, "enable-qos-validation", true, "Enable QoS class analysis and validation")
+	flag.StringVar(&config.MinCPURequest, "min-cpu-request", "", "Minimum CPU request threshold (e.g., '10m')")
+	flag.StringVar(&config.MinMemoryRequest, "min-memory-request", "", "Minimum memory request threshold (e.g., '16Mi')")
 
 	// Security validation configuration flags
-	flag.BoolVar(&enableSecurityValidation, "enable-security-validation", true, "Enable security configuration validation")
-	flag.BoolVar(&enableRootUserValidation, "enable-root-user-validation", true, "Enable validation for containers running as root")
-	flag.BoolVar(&enableSecurityContextValidation, "enable-security-context-validation", true, "Enable validation for missing SecurityContext configurations")
-	flag.BoolVar(&enableSecurityServiceAccountValidation, "enable-security-serviceaccount-validation", true, "Enable validation for ServiceAccount excessive permissions")
-	flag.BoolVar(&enableNetworkPolicyValidation, "enable-network-policy-validation", true, "Enable validation for missing NetworkPolicies in sensitive namespaces")
-	flag.StringVar(&securitySensitiveNamespaces, "security-required-namespaces", "", "Comma-separated list of namespaces that require NetworkPolicies for security validation")
+	flag.BoolVar(&config.EnableSecurityValidation, "enable-security-validation", true, "Enable security configuration validation")
+	flag.BoolVar(&config.EnableRootUserValidation, "enable-root-user-validation", true, "Enable validation for containers running as root")
+	flag.BoolVar(&config.EnableSecurityContextValidation, "enable-security-context-validation", true, "Enable validation for missing SecurityContext configurations")
+	flag.BoolVar(&config.EnableSecurityServiceAccountValidation, "enable-security-serviceaccount-validation", true, "Enable validation for ServiceAccount excessive permissions")
+	flag.BoolVar(&config.EnableNetworkPolicyValidation, "enable-network-policy-validation", true, "Enable validation for missing NetworkPolicies in sensitive namespaces")
+	flag.StringVar(&config.SecuritySensitiveNamespaces, "security-required-namespaces", "", "Comma-separated list of namespaces that require NetworkPolicies for security validation")
 
 	// Networking validation configuration flags
-	flag.BoolVar(&enableNetworkingValidation, "enable-networking-validation", true, "Enable networking connectivity validation")
-	flag.BoolVar(&enableNetworkingServiceValidation, "enable-networking-service-validation", true, "Enable validation for Service selector mismatches")
-	flag.BoolVar(&enableNetworkingIngressValidation, "enable-networking-ingress-validation", true, "Enable validation for Ingress connectivity issues")
-	flag.BoolVar(&enableNetworkingPolicyValidation, "enable-networking-policy-validation", true, "Enable validation for NetworkPolicy coverage")
-	flag.StringVar(&networkingPolicyRequiredNamespaces, "networking-required-namespaces", "", "Comma-separated list of namespaces that require NetworkPolicies for networking validation")
-	flag.BoolVar(&warnUnexposedPods, "warn-unexposed-pods", false, "Enable warnings for pods not exposed by any Service")
+	flag.BoolVar(&config.EnableNetworkingValidation, "enable-networking-validation", true, "Enable networking connectivity validation")
+	flag.BoolVar(&config.EnableNetworkingServiceValidation, "enable-networking-service-validation", true, "Enable validation for Service selector mismatches")
+	flag.BoolVar(&config.EnableNetworkingIngressValidation, "enable-networking-ingress-validation", true, "Enable validation for Ingress connectivity issues")
+	flag.BoolVar(&config.EnableNetworkingPolicyValidation, "enable-networking-policy-validation", true, "Enable validation for NetworkPolicy coverage")
+	flag.StringVar(&config.NetworkingPolicyRequiredNamespaces, "networking-required-namespaces", "", "Comma-separated list of namespaces that require NetworkPolicies for networking validation")
+	flag.BoolVar(&config.WarnUnexposedPods, "warn-unexposed-pods", false, "Enable warnings for pods not exposed by any Service")
 
 	// Image validation configuration flags
-	flag.BoolVar(&enableImageValidation, "enable-image-validation", false, "Enable validation of container images (registry existence and architecture)")
-	flag.BoolVar(&allowMissingImages, "allow-missing-images", false, "Allow deployment even if images are not found in registry")
-	flag.BoolVar(&allowArchitectureMismatch, "allow-architecture-mismatch", false, "Allow deployment even if image architecture doesn't match nodes")
+	flag.BoolVar(&config.EnableImageValidation, "enable-image-validation", false, "Enable validation of container images (registry existence and architecture)")
+	flag.BoolVar(&config.AllowMissingImages, "allow-missing-images", false, "Allow deployment even if images are not found in registry")
+	flag.BoolVar(&config.AllowArchitectureMismatch, "allow-architecture-mismatch", false, "Allow deployment even if image architecture doesn't match nodes")
 
 	// Add validate command flags
-	flag.StringVar(&validateMode, "mode", "", "Validation mode: one-off or monitor")
-	flag.StringVar(&validateConfig, "config", "", "Path to configuration file to validate")
-	flag.StringVar(&validateDuration, "duration", "", "Duration for monitor mode (e.g., 10m)")
-	flag.StringVar(&validateInterval, "interval", "1m", "Interval between validations in monitor mode")
-	flag.StringVar(&validateOutput, "output", "text", "Output format: text, json, or yaml")
-	flag.StringVar(&validateScope, "scope", "all", "Validation scope: all (show all errors) or file-only (show only errors for config file resources)")
+	flag.StringVar(&config.ValidateMode, "mode", "", "Validation mode: one-off or monitor")
+	flag.StringVar(&config.ValidateConfig, "config", "", "Path to configuration file to validate")
+	flag.StringVar(&config.ValidateDuration, "duration", "", "Duration for monitor mode (e.g., 10m)")
+	flag.StringVar(&config.ValidateInterval, "interval", "1m", "Interval between validations in monitor mode")
+	flag.StringVar(&config.ValidateOutput, "output", "text", "Output format: text, json, or yaml")
+	flag.StringVar(&config.ValidateScope, "scope", "all", "Validation scope: all (show all errors) or file-only (show only errors for config file resources)")
 
 	opts := zap.Options{
 		Development: true,
@@ -154,72 +159,36 @@ func main() { // nolint:gocyclo // TODO: Refactor main function to reduce comple
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-	// Handle one-off validation mode - read config once if using stdin
-	var configData []byte
-	if validateMode == "one-off" && validateConfig != "" {
-		var err error
-		if validateConfig == "-" {
-			// Read stdin once and store for both syntax and full validation
-			configData, err = io.ReadAll(os.Stdin)
-			if err != nil {
-				setupLog.Error(err, "failed to read from stdin")
-				os.Exit(1)
-			}
-		}
-		
-		if err := validateConfigFileSyntax(validateConfig, configData); err != nil {
-			setupLog.Error(err, "validation failed")
-			os.Exit(1)
-		}
-		setupLog.Info("config file syntax validation passed")
-		// Continue to cluster validation - don't return here
-	}
+	return config
+}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme: scheme,
-		Metrics: server.Options{
-			BindAddress: metricsAddr,
-		},
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "kogaro.io",
-	})
-	if err != nil {
-		setupLog.Error(err, "unable to start manager")
-		os.Exit(1)
-	}
-
-	// Register metrics
-	metrics.RegisterMetrics()
-
-	// Initialize the validator registry
+// setupValidators initializes and registers all validators based on configuration
+func setupValidators(mgr ctrl.Manager, config *FlagConfig) *validators.ValidatorRegistry {
 	registry := validators.NewValidatorRegistry(setupLog, mgr.GetClient())
 
 	// Initialize the reference validator with configuration
 	validationConfig := validators.ValidationConfig{
-		EnableIngressValidation:        enableIngressValidation,
-		EnableConfigMapValidation:      enableConfigMapValidation,
-		EnableSecretValidation:         enableSecretValidation,
-		EnablePVCValidation:            enablePVCValidation,
-		EnableServiceAccountValidation: enableServiceAccountValidation,
+		EnableIngressValidation:        config.EnableIngressValidation,
+		EnableConfigMapValidation:      config.EnableConfigMapValidation,
+		EnableSecretValidation:         config.EnableSecretValidation,
+		EnablePVCValidation:            config.EnablePVCValidation,
+		EnableServiceAccountValidation: config.EnableServiceAccountValidation,
 	}
 	referenceValidator := validators.NewReferenceValidator(mgr.GetClient(), setupLog, validationConfig)
-
-	// Register the reference validator
 	registry.Register(referenceValidator)
 
 	// Initialize and register the resource limits validator if enabled
-	if enableResourceLimitsValidation {
+	if config.EnableResourceLimitsValidation {
 		resourceLimitsConfig := validators.ResourceLimitsConfig{
-			EnableMissingRequestsValidation: enableMissingRequestsValidation,
-			EnableMissingLimitsValidation:   enableMissingLimitsValidation,
-			EnableQoSValidation:             enableQoSValidation,
+			EnableMissingRequestsValidation: config.EnableMissingRequestsValidation,
+			EnableMissingLimitsValidation:   config.EnableMissingLimitsValidation,
+			EnableQoSValidation:             config.EnableQoSValidation,
 		}
 
 		// Parse minimum resource thresholds if provided
-		if minCPURequest != "" {
-			if cpuQuantity, err := resource.ParseQuantity(minCPURequest); err != nil {
-				setupLog.Info("invalid min-cpu-request value, using default", "invalid_value", minCPURequest, "error", err, "default", "10m")
+		if config.MinCPURequest != "" {
+			if cpuQuantity, err := resource.ParseQuantity(config.MinCPURequest); err != nil {
+				setupLog.Info("invalid min-cpu-request value, using default", "invalid_value", config.MinCPURequest, "error", err, "default", "10m")
 				defaultCPU := resource.MustParse("10m")
 				resourceLimitsConfig.MinCPURequest = &defaultCPU
 			} else {
@@ -227,9 +196,9 @@ func main() { // nolint:gocyclo // TODO: Refactor main function to reduce comple
 			}
 		}
 
-		if minMemoryRequest != "" {
-			if memoryQuantity, err := resource.ParseQuantity(minMemoryRequest); err != nil {
-				setupLog.Info("invalid min-memory-request value, using default", "invalid_value", minMemoryRequest, "error", err, "default", "64Mi")
+		if config.MinMemoryRequest != "" {
+			if memoryQuantity, err := resource.ParseQuantity(config.MinMemoryRequest); err != nil {
+				setupLog.Info("invalid min-memory-request value, using default", "invalid_value", config.MinMemoryRequest, "error", err, "default", "64Mi")
 				defaultMemory := resource.MustParse("64Mi")
 				resourceLimitsConfig.MinMemoryRequest = &defaultMemory
 			} else {
@@ -242,17 +211,17 @@ func main() { // nolint:gocyclo // TODO: Refactor main function to reduce comple
 	}
 
 	// Initialize and register the security validator if enabled
-	if enableSecurityValidation {
+	if config.EnableSecurityValidation {
 		securityConfig := validators.SecurityConfig{
-			EnableRootUserValidation:        enableRootUserValidation,
-			EnableSecurityContextValidation: enableSecurityContextValidation,
-			EnableServiceAccountValidation:  enableSecurityServiceAccountValidation,
-			EnableNetworkPolicyValidation:   enableNetworkPolicyValidation,
+			EnableRootUserValidation:        config.EnableRootUserValidation,
+			EnableSecurityContextValidation: config.EnableSecurityContextValidation,
+			EnableServiceAccountValidation:  config.EnableSecurityServiceAccountValidation,
+			EnableNetworkPolicyValidation:   config.EnableNetworkPolicyValidation,
 		}
 
 		// Parse security-sensitive namespaces if provided
-		if securitySensitiveNamespaces != "" {
-			namespaces := strings.Split(securitySensitiveNamespaces, ",")
+		if config.SecuritySensitiveNamespaces != "" {
+			namespaces := strings.Split(config.SecuritySensitiveNamespaces, ",")
 			for i, ns := range namespaces {
 				namespaces[i] = strings.TrimSpace(ns)
 			}
@@ -264,17 +233,17 @@ func main() { // nolint:gocyclo // TODO: Refactor main function to reduce comple
 	}
 
 	// Initialize and register the networking validator if enabled
-	if enableNetworkingValidation {
+	if config.EnableNetworkingValidation {
 		networkingConfig := validators.NetworkingConfig{
-			EnableServiceValidation:       enableNetworkingServiceValidation,
-			EnableNetworkPolicyValidation: enableNetworkingPolicyValidation,
-			EnableIngressValidation:       enableNetworkingIngressValidation,
-			WarnUnexposedPods:             warnUnexposedPods,
+			EnableServiceValidation:       config.EnableNetworkingServiceValidation,
+			EnableNetworkPolicyValidation: config.EnableNetworkingPolicyValidation,
+			EnableIngressValidation:       config.EnableNetworkingIngressValidation,
+			WarnUnexposedPods:             config.WarnUnexposedPods,
 		}
 
 		// Parse networking policy required namespaces if provided
-		if networkingPolicyRequiredNamespaces != "" {
-			namespaces := strings.Split(networkingPolicyRequiredNamespaces, ",")
+		if config.NetworkingPolicyRequiredNamespaces != "" {
+			namespaces := strings.Split(config.NetworkingPolicyRequiredNamespaces, ",")
 			for i, ns := range namespaces {
 				namespaces[i] = strings.TrimSpace(ns)
 			}
@@ -286,7 +255,7 @@ func main() { // nolint:gocyclo // TODO: Refactor main function to reduce comple
 	}
 
 	// Initialize and register the image validator if enabled
-	if enableImageValidation {
+	if config.EnableImageValidation {
 		// Create Kubernetes clientset from the same config
 		k8sClient, err := kubernetes.NewForConfig(mgr.GetConfig())
 		if err != nil {
@@ -295,132 +264,134 @@ func main() { // nolint:gocyclo // TODO: Refactor main function to reduce comple
 		}
 
 		imageConfig := validators.ImageValidatorConfig{
-			EnableImageValidation:         enableImageValidation,
-			AllowMissingImages:           allowMissingImages,
-			AllowArchitectureMismatch:    allowArchitectureMismatch,
+			EnableImageValidation:     config.EnableImageValidation,
+			AllowMissingImages:        config.AllowMissingImages,
+			AllowArchitectureMismatch: config.AllowArchitectureMismatch,
 		}
 
 		imageValidator := validators.NewImageValidator(mgr.GetClient(), k8sClient, setupLog, imageConfig)
 		registry.Register(imageValidator)
 	}
 
-	// Handle validate command
-	if validateMode != "" {
+	return registry
+}
 
-		// Parse duration if provided
-		var duration time.Duration
-		if validateDuration != "" {
+// runValidationMode handles one-off and monitor validation modes
+func runValidationMode(mgr ctrl.Manager, registry *validators.ValidatorRegistry, config *FlagConfig, configData []byte) {
+	// Parse duration if provided
+	var duration time.Duration
+	if config.ValidateDuration != "" {
+		var err error
+		duration, err = time.ParseDuration(config.ValidateDuration)
+		if err != nil {
+			setupLog.Error(err, "invalid duration format")
+			os.Exit(1)
+		}
+	}
+
+	// Parse interval
+	interval, err := time.ParseDuration(config.ValidateInterval)
+	if err != nil {
+		setupLog.Error(err, "invalid interval format")
+		os.Exit(1)
+	}
+
+	// Start the manager cache briefly to allow cluster object retrieval
+	setupLog.Info("starting manager cache for CLI validation")
+	cacheCtx, cacheCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cacheCancel()
+
+	go func() {
+		if err := mgr.Start(cacheCtx); err != nil && err != context.Canceled {
+			setupLog.Error(err, "failed to start manager for cache warmup")
+		}
+	}()
+
+	// Wait for cache to sync
+	if !mgr.GetCache().WaitForCacheSync(cacheCtx) {
+		setupLog.Error(nil, "failed to sync cache")
+		os.Exit(1)
+	}
+	setupLog.Info("cache synced successfully")
+
+	// Create validation context
+	ctx := context.Background()
+	if duration > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, duration)
+		defer cancel()
+	}
+
+	// Run validation based on mode
+	switch config.ValidateMode {
+	case "one-off":
+		if config.ValidateConfig != "" {
+			// Validate new configuration against cluster with scope filtering
+			var result *validators.ValidationResult
 			var err error
-			duration, err = time.ParseDuration(validateDuration)
+			if configData != nil {
+				// Use pre-read data for stdin
+				result, err = registry.ValidateNewConfigWithScopeAndData(ctx, config.ValidateConfig, config.ValidateScope, configData)
+			} else {
+				result, err = registry.ValidateNewConfigWithScope(ctx, config.ValidateConfig, config.ValidateScope)
+			}
 			if err != nil {
-				setupLog.Error(err, "invalid duration format")
+				setupLog.Error(err, "validation failed")
+				os.Exit(1)
+			}
+
+			// Format output based on mode
+			if config.ValidateOutput == "ci" {
+				output, err := registry.FormatCIOutput(*result)
+				if err != nil {
+					setupLog.Error(err, "failed to format CI output")
+					os.Exit(1)
+				}
+				// Output to stderr for CI consumption
+				fmt.Fprintf(os.Stderr, "%s\n", output)
+				os.Exit(result.ExitCode)
+			}
+			// Regular output
+			if result.ExitCode > 0 {
+				setupLog.Error(nil, "validation failed",
+					"total_errors", result.Summary.TotalErrors,
+					"missing_refs", result.Summary.MissingRefs,
+					"suggested_refs", result.Summary.SuggestedRefs)
+				os.Exit(result.ExitCode)
+			}
+		} else {
+			// Validate existing cluster
+			if err := registry.ValidateCluster(ctx); err != nil {
+				setupLog.Error(err, "validation failed")
 				os.Exit(1)
 			}
 		}
+	case "monitor":
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
 
-		// Parse interval
-		interval, err := time.ParseDuration(validateInterval)
-		if err != nil {
-			setupLog.Error(err, "invalid interval format")
-			os.Exit(1)
-		}
-
-		// Start the manager cache briefly to allow cluster object retrieval
-		setupLog.Info("starting manager cache for CLI validation")
-		cacheCtx, cacheCancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cacheCancel()
-		
-		go func() {
-			if err := mgr.Start(cacheCtx); err != nil && err != context.Canceled {
-				setupLog.Error(err, "failed to start manager for cache warmup")
-			}
-		}()
-		
-		// Wait for cache to sync
-		if !mgr.GetCache().WaitForCacheSync(cacheCtx) {
-			setupLog.Error(nil, "failed to sync cache")
-			os.Exit(1)
-		}
-		setupLog.Info("cache synced successfully")
-
-		// Create validation context
-		ctx := context.Background()
-		if duration > 0 {
-			var cancel context.CancelFunc
-			ctx, cancel = context.WithTimeout(ctx, duration)
-			defer cancel()
-		}
-
-		// Run validation based on mode
-		switch validateMode {
-		case "one-off":
-			if validateConfig != "" {
-				// Validate new configuration against cluster with scope filtering
-				var result *validators.ValidationResult
-				var err error
-				if configData != nil {
-					// Use pre-read data for stdin
-					result, err = registry.ValidateNewConfigWithScopeAndData(ctx, validateConfig, validateScope, configData)
-				} else {
-					result, err = registry.ValidateNewConfigWithScope(ctx, validateConfig, validateScope)
-				}
-				if err != nil {
-					setupLog.Error(err, "validation failed")
-					os.Exit(1)
-				}
-
-				// Format output based on mode
-				if validateOutput == "ci" {
-					output, err := registry.FormatCIOutput(*result)
-					if err != nil {
-						setupLog.Error(err, "failed to format CI output")
-						os.Exit(1)
-					}
-					// Output to stderr for CI consumption
-					fmt.Fprintf(os.Stderr, "%s\n", output)
-					os.Exit(result.ExitCode)
-				}
-				// Regular output
-				if result.ExitCode > 0 {
-					setupLog.Error(nil, "validation failed",
-						"total_errors", result.Summary.TotalErrors,
-						"missing_refs", result.Summary.MissingRefs,
-						"suggested_refs", result.Summary.SuggestedRefs)
-					os.Exit(result.ExitCode)
-				}
-			} else {
-				// Validate existing cluster
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
 				if err := registry.ValidateCluster(ctx); err != nil {
 					setupLog.Error(err, "validation failed")
-					os.Exit(1)
 				}
 			}
-		case "monitor":
-			ticker := time.NewTicker(interval)
-			defer ticker.Stop()
-
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case <-ticker.C:
-					if err := registry.ValidateCluster(ctx); err != nil {
-						setupLog.Error(err, "validation failed")
-					}
-				}
-			}
-		default:
-			setupLog.Error(nil, "invalid validation mode", "mode", validateMode)
-			os.Exit(1)
 		}
-		return
+	default:
+		setupLog.Error(nil, "invalid validation mode", "mode", config.ValidateMode)
+		os.Exit(1)
 	}
+}
 
+// setupController configures and registers the validation controller with health checks
+func setupController(mgr ctrl.Manager, registry *validators.ValidatorRegistry, scanInterval string) error {
 	// Parse scan interval
 	scanIntervalDuration, err := time.ParseDuration(scanInterval)
 	if err != nil {
-		setupLog.Error(err, "invalid scan interval format")
-		os.Exit(1)
+		return fmt.Errorf("invalid scan interval format: %w", err)
 	}
 
 	// Setup the validation controller
@@ -433,16 +404,72 @@ func main() { // nolint:gocyclo // TODO: Refactor main function to reduce comple
 	}
 
 	if err = validationController.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ValidationController")
-		os.Exit(1)
+		return fmt.Errorf("unable to create controller: %w", err)
 	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up health check")
-		os.Exit(1)
+		return fmt.Errorf("unable to set up health check: %w", err)
 	}
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up ready check")
+		return fmt.Errorf("unable to set up ready check: %w", err)
+	}
+
+	return nil
+}
+
+func main() {
+	config := registerFlags()
+
+	// Handle one-off validation mode - read config once if using stdin
+	var configData []byte
+	if config.ValidateMode == "one-off" && config.ValidateConfig != "" {
+		var err error
+		if config.ValidateConfig == "-" {
+			// Read stdin once and store for both syntax and full validation
+			configData, err = io.ReadAll(os.Stdin)
+			if err != nil {
+				setupLog.Error(err, "failed to read from stdin")
+				os.Exit(1)
+			}
+		}
+
+		if err := validateConfigFileSyntax(config.ValidateConfig, configData); err != nil {
+			setupLog.Error(err, "validation failed")
+			os.Exit(1)
+		}
+		setupLog.Info("config file syntax validation passed")
+		// Continue to cluster validation - don't return here
+	}
+
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+		Scheme: scheme,
+		Metrics: server.Options{
+			BindAddress: config.MetricsAddr,
+		},
+		HealthProbeBindAddress: config.ProbeAddr,
+		LeaderElection:         config.EnableLeaderElection,
+		LeaderElectionID:       "kogaro.io",
+	})
+	if err != nil {
+		setupLog.Error(err, "unable to start manager")
+		os.Exit(1)
+	}
+
+	// Register metrics
+	metrics.RegisterMetrics()
+
+	// Initialize validators
+	registry := setupValidators(mgr, config)
+
+	// Handle validate command
+	if config.ValidateMode != "" {
+		runValidationMode(mgr, registry, config, configData)
+		return
+	}
+
+	// Setup the controller
+	if err := setupController(mgr, registry, config.ScanInterval); err != nil {
+		setupLog.Error(err, "failed to setup controller")
 		os.Exit(1)
 	}
 

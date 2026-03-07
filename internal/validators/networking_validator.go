@@ -17,6 +17,7 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -149,24 +150,27 @@ func (v *NetworkingValidator) validateServiceConnectivity(ctx context.Context) (
 		return nil, fmt.Errorf("failed to list pods: %w", err)
 	}
 
-	// Get all Endpoints
-	var endpoints corev1.EndpointsList
-	if err := v.client.List(ctx, &endpoints); err != nil {
-		return nil, fmt.Errorf("failed to list endpoints: %w", err)
+	// Get all EndpointSlices
+	var endpointSlices discoveryv1.EndpointSliceList
+	if err := v.client.List(ctx, &endpointSlices); err != nil {
+		return nil, fmt.Errorf("failed to list endpointslices: %w", err)
 	}
 
 	// Create maps for efficient lookup
 	podsByNamespace := make(map[string][]corev1.Pod)
-	// TODO: Migrate from deprecated corev1.Endpoints to discoveryv1.EndpointSlice
-	endpointsByName := make(map[string]corev1.Endpoints) //nolint:staticcheck
+	endpointSlicesByService := make(map[string][]discoveryv1.EndpointSlice)
 
 	for _, pod := range pods.Items {
 		podsByNamespace[pod.Namespace] = append(podsByNamespace[pod.Namespace], pod)
 	}
 
-	for _, ep := range endpoints.Items {
-		key := fmt.Sprintf("%s/%s", ep.Namespace, ep.Name)
-		endpointsByName[key] = ep
+	// Group EndpointSlices by their parent service
+	// EndpointSlices have a label kubernetes.io/service-name that references the service
+	for _, eps := range endpointSlices.Items {
+		if serviceName, ok := eps.Labels[discoveryv1.LabelServiceName]; ok {
+			key := fmt.Sprintf("%s/%s", eps.Namespace, serviceName)
+			endpointSlicesByService[key] = append(endpointSlicesByService[key], eps)
+		}
 	}
 
 	// Validate each service
@@ -176,7 +180,7 @@ func (v *NetworkingValidator) validateServiceConnectivity(ctx context.Context) (
 			continue
 		}
 
-		serviceErrors := v.validateService(service, podsByNamespace[service.Namespace], endpointsByName)
+		serviceErrors := v.validateService(service, podsByNamespace[service.Namespace], endpointSlicesByService)
 		errors = append(errors, serviceErrors...)
 	}
 
@@ -189,7 +193,7 @@ func (v *NetworkingValidator) validateServiceConnectivity(ctx context.Context) (
 	return errors, nil
 }
 
-func (v *NetworkingValidator) validateService(service corev1.Service, namespacePods []corev1.Pod, endpointsMap map[string]corev1.Endpoints) []ValidationError { //nolint:staticcheck
+func (v *NetworkingValidator) validateService(service corev1.Service, namespacePods []corev1.Pod, endpointSlicesMap map[string][]discoveryv1.EndpointSlice) []ValidationError {
 	var errors []ValidationError
 
 	// Check if service selector matches any pods
@@ -206,25 +210,30 @@ func (v *NetworkingValidator) validateService(service corev1.Service, namespaceP
 				WithDetail("namespace_pod_count", fmt.Sprintf("%d", len(namespacePods))))
 		}
 
-		// Check if service has endpoints
-		endpointsKey := fmt.Sprintf("%s/%s", service.Namespace, service.Name)
-		if endpoints, exists := endpointsMap[endpointsKey]; exists {
-			if v.hasNoReadyEndpoints(endpoints) {
+		// Check if service has endpointslices
+		endpointSlicesKey := fmt.Sprintf("%s/%s", service.Namespace, service.Name)
+		if endpointSlices, exists := endpointSlicesMap[endpointSlicesKey]; exists {
+			if v.hasNoReadyEndpointsInSlices(endpointSlices) {
 				errorCode := v.getNetworkingErrorCode("service_no_endpoints")
+				totalEndpoints := 0
+				for _, eps := range endpointSlices {
+					totalEndpoints += len(eps.Endpoints)
+				}
 				errors = append(errors, NewValidationErrorWithCode("Service", service.Name, service.Namespace, "service_no_endpoints", errorCode, "Service has no ready endpoints despite matching pods").
 					WithSeverity(SeverityError).
 					WithRemediationHint("Check pod readiness probes and ensure pods are in Ready state").
-					WithRelatedResources(fmt.Sprintf("Service/%s", service.Name), fmt.Sprintf("Endpoints/%s", service.Name)).
+					WithRelatedResources(fmt.Sprintf("Service/%s", service.Name)).
 					WithDetail("matching_pods_count", fmt.Sprintf("%d", len(matchingPods))).
-					WithDetail("endpoints_subset_count", fmt.Sprintf("%d", len(endpoints.Subsets))))
+					WithDetail("endpointslices_count", fmt.Sprintf("%d", len(endpointSlices))).
+					WithDetail("total_endpoints_count", fmt.Sprintf("%d", totalEndpoints)))
 			}
 		} else {
 			errorCode := v.getNetworkingErrorCode("service_no_endpoints")
-			errors = append(errors, NewValidationErrorWithCode("Service", service.Name, service.Namespace, "service_no_endpoints", errorCode, "Service has no endpoints object").
+			errors = append(errors, NewValidationErrorWithCode("Service", service.Name, service.Namespace, "service_no_endpoints", errorCode, "Service has no endpointslices").
 				WithSeverity(SeverityError).
 				WithRemediationHint("Verify service selector matches pod labels and pods are ready").
 				WithRelatedResources(fmt.Sprintf("Service/%s", service.Name)).
-				WithDetail("endpoints_missing", "true").
+				WithDetail("endpointslices_missing", "true").
 				WithDetail("matching_pods_count", fmt.Sprintf("%d", len(matchingPods))))
 		}
 
@@ -304,10 +313,13 @@ func (v *NetworkingValidator) findMatchingPods(selector map[string]string, pods 
 	return matchingPods
 }
 
-func (v *NetworkingValidator) hasNoReadyEndpoints(endpoints corev1.Endpoints) bool { //nolint:staticcheck
-	for _, subset := range endpoints.Subsets {
-		if len(subset.Addresses) > 0 {
-			return false
+func (v *NetworkingValidator) hasNoReadyEndpointsInSlices(endpointSlices []discoveryv1.EndpointSlice) bool {
+	for _, eps := range endpointSlices {
+		for _, endpoint := range eps.Endpoints {
+			// Check if endpoint has Ready condition set to true
+			if endpoint.Conditions.Ready != nil && *endpoint.Conditions.Ready {
+				return false
+			}
 		}
 	}
 	return true
