@@ -1,4 +1,4 @@
-import { Scan, GetNodeDetail, GetKubeContexts, GetCurrentContext, SwitchContext, GetFixPlan, RunCommand } from '../../../wailsjs/go/main/App';
+import { Scan, GetNodeDetail, GetKubeContexts, GetCurrentContext, SwitchContext, GetFixPlan, RunCommand, RecordFixAttempt } from '../../../wailsjs/go/main/App';
 import type { FixPlan } from '../types/diagnostics';
 import { faultGraph, isScanning, scanError, currentContext, availableContexts, selectedNodeId } from '../stores/graphStore';
 import type { NodeDetailResponse } from '../types/graph';
@@ -67,6 +67,26 @@ export async function runCommand(command: string, errorCodes?: string[]): Promis
     return await RunCommand(command, errorCodes || []) as RunCommandResult;
   } catch (err: any) {
     return { success: false, output: '', error: err?.message || String(err) };
+  }
+}
+
+export interface FixAttemptInput {
+  errorCode: string;
+  namespace: string;
+  resourceKind: string;
+  resourceName: string;
+  command: string;
+  treePath: string;
+  optionLabel: string;
+  success: boolean;
+  output: string;
+}
+
+export async function recordFixAttempt(input: FixAttemptInput): Promise<void> {
+  try {
+    await RecordFixAttempt(input);
+  } catch (err) {
+    console.error('Failed to record fix attempt:', err);
   }
 }
 

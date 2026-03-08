@@ -2,6 +2,8 @@ package diagnostics
 
 import (
 	"time"
+
+	"github.com/topiaruss/kogaro/ui/pkg/adaptive"
 )
 
 // DiagnosticFinding is a single piece of evidence gathered from the cluster.
@@ -43,7 +45,12 @@ type FixStep struct {
 	DependsOn       []string           `json:"dependsOn"` // nodeIDs that must be fixed first
 	Remediation     string             `json:"remediation"`
 	Commands        []FixCommand       `json:"commands"`
-	Diagnostics     []DiagnosticResult `json:"diagnostics"`
+	Diagnostics     []DiagnosticResult        `json:"diagnostics"`
+	Profile         *adaptive.WorkloadProfile `json:"profile,omitempty"`
+	Options         []adaptive.FixOption      `json:"options,omitempty"`
+	Warnings        []string                  `json:"warnings,omitempty"`
+	TreePath        string                    `json:"treePath,omitempty"`
+	KBInsights      []string                  `json:"kbInsights,omitempty"`
 }
 
 // FixPlan is the top-level response for the fix plan view.

@@ -11,6 +11,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/go-logr/logr/funcr"
 	"github.com/topiaruss/kogaro/internal/validators"
+	"github.com/topiaruss/kogaro/ui/pkg/adaptive"
 	"github.com/topiaruss/kogaro/ui/pkg/datasource"
 	"github.com/topiaruss/kogaro/ui/pkg/diagnostics"
 	"github.com/topiaruss/kogaro/ui/pkg/graph"
@@ -363,9 +364,56 @@ func (a *App) GetFixPlan(incidentID string) (*diagnostics.FixPlan, error) {
 		return nil, fmt.Errorf("running diagnostics: %w", err)
 	}
 
-	// Build fix plan
-	plan := diagnostics.BuildFixPlan(a.lastGraph, *incident, diagResults)
+	// Profile workloads for adaptive fix decisions
+	profiles := a.profileIncidentNodes(incident)
+
+	// Build fix plan with profiles
+	plan := diagnostics.BuildFixPlan(a.lastGraph, *incident, diagResults, profiles)
 	return plan, nil
+}
+
+// profileIncidentNodes profiles workloads for all incident nodes that have errors.
+func (a *App) profileIncidentNodes(incident *graph.Incident) map[string]*adaptive.WorkloadProfile {
+	if a.k8sClient == nil || a.lastGraph == nil {
+		return nil
+	}
+
+	profiler := adaptive.NewProfiler(a.k8sClient)
+	profiles := make(map[string]*adaptive.WorkloadProfile)
+
+	// Build node lookup
+	nodeMap := make(map[graph.NodeID]*graph.Node)
+	for i := range a.lastGraph.Nodes {
+		nodeMap[a.lastGraph.Nodes[i].ID] = &a.lastGraph.Nodes[i]
+	}
+
+	// Profile each affected node that is a workload type
+	seen := make(map[graph.NodeID]bool)
+	for _, nid := range incident.AffectedNodes {
+		if seen[nid] {
+			continue
+		}
+		seen[nid] = true
+		node := nodeMap[nid]
+		if node == nil || node.Health == graph.HealthMissing {
+			continue
+		}
+		// Only profile workload types
+		switch node.Kind {
+		case "Deployment", "StatefulSet", "DaemonSet", "Pod":
+			prof, err := profiler.ProfileWorkload(a.ctx, node.Namespace, node.Name, node.Kind)
+			if err != nil {
+				log.Printf("profiling %s/%s: %v", node.Kind, node.Name, err)
+				continue
+			}
+			profiles[string(nid)] = prof
+		}
+	}
+
+	if len(profiles) == 0 {
+		return nil
+	}
+	return profiles
 }
 
 // RunCommandResult is the output of running a kubectl command with analysis.
@@ -442,6 +490,53 @@ func (a *App) RunCommand(command string, errorCodes []string) (*RunCommandResult
 // ApplyFix is an alias for RunCommand for backwards compatibility.
 func (a *App) ApplyFix(command string) (*RunCommandResult, error) {
 	return a.RunCommand(command, nil)
+}
+
+// FixAttemptInput is the input for recording a fix attempt from the frontend.
+type FixAttemptInput struct {
+	ErrorCode    string `json:"errorCode"`
+	Namespace    string `json:"namespace"`
+	ResourceKind string `json:"resourceKind"`
+	ResourceName string `json:"resourceName"`
+	Command      string `json:"command"`
+	TreePath     string `json:"treePath"`
+	OptionLabel  string `json:"optionLabel"`
+	Success      bool   `json:"success"`
+	Output       string `json:"output"`
+}
+
+// RecordFixAttempt saves a fix attempt to the history database for learning.
+func (a *App) RecordFixAttempt(input FixAttemptInput) error {
+	if a.history == nil {
+		return nil // silently skip if no history
+	}
+
+	result := "success"
+	errMsg := ""
+	if !input.Success {
+		result = "failure"
+		errMsg = input.Output
+		if len(errMsg) > 500 {
+			errMsg = errMsg[:500]
+		}
+	}
+
+	kubeCtx := ""
+	if a.kubeMgr != nil {
+		kubeCtx, _ = a.kubeMgr.GetCurrentContext()
+	}
+
+	return a.history.SaveFixAttempt(&history.FixAttempt{
+		KubeContext:  kubeCtx,
+		ErrorCode:    input.ErrorCode,
+		Namespace:    input.Namespace,
+		ResourceKind: input.ResourceKind,
+		ResourceName: input.ResourceName,
+		PatchJSON:    input.Command,
+		TreePath:     input.TreePath,
+		Result:       result,
+		ErrorMessage: errMsg,
+	})
 }
 
 // BuildInfo holds version/build metadata.

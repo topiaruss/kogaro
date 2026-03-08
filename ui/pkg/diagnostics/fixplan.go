@@ -6,11 +6,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/topiaruss/kogaro/ui/pkg/adaptive"
 	"github.com/topiaruss/kogaro/ui/pkg/graph"
 )
 
 // BuildFixPlan creates a dependency-sorted fix plan from an incident and its diagnostics.
-func BuildFixPlan(fg *graph.FaultGraph, incident graph.Incident, diagnostics []DiagnosticResult) *FixPlan {
+// profiles is an optional map of nodeID -> WorkloadProfile from the adaptive profiler.
+func BuildFixPlan(fg *graph.FaultGraph, incident graph.Incident, diagnostics []DiagnosticResult, profiles ...map[string]*adaptive.WorkloadProfile) *FixPlan {
+	var profileMap map[string]*adaptive.WorkloadProfile
+	if len(profiles) > 0 {
+		profileMap = profiles[0]
+	}
 	plan := &FixPlan{
 		IncidentID:  incident.ID,
 		Namespace:   incident.Namespace,
@@ -122,6 +128,40 @@ func BuildFixPlan(fg *graph.FaultGraph, incident graph.Incident, diagnostics []D
 			Commands:        commands,
 			Diagnostics:     nodeDiags,
 		}
+
+		// Run decision trees for each error code
+		for _, code := range codes {
+			var dr *adaptive.DecisionResult
+
+			// SEC/RES codes use container-level profiles
+			if profileMap != nil {
+				if prof, ok := profileMap[string(nid)]; ok {
+					step.Profile = prof
+					cName := containerName(node, nodeDiags)
+					dr = adaptive.Decide(code, prof, cName)
+				}
+			}
+
+			// NET/REF codes use node-level context
+			if dr == nil && (strings.HasPrefix(code, "KOGARO-NET-") || strings.HasPrefix(code, "KOGARO-REF-")) {
+				nc := buildNodeContext(node, code, errs, nodeDiags, dependedBy, nodeMap)
+				dr = adaptive.DecideForNode(nc)
+			}
+
+			if dr != nil {
+				step.Options = append(step.Options, dr.Options...)
+				step.Warnings = append(step.Warnings, dr.Warnings...)
+				step.KBInsights = append(step.KBInsights, dr.KBInsights...)
+				if dr.TreePath != "" {
+					if step.TreePath == "" {
+						step.TreePath = dr.TreePath
+					} else {
+						step.TreePath += " | " + dr.TreePath
+					}
+				}
+			}
+		}
+
 		plan.Steps = append(plan.Steps, step)
 	}
 
@@ -431,6 +471,81 @@ func generateCommands(node *graph.Node, errs []graph.ErrorDetail, diags []Diagno
 	}
 
 	return cmds
+}
+
+// buildNodeContext creates a NodeContext for NET/REF decision trees from the graph node and diagnostics.
+func buildNodeContext(node *graph.Node, code string, errs []graph.ErrorDetail, diags []DiagnosticResult, dependedBy map[graph.NodeID][]graph.NodeID, nodeMap map[graph.NodeID]*graph.Node) *adaptive.NodeContext {
+	nc := &adaptive.NodeContext{
+		Kind:      node.Kind,
+		Name:      node.Name,
+		Namespace: node.Namespace,
+		ErrorCode: code,
+		Details:   make(map[string]string),
+	}
+
+	// Extract selector from diagnostic findings
+	for _, d := range diags {
+		for _, f := range d.Findings {
+			// Selector labels (from service diagnostics)
+			if f.Category == "labels" {
+				for k, v := range f.Details {
+					if k != "source" && k != "target" && k != "target_kind" && k != "count" && k != "status" {
+						if nc.Selector == "" {
+							nc.Selector = fmt.Sprintf("%s=%s", k, v)
+						} else {
+							nc.Selector += fmt.Sprintf(",%s=%s", k, v)
+						}
+					}
+				}
+			}
+			// Target resource info
+			if target, ok := f.Details["target"]; ok && target != "" {
+				nc.TargetName = target
+			}
+			if targetKind, ok := f.Details["target_kind"]; ok && targetKind != "" {
+				nc.TargetKind = targetKind
+			}
+		}
+	}
+
+	// Also try to extract target name from error message
+	if nc.TargetName == "" {
+		for _, e := range errs {
+			if e.ErrorCode == code {
+				name := extractQuotedFromMsg(e.Message)
+				if name != "" {
+					nc.TargetName = name
+				}
+			}
+		}
+	}
+
+	// Find owner workload via reverse edges (who depends on this node)
+	for _, parent := range dependedBy[node.ID] {
+		parentNode := nodeMap[parent]
+		if parentNode != nil {
+			switch parentNode.Kind {
+			case "Deployment", "StatefulSet", "DaemonSet":
+				nc.OwnerKind = parentNode.Kind
+				nc.OwnerName = parentNode.Name
+			}
+		}
+	}
+
+	return nc
+}
+
+// extractQuotedFromMsg extracts text between single quotes from a message.
+func extractQuotedFromMsg(msg string) string {
+	start := strings.Index(msg, "'")
+	if start < 0 {
+		return ""
+	}
+	end := strings.Index(msg[start+1:], "'")
+	if end < 0 {
+		return ""
+	}
+	return msg[start+1 : start+1+end]
 }
 
 func buildRemediation(errs []graph.ErrorDetail, node *graph.Node, willAutoResolve bool, deps []string) string {

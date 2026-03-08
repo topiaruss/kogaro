@@ -57,6 +57,24 @@ type ScanDiff struct {
 	Unchanged   int           `json:"unchanged"`
 }
 
+// FixAttempt records a fix attempt for learning and rollback.
+type FixAttempt struct {
+	ID           uint      `json:"id" gorm:"primaryKey"`
+	CreatedAt    time.Time `json:"createdAt" gorm:"autoCreateTime"`
+	KubeContext  string    `json:"kubeContext" gorm:"index;not null"`
+	ErrorCode    string    `json:"errorCode" gorm:"index;not null"`
+	Namespace    string    `json:"namespace" gorm:"not null"`
+	ResourceKind string    `json:"resourceKind" gorm:"not null"`
+	ResourceName string    `json:"resourceName" gorm:"not null"`
+	ImageBase    string    `json:"imageBase" gorm:"index"`
+	ImageTag     string    `json:"imageTag"`
+	PatchJSON    string    `json:"-" gorm:"type:text"`
+	SnapshotJSON string    `json:"-" gorm:"type:text"`
+	TreePath     string    `json:"treePath"`
+	Result       string    `json:"result" gorm:"not null"` // "success", "failure", "rolled_back"
+	ErrorMessage string    `json:"errorMessage,omitempty" gorm:"type:text"`
+}
+
 // Store persists scan results in SQLite for change tracking.
 type Store struct {
 	db *gorm.DB
@@ -83,7 +101,7 @@ func Open(path string) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
-	if err := db.AutoMigrate(&ScanRecord{}, &ErrorRecord{}, &DiagnosticRecord{}); err != nil {
+	if err := db.AutoMigrate(&ScanRecord{}, &ErrorRecord{}, &DiagnosticRecord{}, &FixAttempt{}); err != nil {
 		return nil, fmt.Errorf("migrating database: %w", err)
 	}
 	return &Store{db: db}, nil
@@ -203,6 +221,37 @@ func (s *Store) GetDiagnosticHistory(namespace, resourceName string, limit int) 
 	var records []DiagnosticRecord
 	err := s.db.Where("namespace = ? AND resource_name = ?", namespace, resourceName).
 		Order("ran_at desc").
+		Limit(limit).
+		Find(&records).Error
+	return records, err
+}
+
+// SaveFixAttempt persists a fix attempt record.
+func (s *Store) SaveFixAttempt(attempt *FixAttempt) error {
+	return s.db.Create(attempt).Error
+}
+
+// GetFixAttempts returns past fix attempts for the same image+error combo.
+func (s *Store) GetFixAttempts(imageBase, errorCode string, limit int) ([]FixAttempt, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	var records []FixAttempt
+	err := s.db.Where("image_base = ? AND error_code = ?", imageBase, errorCode).
+		Order("created_at desc").
+		Limit(limit).
+		Find(&records).Error
+	return records, err
+}
+
+// GetRecentFixAttempts returns recent fix attempts for a kube context.
+func (s *Store) GetRecentFixAttempts(kubeContext string, limit int) ([]FixAttempt, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	var records []FixAttempt
+	err := s.db.Where("kube_context = ?", kubeContext).
+		Order("created_at desc").
 		Limit(limit).
 		Find(&records).Error
 	return records, err

@@ -45,6 +45,10 @@ export function RunCommand(arg1, arg2) {
     return window['go']['main']['App']['RunCommand'](arg1, arg2);
 }
 
+export function RecordFixAttempt(arg1) {
+    return window['go']['main']['App']['RecordFixAttempt'](arg1);
+}
+
 export function GetBuildInfo() {
     return window['go']['main']['App']['GetBuildInfo']();
 }
