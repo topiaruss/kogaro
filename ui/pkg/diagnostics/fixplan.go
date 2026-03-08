@@ -548,6 +548,89 @@ func extractQuotedFromMsg(msg string) string {
 	return msg[start+1 : start+1+end]
 }
 
+// PastAttemptProvider is the interface for querying past fix attempts.
+type PastAttemptProvider interface {
+	GetFixAttempts(imageBase, errorCode string, limit int) ([]PastAttemptRecord, error)
+}
+
+// PastAttemptRecord is the minimal data needed from the history store.
+type PastAttemptRecord struct {
+	TreePath     string
+	Result       string
+	ErrorMessage string
+	PatchJSON    string
+	CreatedAt    time.Time
+}
+
+// EnrichWithPastAttempts adds past attempt summaries to fix steps.
+func EnrichWithPastAttempts(plan *FixPlan, provider PastAttemptProvider) {
+	if provider == nil || plan == nil {
+		return
+	}
+
+	now := time.Now()
+	for i := range plan.Steps {
+		step := &plan.Steps[i]
+		if step.Profile == nil {
+			continue
+		}
+
+		// Query past attempts for each container's image + each error code
+		for _, cp := range step.Profile.Containers {
+			for _, code := range step.ErrorCodes {
+				attempts, err := provider.GetFixAttempts(cp.ImageBase, code, 5)
+				if err != nil || len(attempts) == 0 {
+					continue
+				}
+
+				for _, a := range attempts {
+					summary := PastAttemptSummary{
+						TreePath: a.TreePath,
+						Result:   a.Result,
+						ErrorMsg: a.ErrorMessage,
+						Command:  a.PatchJSON,
+						When:     relativeTime(now, a.CreatedAt),
+					}
+					step.PastAttempts = append(step.PastAttempts, summary)
+				}
+
+				// Add insight based on outcomes
+				successes, failures := 0, 0
+				for _, a := range attempts {
+					if a.Result == "success" {
+						successes++
+					} else {
+						failures++
+					}
+				}
+				if failures > 0 && successes == 0 {
+					step.Warnings = append(step.Warnings,
+						fmt.Sprintf("Previous %d attempt(s) for %s + %s all failed", failures, cp.ImageBase, code),
+					)
+				} else if successes > 0 {
+					step.KBInsights = append(step.KBInsights,
+						fmt.Sprintf("Previous fix for %s + %s succeeded (%s)", cp.ImageBase, code, attempts[0].TreePath),
+					)
+				}
+			}
+		}
+	}
+}
+
+func relativeTime(now, t time.Time) string {
+	d := now.Sub(t)
+	switch {
+	case d < time.Minute:
+		return "just now"
+	case d < time.Hour:
+		return fmt.Sprintf("%dm ago", int(d.Minutes()))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("%dh ago", int(d.Hours()))
+	default:
+		return fmt.Sprintf("%dd ago", int(d.Hours()/24))
+	}
+}
+
 func buildRemediation(errs []graph.ErrorDetail, node *graph.Node, willAutoResolve bool, deps []string) string {
 	if willAutoResolve && len(deps) > 0 {
 		return "Will likely resolve automatically when upstream dependencies are fixed"

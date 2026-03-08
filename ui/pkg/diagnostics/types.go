@@ -51,6 +51,27 @@ type FixStep struct {
 	Warnings        []string                  `json:"warnings,omitempty"`
 	TreePath        string                    `json:"treePath,omitempty"`
 	KBInsights      []string                  `json:"kbInsights,omitempty"`
+	PastAttempts    []PastAttemptSummary      `json:"pastAttempts,omitempty"`
+}
+
+// PastAttemptSummary is a condensed view of a past fix attempt for the UI.
+type PastAttemptSummary struct {
+	TreePath  string `json:"treePath"`
+	Result    string `json:"result"` // "success", "failure", "rolled_back"
+	ErrorMsg  string `json:"errorMessage,omitempty"`
+	Command   string `json:"command,omitempty"`
+	When      string `json:"when"` // relative time string
+}
+
+// PostCheckResult compares before/after diagnostics for a step.
+type PostCheckResult struct {
+	StepNodeID     string   `json:"stepNodeId"`
+	ErrorsBefore   int      `json:"errorsBefore"`
+	ErrorsAfter    int      `json:"errorsAfter"`
+	Resolved       []string `json:"resolved,omitempty"`   // error codes that cleared
+	Remaining      []string `json:"remaining,omitempty"`  // error codes still present
+	NewIssues      []string `json:"newIssues,omitempty"`  // error codes that appeared
+	Status         string   `json:"status"`               // "fixed", "improved", "unchanged", "worse"
 }
 
 // FixPlan is the top-level response for the fix plan view.

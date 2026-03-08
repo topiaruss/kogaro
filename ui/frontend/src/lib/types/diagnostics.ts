@@ -14,6 +14,46 @@ export interface DiagnosticResult {
   ranAt: string;
 }
 
+export interface FixCmd {
+  label: string;
+  command: string;
+  destructive?: boolean;
+}
+
+export interface FixOption {
+  label: string;
+  description: string;
+  risk: string;
+  warnings?: string[];
+  commands: FixCmd[];
+  rollback?: FixCmd[];
+}
+
+export interface FixCommand {
+  label: string;
+  command: string;
+  safe?: boolean;
+  destructive?: boolean;
+}
+
+export interface PastAttemptSummary {
+  treePath: string;
+  result: string;
+  errorMessage?: string;
+  command?: string;
+  when: string;
+}
+
+export interface PostCheckResult {
+  stepNodeId: string;
+  errorsBefore: number;
+  errorsAfter: number;
+  resolved?: string[];
+  remaining?: string[];
+  newIssues?: string[];
+  status: string;
+}
+
 export interface FixStep {
   order: number;
   nodeId: string;
@@ -25,7 +65,13 @@ export interface FixStep {
   willAutoResolve: boolean;
   dependsOn: string[];
   remediation: string;
+  commands: FixCommand[];
   diagnostics: DiagnosticResult[];
+  options?: FixOption[];
+  warnings?: string[];
+  treePath?: string;
+  kbInsights?: string[];
+  pastAttempts?: PastAttemptSummary[];
 }
 
 export interface FixPlan {

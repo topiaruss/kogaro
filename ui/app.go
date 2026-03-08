@@ -369,6 +369,12 @@ func (a *App) GetFixPlan(incidentID string) (*diagnostics.FixPlan, error) {
 
 	// Build fix plan with profiles
 	plan := diagnostics.BuildFixPlan(a.lastGraph, *incident, diagResults, profiles)
+
+	// Enrich with past attempts from history
+	if a.history != nil {
+		diagnostics.EnrichWithPastAttempts(plan, &historyAdapter{store: a.history})
+	}
+
 	return plan, nil
 }
 
@@ -539,6 +545,125 @@ func (a *App) RecordFixAttempt(input FixAttemptInput) error {
 	})
 }
 
+// PostCheck re-runs diagnostics for an incident and compares with the current fix plan.
+func (a *App) PostCheck(incidentID string) ([]diagnostics.PostCheckResult, error) {
+	if a.lastGraph == nil {
+		return nil, fmt.Errorf("no scan results available")
+	}
+
+	// Find the incident
+	var incident *graph.Incident
+	for i := range a.lastGraph.Incidents {
+		if a.lastGraph.Incidents[i].ID == incidentID {
+			incident = &a.lastGraph.Incidents[i]
+			break
+		}
+	}
+	if incident == nil {
+		return nil, fmt.Errorf("incident %s not found", incidentID)
+	}
+
+	// Collect error codes before
+	beforeCodes := make(map[string]map[string]bool) // nodeID -> set of error codes
+	for _, e := range incident.Errors {
+		nid := string(graph.MakeNodeID(e.ResourceType, e.Namespace, e.ResourceName))
+		if beforeCodes[nid] == nil {
+			beforeCodes[nid] = make(map[string]bool)
+		}
+		beforeCodes[nid][e.ErrorCode] = true
+	}
+
+	// Re-scan
+	fg, err := a.runScanInternal()
+	if err != nil {
+		return nil, fmt.Errorf("re-scan failed: %w", err)
+	}
+
+	// Collect error codes after (across all incidents in same namespace)
+	afterCodes := make(map[string]map[string]bool)
+	for _, inc := range fg.Incidents {
+		if inc.Namespace != incident.Namespace {
+			continue
+		}
+		for _, e := range inc.Errors {
+			nid := string(graph.MakeNodeID(e.ResourceType, e.Namespace, e.ResourceName))
+			if afterCodes[nid] == nil {
+				afterCodes[nid] = make(map[string]bool)
+			}
+			afterCodes[nid][e.ErrorCode] = true
+		}
+	}
+
+	// Compare per node
+	var results []diagnostics.PostCheckResult
+	for nid, before := range beforeCodes {
+		after := afterCodes[nid]
+		r := diagnostics.PostCheckResult{
+			StepNodeID:   nid,
+			ErrorsBefore: len(before),
+		}
+
+		if after == nil {
+			// All errors cleared
+			r.ErrorsAfter = 0
+			for code := range before {
+				r.Resolved = append(r.Resolved, code)
+			}
+			r.Status = "fixed"
+		} else {
+			r.ErrorsAfter = len(after)
+			for code := range before {
+				if !after[code] {
+					r.Resolved = append(r.Resolved, code)
+				} else {
+					r.Remaining = append(r.Remaining, code)
+				}
+			}
+			for code := range after {
+				if !before[code] {
+					r.NewIssues = append(r.NewIssues, code)
+				}
+			}
+
+			switch {
+			case len(r.Resolved) > 0 && len(r.Remaining) == 0:
+				r.Status = "fixed"
+			case len(r.Resolved) > 0:
+				r.Status = "improved"
+			case len(r.NewIssues) > 0:
+				r.Status = "worse"
+			default:
+				r.Status = "unchanged"
+			}
+		}
+
+		results = append(results, r)
+	}
+
+	return results, nil
+}
+
+// runScanInternal runs a scan without emitting UI events.
+func (a *App) runScanInternal() (*graph.FaultGraph, error) {
+	if a.dataSource == nil || a.k8sClient == nil {
+		return nil, fmt.Errorf("not initialized")
+	}
+
+	errs, err := a.dataSource.Scan(a.ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	builder := graph.NewBuilder(a.k8sClient, 2)
+	fg, err := builder.Build(a.ctx, errs)
+	if err != nil {
+		return nil, err
+	}
+
+	a.lastGraph = fg
+	return fg, nil
+}
+
 // BuildInfo holds version/build metadata.
 type BuildInfo struct {
 	Commit    string `json:"commit"`
@@ -551,6 +676,29 @@ func (a *App) GetBuildInfo() *BuildInfo {
 		Commit:    buildCommit,
 		BuildTime: buildTime,
 	}
+}
+
+// historyAdapter adapts history.Store to diagnostics.PastAttemptProvider.
+type historyAdapter struct {
+	store *history.Store
+}
+
+func (h *historyAdapter) GetFixAttempts(imageBase, errorCode string, limit int) ([]diagnostics.PastAttemptRecord, error) {
+	attempts, err := h.store.GetFixAttempts(imageBase, errorCode, limit)
+	if err != nil {
+		return nil, err
+	}
+	var records []diagnostics.PastAttemptRecord
+	for _, a := range attempts {
+		records = append(records, diagnostics.PastAttemptRecord{
+			TreePath:     a.TreePath,
+			Result:       a.Result,
+			ErrorMessage: a.ErrorMessage,
+			PatchJSON:    a.PatchJSON,
+			CreatedAt:    a.CreatedAt,
+		})
+	}
+	return records, nil
 }
 
 func discardLogger() logr.Logger {

@@ -49,6 +49,10 @@ export function RecordFixAttempt(arg1) {
     return window['go']['main']['App']['RecordFixAttempt'](arg1);
 }
 
+export function PostCheck(arg1) {
+    return window['go']['main']['App']['PostCheck'](arg1);
+}
+
 export function GetBuildInfo() {
     return window['go']['main']['App']['GetBuildInfo']();
 }

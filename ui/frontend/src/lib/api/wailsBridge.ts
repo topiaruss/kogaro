@@ -1,5 +1,5 @@
-import { Scan, GetNodeDetail, GetKubeContexts, GetCurrentContext, SwitchContext, GetFixPlan, RunCommand, RecordFixAttempt } from '../../../wailsjs/go/main/App';
-import type { FixPlan } from '../types/diagnostics';
+import { Scan, GetNodeDetail, GetKubeContexts, GetCurrentContext, SwitchContext, GetFixPlan, RunCommand, RecordFixAttempt, PostCheck } from '../../../wailsjs/go/main/App';
+import type { FixPlan, PostCheckResult } from '../types/diagnostics';
 import { faultGraph, isScanning, scanError, currentContext, availableContexts, selectedNodeId } from '../stores/graphStore';
 import type { NodeDetailResponse } from '../types/graph';
 
@@ -87,6 +87,15 @@ export async function recordFixAttempt(input: FixAttemptInput): Promise<void> {
     await RecordFixAttempt(input);
   } catch (err) {
     console.error('Failed to record fix attempt:', err);
+  }
+}
+
+export async function postCheck(incidentId: string): Promise<PostCheckResult[]> {
+  try {
+    return await PostCheck(incidentId) as PostCheckResult[];
+  } catch (err: any) {
+    console.error('Post-check failed:', err);
+    return [];
   }
 }
 
