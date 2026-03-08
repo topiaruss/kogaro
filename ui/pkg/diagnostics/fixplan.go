@@ -329,6 +329,8 @@ func generateCommands(node *graph.Node, errs []graph.ErrorDetail, diags []Diagno
 	}
 
 	// Security issues — show current state and suggest patches
+	// CAUTION: runAsNonRoot fails if image uses non-numeric USER without explicit runAsUser.
+	// readOnlyRootFilesystem breaks nginx and other images that write to cache/tmp dirs.
 	if codeSet["KOGARO-SEC-002"] || codeSet["KOGARO-SEC-010"] {
 		cmds = append(cmds, FixCommand{
 			Label:   "Show pod-level security context",
@@ -340,20 +342,28 @@ func generateCommands(node *graph.Node, errs []graph.ErrorDetail, diags []Diagno
 			Command: fmt.Sprintf("kubectl get %s %s -n %s -o jsonpath='{.spec.template.spec.containers[0].securityContext}'", kind, node.Name, ns),
 			Safe:    true,
 		})
+		// Check image USER to decide if runAsNonRoot is safe
+		cmds = append(cmds, FixCommand{
+			Label:   "Check container image and user",
+			Command: fmt.Sprintf("kubectl get %s %s -n %s -o jsonpath='{.spec.template.spec.containers[0].image}'", kind, node.Name, ns),
+			Safe:    true,
+		})
 		if kind == "deployment" || kind == "statefulset" {
 			if codeSet["KOGARO-SEC-002"] {
-				// Pod allows root — add runAsNonRoot
+				// Pod allows root — suggest runAsNonRoot with runAsUser
+				// NOTE: runAsNonRoot alone fails if image USER is non-numeric
 				cmds = append(cmds, FixCommand{
-					Label:       "Set runAsNonRoot: true (prevents root)",
-					Command:     fmt.Sprintf(`kubectl patch %s %s -n %s --type=strategic -p '{"spec":{"template":{"spec":{"securityContext":{"runAsNonRoot":true}}}}}'`, kind, node.Name, ns),
+					Label:       "Set runAsNonRoot with explicit UID (safer than runAsNonRoot alone)",
+					Command:     fmt.Sprintf(`kubectl patch %s %s -n %s --type=strategic -p '{"spec":{"template":{"spec":{"securityContext":{"runAsNonRoot":true,"runAsUser":65534}}}}}'`, kind, node.Name, ns),
 					Destructive: true,
 				})
 			}
 			if codeSet["KOGARO-SEC-010"] {
-				// Missing container security context — add restricted defaults
+				// Missing container security context — add safe defaults (no readOnlyRootFilesystem)
+				// readOnlyRootFilesystem breaks nginx, postgres, and many other common images
 				cmds = append(cmds, FixCommand{
-					Label:       fmt.Sprintf("Add container security context for %s (restricted defaults)", cName),
-					Command:     fmt.Sprintf(`kubectl patch %s %s -n %s --type=strategic -p '{"spec":{"template":{"spec":{"containers":[{"name":"%s","securityContext":{"allowPrivilegeEscalation":false,"readOnlyRootFilesystem":true,"capabilities":{"drop":["ALL"]}}}]}}}}'`, kind, node.Name, ns, cName),
+					Label:       fmt.Sprintf("Add container security context for %s (safe defaults)", cName),
+					Command:     fmt.Sprintf(`kubectl patch %s %s -n %s --type=strategic -p '{"spec":{"template":{"spec":{"containers":[{"name":"%s","securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}}]}}}}'`, kind, node.Name, ns, cName),
 					Destructive: true,
 				})
 			}
@@ -364,13 +374,31 @@ func generateCommands(node *graph.Node, errs []graph.ErrorDetail, diags []Diagno
 	if codeSet["KOGARO-RES-UNKNOWN"] {
 		cmds = append(cmds, FixCommand{
 			Label:   "Show current resource requests/limits",
-			Command: fmt.Sprintf("kubectl get %s %s -n %s -o jsonpath='{.spec.template.spec.containers[*].resources}'", kind, node.Name, ns),
+			Command: fmt.Sprintf("kubectl get %s %s -n %s -o jsonpath='{.spec.template.spec.containers[0].resources}'", kind, node.Name, ns),
+			Safe:    true,
+		})
+		// Get current limits to suggest setting requests = limits (don't hardcode values)
+		cmds = append(cmds, FixCommand{
+			Label:   "Show current limits (use these values for Guaranteed QoS)",
+			Command: fmt.Sprintf("kubectl get %s %s -n %s -o jsonpath='limits: cpu={.spec.template.spec.containers[0].resources.limits.cpu} memory={.spec.template.spec.containers[0].resources.limits.memory}'", kind, node.Name, ns),
 			Safe:    true,
 		})
 		if kind == "deployment" || kind == "statefulset" {
+			// Use existing limits from diagnostic findings if available
+			cpuLimit, memLimit := "200m", "256Mi"
+			for _, d := range diags {
+				for _, f := range d.Findings {
+					if v, ok := f.Details["cpu_limit"]; ok && v != "" {
+						cpuLimit = v
+					}
+					if v, ok := f.Details["memory_limit"]; ok && v != "" {
+						memLimit = v
+					}
+				}
+			}
 			cmds = append(cmds, FixCommand{
-				Label:       fmt.Sprintf("Set Guaranteed QoS for %s (requests = limits)", cName),
-				Command:     fmt.Sprintf(`kubectl patch %s %s -n %s --type=strategic -p '{"spec":{"template":{"spec":{"containers":[{"name":"%s","resources":{"requests":{"memory":"256Mi","cpu":"200m"},"limits":{"memory":"256Mi","cpu":"200m"}}}]}}}}'`, kind, node.Name, ns, cName),
+				Label:       fmt.Sprintf("Set Guaranteed QoS for %s (requests = limits: %s cpu, %s memory)", cName, cpuLimit, memLimit),
+				Command:     fmt.Sprintf(`kubectl patch %s %s -n %s --type=strategic -p '{"spec":{"template":{"spec":{"containers":[{"name":"%s","resources":{"requests":{"memory":"%s","cpu":"%s"},"limits":{"memory":"%s","cpu":"%s"}}}]}}}}'`, kind, node.Name, ns, cName, memLimit, cpuLimit, memLimit, cpuLimit),
 				Destructive: true,
 			})
 		}

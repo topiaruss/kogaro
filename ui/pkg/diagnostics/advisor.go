@@ -59,6 +59,16 @@ func analyzeError(command, output string, s *Suggestion) *Suggestion {
 		return s
 	}
 
+	if strings.Contains(output, "runAsNonRoot") && strings.Contains(output, "non-numeric user") {
+		s.Insight = "runAsNonRoot failed: image uses a non-numeric USER. Add explicit runAsUser with the correct UID for this image"
+		return s
+	}
+
+	if strings.Contains(output, "Read-only file system") || strings.Contains(output, "read-only file system") {
+		s.Insight = "readOnlyRootFilesystem is blocking writes. This image needs a writable filesystem (e.g. nginx cache, postgres data). Remove readOnlyRootFilesystem or add emptyDir volume mounts for writable paths"
+		return s
+	}
+
 	s.Insight = fmt.Sprintf("Command failed: %s", strings.TrimSpace(output))
 	return s
 }
@@ -77,9 +87,12 @@ func analyzeDescribe(command, output string, errorCodes []string, s *Suggestion)
 			insights = append(insights, "Container image is empty — pod cannot start. Restore the image with a patch")
 		}
 
-		// Check for Waiting pods
-		if strings.Contains(trimmed, "Waiting") && strings.Contains(trimmed, "Pods Status:") {
-			insights = append(insights, "Pod is in Waiting state — not running")
+		// Check for Waiting pods — only flag if count > 0
+		if strings.Contains(trimmed, "Pods Status:") {
+			// Parse "X Running / Y Waiting" — flag only if waiting > 0 and running == 0
+			if strings.Contains(trimmed, "0 Running") && !strings.Contains(trimmed, "0 Waiting") {
+				insights = append(insights, "No pods are running — check pod events")
+			}
 		}
 
 		// Check for common issues in describe output

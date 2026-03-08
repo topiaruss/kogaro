@@ -1,6 +1,6 @@
 <script>
   import { selectedIncidentId } from '../../lib/stores/graphStore';
-  import { fetchFixPlan, runCommand } from '../../lib/api/wailsBridge';
+  import { fetchFixPlan, runCommand, runScan } from '../../lib/api/wailsBridge';
 
   export let onBack = () => {};
 
@@ -24,6 +24,23 @@
     try {
       plan = await fetchFixPlan(incidentId);
       if (!plan) error = 'No fix plan generated';
+    } catch (e) {
+      error = e?.message || String(e);
+    } finally {
+      loading = false;
+    }
+  }
+
+  async function rescanAndDiagnose() {
+    loading = true;
+    error = null;
+    cmdResults = {};
+    runningCmds = {};
+    suggestedCmds = [];
+    try {
+      await runScan();
+      plan = await fetchFixPlan($selectedIncidentId);
+      if (!plan) error = 'No fix plan generated — issue may be resolved';
     } catch (e) {
       error = e?.message || String(e);
     } finally {
@@ -223,8 +240,8 @@
       {/if}
 
       <div class="plan-footer">
-        <button class="refresh-btn" on:click={() => loadPlan($selectedIncidentId)}>
-          Re-run diagnostics
+        <button class="refresh-btn" disabled={loading} on:click={rescanAndDiagnose}>
+          {loading ? 'Scanning & diagnosing...' : 'Re-scan & diagnose'}
         </button>
       </div>
     {:else}
