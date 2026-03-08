@@ -3,13 +3,14 @@
   import Toolbar from './components/layout/Toolbar.svelte';
   import SituationStrip from './components/situation/SituationStrip.svelte';
   import IncidentDetail from './components/situation/IncidentDetail.svelte';
+  import FixPlanView from './components/situation/FixPlanView.svelte';
   import GraphCanvas from './components/graph/GraphCanvas.svelte';
   import EvidencePanel from './components/evidence/EvidencePanel.svelte';
   import ImpactPanel from './components/impact/ImpactPanel.svelte';
   import { selectedIncidentId, selectedNodeId, faultGraph, visibleGraph, showCrossNamespace } from './lib/stores/graphStore';
   import { loadContexts } from './lib/api/wailsBridge';
 
-  let viewMode = 'incidents'; // 'incidents' | 'detail' | 'graph'
+  let viewMode = 'incidents'; // 'incidents' | 'detail' | 'fixplan' | 'graph'
 
   onMount(async () => {
     await loadContexts();
@@ -24,23 +25,19 @@
 
   $: hasGraphData = $visibleGraph.nodes.length > 0;
 
-  function goToGraph() {
-    viewMode = 'graph';
-  }
+  function goToGraph() { viewMode = 'graph'; }
+  function goToFixPlan() { viewMode = 'fixplan'; }
 
   function goBack() {
-    if (viewMode === 'graph') {
-      viewMode = 'detail';
-    } else {
-      selectedIncidentId.set(null);
-    }
+    if (viewMode === 'graph') viewMode = 'detail';
+    else if (viewMode === 'fixplan') viewMode = 'detail';
+    else selectedIncidentId.set(null);
   }
 </script>
 
 <Toolbar />
 <div class="main-area">
   {#if viewMode === 'graph' && hasGraphData}
-    <!-- Graph drill-down mode: graph + evidence -->
     <div class="graph-layout">
       <div class="graph-area">
         <div class="graph-controls">
@@ -60,11 +57,11 @@
         </div>
       {/if}
     </div>
+  {:else if viewMode === 'fixplan' && $selectedIncidentId}
+    <FixPlanView onBack={goBack} />
   {:else if viewMode === 'detail' && $selectedIncidentId}
-    <!-- Incident detail view -->
-    <IncidentDetail onViewGraph={goToGraph} />
+    <IncidentDetail onViewGraph={goToGraph} onDiagnose={goToFixPlan} />
   {:else}
-    <!-- Incidents-first view -->
     <SituationStrip />
   {/if}
 </div>

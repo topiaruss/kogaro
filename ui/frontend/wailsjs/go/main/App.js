@@ -24,3 +24,27 @@ export function GetCurrentContext() {
 export function SwitchContext(arg1) {
     return window['go']['main']['App']['SwitchContext'](arg1);
 }
+
+export function GetFixPlan(arg1) {
+    return window['go']['main']['App']['GetFixPlan'](arg1);
+}
+
+export function GetScanHistory(arg1) {
+    return window['go']['main']['App']['GetScanHistory'](arg1);
+}
+
+export function GetScanDiff(arg1, arg2) {
+    return window['go']['main']['App']['GetScanDiff'](arg1, arg2);
+}
+
+export function ApplyFix(arg1) {
+    return window['go']['main']['App']['ApplyFix'](arg1);
+}
+
+export function RunCommand(arg1, arg2) {
+    return window['go']['main']['App']['RunCommand'](arg1, arg2);
+}
+
+export function GetBuildInfo() {
+    return window['go']['main']['App']['GetBuildInfo']();
+}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/go-logr/logr/funcr"
 	"github.com/topiaruss/kogaro/internal/validators"
 	"github.com/topiaruss/kogaro/ui/pkg/datasource"
+	"github.com/topiaruss/kogaro/ui/pkg/diagnostics"
 	"github.com/topiaruss/kogaro/ui/pkg/graph"
 	"github.com/topiaruss/kogaro/ui/pkg/history"
 	"github.com/topiaruss/kogaro/ui/pkg/kubecontext"
@@ -40,6 +42,7 @@ type App struct {
 	scheme     *runtime.Scheme
 	registry   *validators.ValidatorRegistry
 	history    *history.Store
+	diagRunner *diagnostics.Runner
 }
 
 // NewApp creates a new App instance.
@@ -93,6 +96,7 @@ func (a *App) initClient(contextName string) error {
 
 	a.registry = a.setupRegistry(c)
 	a.dataSource = datasource.NewKogaroDataSource(c, a.registry)
+	a.diagRunner = diagnostics.NewRunner(c, a.history)
 	return nil
 }
 
@@ -331,6 +335,127 @@ func (a *App) GetScanDiff(olderScanID, newerScanID uint) (*history.ScanDiff, err
 		return nil, fmt.Errorf("history database not available")
 	}
 	return a.history.DiffScans(olderScanID, newerScanID)
+}
+
+// GetFixPlan runs diagnostics and generates a dependency-sorted fix plan.
+func (a *App) GetFixPlan(incidentID string) (*diagnostics.FixPlan, error) {
+	if a.lastGraph == nil {
+		return nil, fmt.Errorf("no scan results available")
+	}
+	if a.diagRunner == nil {
+		return nil, fmt.Errorf("diagnostic runner not available")
+	}
+
+	var incident *graph.Incident
+	for i := range a.lastGraph.Incidents {
+		if a.lastGraph.Incidents[i].ID == incidentID {
+			incident = &a.lastGraph.Incidents[i]
+			break
+		}
+	}
+	if incident == nil {
+		return nil, fmt.Errorf("incident %s not found", incidentID)
+	}
+
+	// Run diagnostics
+	diagResults, err := a.diagRunner.RunForIncident(a.ctx, *incident)
+	if err != nil {
+		return nil, fmt.Errorf("running diagnostics: %w", err)
+	}
+
+	// Build fix plan
+	plan := diagnostics.BuildFixPlan(a.lastGraph, *incident, diagResults)
+	return plan, nil
+}
+
+// RunCommandResult is the output of running a kubectl command with analysis.
+type RunCommandResult struct {
+	Success    bool                    `json:"success"`
+	Output     string                  `json:"output"`
+	Error      string                  `json:"error,omitempty"`
+	Suggestion *diagnostics.Suggestion `json:"suggestion,omitempty"`
+}
+
+// parseShellArgs splits a command string into arguments, respecting single and double quotes.
+func parseShellArgs(s string) []string {
+	var args []string
+	var current strings.Builder
+	inSingle := false
+	inDouble := false
+
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c == '\'' && !inDouble:
+			inSingle = !inSingle
+		case c == '"' && !inSingle:
+			inDouble = !inDouble
+		case c == ' ' && !inSingle && !inDouble:
+			if current.Len() > 0 {
+				args = append(args, current.String())
+				current.Reset()
+			}
+		default:
+			current.WriteByte(c)
+		}
+	}
+	if current.Len() > 0 {
+		args = append(args, current.String())
+	}
+	return args
+}
+
+// RunCommand executes a kubectl command, analyzes the output, and suggests next steps.
+func (a *App) RunCommand(command string, errorCodes []string) (*RunCommandResult, error) {
+	// Safety: only allow kubectl commands
+	trimmed := strings.TrimSpace(command)
+	if !strings.HasPrefix(trimmed, "kubectl ") {
+		return &RunCommandResult{Success: false, Error: "only kubectl commands are allowed"}, nil
+	}
+
+	// Parse into args, respecting quotes (important for JSON patches)
+	allArgs := parseShellArgs(trimmed)
+	args := allArgs[1:] // skip "kubectl"
+
+	ctx, cancel := context.WithTimeout(a.ctx, 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "kubectl", args...)
+	output, err := cmd.CombinedOutput()
+	success := err == nil
+	outputStr := string(output)
+
+	result := &RunCommandResult{
+		Success: success,
+		Output:  outputStr,
+	}
+	if err != nil {
+		result.Error = err.Error()
+	}
+
+	// Analyze and suggest next steps
+	result.Suggestion = diagnostics.AnalyzeOutput(command, outputStr, success, errorCodes)
+
+	return result, nil
+}
+
+// ApplyFix is an alias for RunCommand for backwards compatibility.
+func (a *App) ApplyFix(command string) (*RunCommandResult, error) {
+	return a.RunCommand(command, nil)
+}
+
+// BuildInfo holds version/build metadata.
+type BuildInfo struct {
+	Commit    string `json:"commit"`
+	BuildTime string `json:"buildTime"`
+}
+
+// GetBuildInfo returns the build commit and time.
+func (a *App) GetBuildInfo() *BuildInfo {
+	return &BuildInfo{
+		Commit:    buildCommit,
+		BuildTime: buildTime,
+	}
 }
 
 func discardLogger() logr.Logger {

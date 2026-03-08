@@ -2,6 +2,7 @@
   import { selectedIncidentId, faultGraph } from '../../lib/stores/graphStore';
 
   export let onViewGraph = () => {};
+  export let onDiagnose = () => {};
 
   $: incident = $faultGraph?.incidents?.find(i => i.id === $selectedIncidentId) || null;
 
@@ -165,9 +166,12 @@
     </section>
     {/if}
 
-    <!-- View Graph button -->
-    <div class="graph-cta">
-      <button class="graph-btn" on:click={onViewGraph}>
+    <!-- Actions -->
+    <div class="actions">
+      <button class="action-btn primary" on:click={onDiagnose}>
+        Diagnose &amp; Fix Plan
+      </button>
+      <button class="action-btn secondary" on:click={onViewGraph}>
         View dependency graph &rarr;
       </button>
     </div>
@@ -333,22 +337,31 @@
     color: var(--text-primary);
     background: var(--bg-tertiary);
   }
-  .graph-cta {
+  .actions {
     padding-top: 12px;
     border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
-  .graph-btn {
+  .action-btn {
     width: 100%;
     padding: 10px;
     border-radius: 8px;
-    background: var(--accent);
-    border: none;
-    color: white;
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
+    border: none;
   }
-  .graph-btn:hover {
-    opacity: 0.9;
+  .action-btn.primary {
+    background: var(--accent);
+    color: white;
   }
+  .action-btn.primary:hover { opacity: 0.9; }
+  .action-btn.secondary {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+  }
+  .action-btn.secondary:hover { background: var(--bg-tertiary); }
 </style>

@@ -37,6 +37,17 @@ type ErrorRecord struct {
 	Severity     string `json:"severity" gorm:"default:'error'"`
 }
 
+// DiagnosticRecord persists a diagnostic run result.
+type DiagnosticRecord struct {
+	ID           uint      `json:"id" gorm:"primaryKey"`
+	ErrorCode    string    `json:"errorCode" gorm:"not null"`
+	ResourceType string    `json:"resourceType" gorm:"not null"`
+	ResourceName string    `json:"resourceName" gorm:"not null"`
+	Namespace    string    `json:"namespace" gorm:"default:''"`
+	FindingsJSON string    `json:"-" gorm:"type:text"`
+	RanAt        time.Time `json:"ranAt" gorm:"not null"`
+}
+
 // ScanDiff shows what changed between two scans.
 type ScanDiff struct {
 	OlderScan   ScanRecord    `json:"olderScan"`
@@ -72,7 +83,7 @@ func Open(path string) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
-	if err := db.AutoMigrate(&ScanRecord{}, &ErrorRecord{}); err != nil {
+	if err := db.AutoMigrate(&ScanRecord{}, &ErrorRecord{}, &DiagnosticRecord{}); err != nil {
 		return nil, fmt.Errorf("migrating database: %w", err)
 	}
 	return &Store{db: db}, nil
@@ -177,6 +188,24 @@ func (s *Store) DiffScans(olderScanID, newerScanID uint) (*ScanDiff, error) {
 	}
 
 	return diff, nil
+}
+
+// SaveDiagnostic persists a diagnostic result.
+func (s *Store) SaveDiagnostic(record *DiagnosticRecord) error {
+	return s.db.Create(record).Error
+}
+
+// GetDiagnosticHistory returns recent diagnostics for a resource.
+func (s *Store) GetDiagnosticHistory(namespace, resourceName string, limit int) ([]DiagnosticRecord, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	var records []DiagnosticRecord
+	err := s.db.Where("namespace = ? AND resource_name = ?", namespace, resourceName).
+		Order("ran_at desc").
+		Limit(limit).
+		Find(&records).Error
+	return records, err
 }
 
 // Close closes the database connection.

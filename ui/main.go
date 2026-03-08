@@ -8,6 +8,12 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 )
 
+// Set via ldflags at build time
+var (
+	buildCommit = "dev"
+	buildTime   = "unknown"
+)
+
 //go:embed all:frontend/dist
 var assets embed.FS
 
