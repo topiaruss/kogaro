@@ -9,11 +9,11 @@ type NodeID string
 type HealthState string
 
 const (
-	HealthBroken  HealthState = "broken"
+	HealthBroken   HealthState = "broken"
 	HealthDegraded HealthState = "degraded"
-	HealthHealthy HealthState = "healthy"
-	HealthMissing HealthState = "missing"
-	HealthUnknown HealthState = "unknown"
+	HealthHealthy  HealthState = "healthy"
+	HealthMissing  HealthState = "missing"
+	HealthUnknown  HealthState = "unknown"
 )
 
 // Node represents a Kubernetes resource in the fault graph.
@@ -90,12 +90,12 @@ type FaultGraph struct {
 
 // NodeDetailResponse provides full evidence for a single node.
 type NodeDetailResponse struct {
-	Node             Node          `json:"node"`
-	Errors           []ErrorDetail `json:"errors"`
-	IncomingEdges    []Edge        `json:"incomingEdges"`
-	OutgoingEdges    []Edge        `json:"outgoingEdges"`
-	OwnerChain       []NodeID      `json:"ownerChain,omitempty"`
-	DependentCount   int           `json:"dependentCount"`
+	Node           Node          `json:"node"`
+	Errors         []ErrorDetail `json:"errors"`
+	IncomingEdges  []Edge        `json:"incomingEdges"`
+	OutgoingEdges  []Edge        `json:"outgoingEdges"`
+	OwnerChain     []NodeID      `json:"ownerChain,omitempty"`
+	DependentCount int           `json:"dependentCount"`
 }
 
 // MakeNodeID constructs a NodeID from kind, namespace, and name.

@@ -682,4 +682,3 @@ func TestValidateClusterWithNoErrors(t *testing.T) {
 		t.Errorf("Expected no error, got %v", err)
 	}
 }
-

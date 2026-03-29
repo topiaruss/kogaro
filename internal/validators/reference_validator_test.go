@@ -495,4 +495,3 @@ func TestReferenceValidator_ValidateCluster(t *testing.T) {
 		t.Fatalf("ValidateCluster() with disabled validations error = %v", err)
 	}
 }
-

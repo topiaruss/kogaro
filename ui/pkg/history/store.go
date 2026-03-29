@@ -15,20 +15,20 @@ import (
 
 // ScanRecord represents a single scan run.
 type ScanRecord struct {
-	ID            uint         `json:"id" gorm:"primaryKey"`
-	Context       string       `json:"context" gorm:"index;not null"`
-	ScanTime      time.Time    `json:"scanTime" gorm:"not null"`
-	NodeCount     int          `json:"nodeCount"`
-	EdgeCount     int          `json:"edgeCount"`
-	IncidentCount int          `json:"incidentCount"`
-	ErrorCount    int          `json:"errorCount"`
-	Errors []ErrorRecord `json:"errors,omitempty"`
+	ID            uint          `json:"id" gorm:"primaryKey"`
+	Context       string        `json:"context" gorm:"index;not null"`
+	ScanTime      time.Time     `json:"scanTime" gorm:"not null"`
+	NodeCount     int           `json:"nodeCount"`
+	EdgeCount     int           `json:"edgeCount"`
+	IncidentCount int           `json:"incidentCount"`
+	ErrorCount    int           `json:"errorCount"`
+	Errors        []ErrorRecord `json:"errors,omitempty"`
 }
 
 // ErrorRecord represents a single validation error within a scan.
 type ErrorRecord struct {
-	ID             uint   `json:"id" gorm:"primaryKey"`
-	ScanRecordID   uint   `json:"scanId" gorm:"index;not null"`
+	ID           uint   `json:"id" gorm:"primaryKey"`
+	ScanRecordID uint   `json:"scanId" gorm:"index;not null"`
 	ErrorCode    string `json:"errorCode" gorm:"not null"`
 	ResourceType string `json:"resourceType" gorm:"not null"`
 	ResourceName string `json:"resourceName" gorm:"not null"`

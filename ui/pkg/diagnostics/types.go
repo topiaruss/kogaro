@@ -34,17 +34,17 @@ type FixCommand struct {
 
 // FixStep is one entry in the dependency-sorted fix plan.
 type FixStep struct {
-	Order           int                `json:"order"`
-	NodeID          string             `json:"nodeId"`
-	ResourceKind    string             `json:"resourceKind"`
-	ResourceName    string             `json:"resourceName"`
-	Namespace       string             `json:"namespace"`
-	ErrorCodes      []string           `json:"errorCodes"`
-	IsRootCause     bool               `json:"isRootCause"`
-	WillAutoResolve bool               `json:"willAutoResolve"`
-	DependsOn       []string           `json:"dependsOn"` // nodeIDs that must be fixed first
-	Remediation     string             `json:"remediation"`
-	Commands        []FixCommand       `json:"commands"`
+	Order           int                       `json:"order"`
+	NodeID          string                    `json:"nodeId"`
+	ResourceKind    string                    `json:"resourceKind"`
+	ResourceName    string                    `json:"resourceName"`
+	Namespace       string                    `json:"namespace"`
+	ErrorCodes      []string                  `json:"errorCodes"`
+	IsRootCause     bool                      `json:"isRootCause"`
+	WillAutoResolve bool                      `json:"willAutoResolve"`
+	DependsOn       []string                  `json:"dependsOn"` // nodeIDs that must be fixed first
+	Remediation     string                    `json:"remediation"`
+	Commands        []FixCommand              `json:"commands"`
 	Diagnostics     []DiagnosticResult        `json:"diagnostics"`
 	Profile         *adaptive.WorkloadProfile `json:"profile,omitempty"`
 	Options         []adaptive.FixOption      `json:"options,omitempty"`
@@ -56,22 +56,22 @@ type FixStep struct {
 
 // PastAttemptSummary is a condensed view of a past fix attempt for the UI.
 type PastAttemptSummary struct {
-	TreePath  string `json:"treePath"`
-	Result    string `json:"result"` // "success", "failure", "rolled_back"
-	ErrorMsg  string `json:"errorMessage,omitempty"`
-	Command   string `json:"command,omitempty"`
-	When      string `json:"when"` // relative time string
+	TreePath string `json:"treePath"`
+	Result   string `json:"result"` // "success", "failure", "rolled_back"
+	ErrorMsg string `json:"errorMessage,omitempty"`
+	Command  string `json:"command,omitempty"`
+	When     string `json:"when"` // relative time string
 }
 
 // PostCheckResult compares before/after diagnostics for a step.
 type PostCheckResult struct {
-	StepNodeID     string   `json:"stepNodeId"`
-	ErrorsBefore   int      `json:"errorsBefore"`
-	ErrorsAfter    int      `json:"errorsAfter"`
-	Resolved       []string `json:"resolved,omitempty"`   // error codes that cleared
-	Remaining      []string `json:"remaining,omitempty"`  // error codes still present
-	NewIssues      []string `json:"newIssues,omitempty"`  // error codes that appeared
-	Status         string   `json:"status"`               // "fixed", "improved", "unchanged", "worse"
+	StepNodeID   string   `json:"stepNodeId"`
+	ErrorsBefore int      `json:"errorsBefore"`
+	ErrorsAfter  int      `json:"errorsAfter"`
+	Resolved     []string `json:"resolved,omitempty"`  // error codes that cleared
+	Remaining    []string `json:"remaining,omitempty"` // error codes still present
+	NewIssues    []string `json:"newIssues,omitempty"` // error codes that appeared
+	Status       string   `json:"status"`              // "fixed", "improved", "unchanged", "worse"
 }
 
 // FixPlan is the top-level response for the fix plan view.

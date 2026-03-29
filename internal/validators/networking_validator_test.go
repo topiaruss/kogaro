@@ -741,4 +741,3 @@ func TestNetworkingValidator_HelperFunctions(t *testing.T) {
 		}
 	})
 }
-

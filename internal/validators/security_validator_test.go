@@ -184,7 +184,7 @@ func TestSecurityValidator_ValidateCluster_RootUserValidation(t *testing.T) {
 				},
 			},
 			config: SecurityConfig{
-				EnableRootUserValidation:       true,
+				EnableRootUserValidation:        true,
 				EnableSecurityContextValidation: true,
 			},
 			expectedErrors: []string{}, // No errors expected for secure configuration
@@ -511,8 +511,8 @@ func TestSecurityValidator_ValidateNetworkPolicyCoverage(t *testing.T) {
 				},
 			},
 			config: SecurityConfig{
-				EnableNetworkPolicyValidation:   true,
-				SecuritySensitiveNamespaces: []string{"sensitive-ns"},
+				EnableNetworkPolicyValidation: true,
+				SecuritySensitiveNamespaces:   []string{"sensitive-ns"},
 			},
 			expectedErrors: []string{"missing_network_policy_security_sensitive"},
 		},
@@ -550,8 +550,8 @@ func TestSecurityValidator_ValidateNetworkPolicyCoverage(t *testing.T) {
 				},
 			},
 			config: SecurityConfig{
-				EnableNetworkPolicyValidation:   true,
-				SecuritySensitiveNamespaces: []string{"secure-ns"},
+				EnableNetworkPolicyValidation: true,
+				SecuritySensitiveNamespaces:   []string{"secure-ns"},
 			},
 			expectedErrors: []string{}, // No errors expected
 		},
@@ -698,4 +698,3 @@ func TestSecurityValidator_DaemonSetValidation(t *testing.T) {
 		t.Errorf("ValidateCluster() error = %v", err)
 	}
 }
-

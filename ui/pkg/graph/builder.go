@@ -16,11 +16,11 @@ import (
 
 // Builder constructs a FaultGraph from validation errors.
 type Builder struct {
-	client    client.Client
-	maxDepth  int
-	nodes     map[NodeID]*Node
-	edges     []Edge
-	edgeSet   map[string]bool
+	client   client.Client
+	maxDepth int
+	nodes    map[NodeID]*Node
+	edges    []Edge
+	edgeSet  map[string]bool
 }
 
 // NewBuilder creates a graph builder.
@@ -429,7 +429,7 @@ func (b *Builder) propagateHealth() {
 // The owner inherits all error codes and becomes the fault origin. The Pod is removed.
 func (b *Builder) collapseByOwner() {
 	// Find ownership edges: owner -> pod
-	ownerOf := make(map[NodeID]NodeID)   // pod -> owner
+	ownerOf := make(map[NodeID]NodeID)      // pod -> owner
 	childrenOf := make(map[NodeID][]NodeID) // owner -> pods
 	for _, e := range b.edges {
 		if e.Type != EdgeOwnership {

@@ -586,11 +586,11 @@ func TestFindPodsMatchingLabelSelector(t *testing.T) {
 	}
 
 	tests := []struct {
-		name         string
+		name          string
 		labelSelector *metav1.LabelSelector
-		want         int
-		wantNames    []string
-		wantError    bool
+		want          int
+		wantNames     []string
+		wantError     bool
 	}{
 		{
 			name: "match labels selector",
@@ -628,14 +628,14 @@ func TestFindPodsMatchingLabelSelector(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := FindPodsMatchingLabelSelector(tt.labelSelector, pods)
-			
+
 			if tt.wantError && err == nil {
 				t.Error("FindPodsMatchingLabelSelector() expected error but got none")
 			}
 			if !tt.wantError && err != nil {
 				t.Errorf("FindPodsMatchingLabelSelector() unexpected error: %v", err)
 			}
-			
+
 			if len(got) != tt.want {
 				t.Errorf("FindPodsMatchingLabelSelector() returned %d pods, want %d", len(got), tt.want)
 			}
@@ -738,13 +738,13 @@ func TestResourceExistsChecker(t *testing.T) {
 func TestNewResourceExistsChecker(t *testing.T) {
 	scheme := runtime.NewScheme()
 	client := fake.NewClientBuilder().WithScheme(scheme).Build()
-	
+
 	checker := NewResourceExistsChecker(client)
 	if checker == nil {
 		t.Error("NewResourceExistsChecker should return non-nil checker")
 		return
 	}
-	
+
 	if checker.client != client {
 		t.Error("ResourceExistsChecker should store the provided client")
 	}

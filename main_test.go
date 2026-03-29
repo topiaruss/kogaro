@@ -20,7 +20,7 @@ func TestCLIValidation(t *testing.T) {
 		// Create plain YAML without Helm templates
 		tmpDir := t.TempDir()
 		configFile := filepath.Join(tmpDir, "deployment-missing-configmap.yaml")
-		
+
 		plainYAML := `apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -53,13 +53,13 @@ spec:
 		// Run CLI validation
 		cmd := exec.Command("./kogaro-test", "--mode=one-off", "--config="+configFile) // nolint:gosec // Test execution
 		output, _ := cmd.CombinedOutput()
-		
+
 		// Should parse successfully (no YAML parsing errors)
 		outputStr := string(output)
 		if strings.Contains(outputStr, "failed to parse YAML") {
 			t.Errorf("Plain YAML should parse successfully, got:\n%s", outputStr)
 		}
-		
+
 		t.Logf("Validation output:\n%s", outputStr)
 	})
 
@@ -72,22 +72,22 @@ spec:
 
 		cmd := exec.Command("./kogaro-test", "--mode=one-off", "--config="+helmFile) // nolint:gosec // Test execution
 		output, err := cmd.CombinedOutput()
-		
+
 		// Should fail with parsing error
 		exitCode := 0
 		if exitError, ok := err.(*exec.ExitError); ok {
 			exitCode = exitError.ExitCode()
 		}
-		
+
 		if exitCode == 0 {
 			t.Error("Helm template file should fail validation")
 		}
-		
+
 		outputStr := string(output)
 		if !strings.Contains(outputStr, "Helm templates") {
 			t.Errorf("Expected Helm template error message, got:\n%s", outputStr)
 		}
-		
+
 		t.Logf("Helm template error output:\n%s", outputStr)
 	})
 }

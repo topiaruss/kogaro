@@ -109,7 +109,7 @@ func TestValidationError_Fields(t *testing.T) {
 func TestValidationError_TypeConsistency(t *testing.T) {
 	// Test that ValidationError fields are the expected types
 	var err ValidationError
-	
+
 	if reflect.TypeOf(err.ResourceType).Kind() != reflect.String {
 		t.Errorf("ResourceType should be string, got %v", reflect.TypeOf(err.ResourceType).Kind())
 	}
@@ -186,7 +186,7 @@ func TestValidationError_UsagePatterns(t *testing.T) {
 				Message:        tt.message,
 			}
 
-			isEmpty := err.ResourceType == "" && err.ResourceName == "" && 
+			isEmpty := err.ResourceType == "" && err.ResourceName == "" &&
 				err.Namespace == "" && err.ValidationType == "" && err.Message == ""
 
 			if isEmpty != tt.wantEmpty {
@@ -211,7 +211,7 @@ func TestValidationError_UsagePatterns(t *testing.T) {
 // Test the new ValidationError constructor and helper methods
 func TestNewValidationError(t *testing.T) {
 	err := NewValidationError("Pod", "test-pod", "default", "missing_resources", "Test message")
-	
+
 	if err.ResourceType != "Pod" {
 		t.Errorf("ResourceType = %v, want %v", err.ResourceType, "Pod")
 	}
@@ -242,7 +242,7 @@ func TestValidationError_MethodChaining(t *testing.T) {
 		WithRelatedResources("Pod/api-pod-1", "Pod/api-pod-2").
 		WithDetail("selector", "app=api").
 		WithDetail("port", "8080")
-	
+
 	if err.Severity != SeverityWarning {
 		t.Errorf("Severity = %v, want %v", err.Severity, SeverityWarning)
 	}
@@ -293,12 +293,12 @@ func TestValidationError_SeverityMethods(t *testing.T) {
 			wantIsInfo:  true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := NewValidationError("Pod", "test", "default", "test_type", "test message").
 				WithSeverity(tt.severity)
-			
+
 			if err.IsError() != tt.wantIsError {
 				t.Errorf("IsError() = %v, want %v", err.IsError(), tt.wantIsError)
 			}
@@ -338,7 +338,7 @@ func TestValidationError_GetResourceKey(t *testing.T) {
 			want:      "default/test-pod",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := NewValidationError("TestResource", tt.resource, tt.namespace, "test_type", "test message")
@@ -353,16 +353,16 @@ func TestValidationError_WithRelatedResources(t *testing.T) {
 	// Test adding multiple resources at once
 	err := NewValidationError("Service", "api", "default", "test", "test").
 		WithRelatedResources("Pod/pod1", "Pod/pod2", "Deployment/api-deployment")
-	
+
 	if len(err.RelatedResources) != 3 {
 		t.Errorf("RelatedResources length = %v, want %v", len(err.RelatedResources), 3)
 	}
-	
+
 	// Test adding resources in multiple calls
 	err2 := NewValidationError("Service", "api", "default", "test", "test").
 		WithRelatedResources("Pod/pod1").
 		WithRelatedResources("Pod/pod2")
-	
+
 	if len(err2.RelatedResources) != 2 {
 		t.Errorf("RelatedResources length = %v, want %v", len(err2.RelatedResources), 2)
 	}
@@ -373,19 +373,19 @@ func TestValidationError_WithDetail(t *testing.T) {
 	err := NewValidationError("Pod", "test", "default", "test", "test").
 		WithDetail("container", "nginx").
 		WithDetail("image", "nginx:latest")
-	
+
 	if len(err.Details) != 2 {
 		t.Errorf("Details length = %v, want %v", len(err.Details), 2)
 	}
-	
+
 	if err.Details["container"] != "nginx" {
 		t.Errorf("Details[container] = %v, want %v", err.Details["container"], "nginx")
 	}
-	
+
 	if err.Details["image"] != "nginx:latest" {
 		t.Errorf("Details[image] = %v, want %v", err.Details["image"], "nginx:latest")
 	}
-	
+
 	// Test overwriting existing detail
 	err = err.WithDetail("container", "apache")
 	if err.Details["container"] != "apache" {

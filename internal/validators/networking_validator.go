@@ -265,7 +265,6 @@ func (v *NetworkingValidator) validateServicePorts(service corev1.Service, match
 	return errors
 }
 
-
 func (v *NetworkingValidator) findUnexposedPods(pods []corev1.Pod, services []corev1.Service) []ValidationError {
 	var errors []ValidationError
 
@@ -536,4 +535,3 @@ func (v *NetworkingValidator) validateIngressServiceBackend(ingress networkingv1
 
 	return errors
 }
-

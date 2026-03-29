@@ -132,7 +132,7 @@ func TestValidators_ErrorMessageConsistency(t *testing.T) {
 			name: "security_validator_messages",
 			validator: func() Validator {
 				return NewSecurityValidator(fake.NewClientBuilder().WithScheme(scheme).Build(), logr.Discard(), SecurityConfig{
-					EnableRootUserValidation:       true,
+					EnableRootUserValidation:        true,
 					EnableSecurityContextValidation: true,
 				})
 			},
@@ -188,10 +188,10 @@ func TestValidators_ErrorMessageConsistency(t *testing.T) {
 			// Create validator with test objects
 			objects := tt.setupFunc()
 			client := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objects...).Build()
-			
+
 			// Get validator instance and update its client
 			validator := tt.validator()
-			
+
 			// Use reflection to set the client for each validator type
 			switch v := validator.(type) {
 			case *ReferenceValidator:
@@ -299,14 +299,14 @@ func TestErrorMessagePatterns(t *testing.T) {
 				if len(msg) == 0 {
 					t.Errorf("Empty message violates rule: %s", tt.rule)
 				}
-				
+
 				// Check that message starts with capital letter
 				if tt.name == "proper_capitalization" {
 					if strings.ToUpper(msg[:1]) != msg[:1] {
 						t.Errorf("Message '%s' violates capitalization rule", msg)
 					}
 				}
-				
+
 				// Check quote consistency
 				if tt.name == "consistent_quote_usage" {
 					singleQuotes := strings.Count(msg, "'")
@@ -325,23 +325,23 @@ func TestValidationTypeConsistency(t *testing.T) {
 	validationTypes := []string{
 		// Reference validation types
 		"dangling_ingress_class",
-		"dangling_service_reference", 
+		"dangling_service_reference",
 		"dangling_configmap_volume",
 		"dangling_secret_volume",
 		"dangling_pvc_reference",
-		
+
 		// Resource limits validation types
 		"missing_resource_requests",
 		"missing_resource_limits",
 		"insufficient_cpu_request",
 		"qos_class_issue",
-		
+
 		// Security validation types
 		"pod_running_as_root",
 		"container_running_as_root",
 		"missing_pod_security_context",
 		"missing_container_security_context",
-		
+
 		// Networking validation types
 		"service_selector_mismatch",
 		"service_no_endpoints",
@@ -368,7 +368,7 @@ func TestValidationTypeConsistency(t *testing.T) {
 	}
 }
 
-// Helper function for string pointers  
+// Helper function for string pointers
 func stringPtrHelper(s string) *string {
 	return &s
 }

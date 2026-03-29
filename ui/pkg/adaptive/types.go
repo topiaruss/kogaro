@@ -29,7 +29,7 @@ type VolumeSummary struct {
 type ContainerProfile struct {
 	Name           string               `json:"name"`
 	Image          string               `json:"image"`
-	ImageBase      string               `json:"imageBase"`    // "nginx", "bitnami/postgresql"
+	ImageBase      string               `json:"imageBase"` // "nginx", "bitnami/postgresql"
 	ImageTag       string               `json:"imageTag"`
 	IsKnownImage   bool                 `json:"isKnownImage"`
 	Ports          []PortSummary        `json:"ports,omitempty"`
@@ -49,7 +49,7 @@ type ContainerSecSummary struct {
 	ReadOnlyRootFilesystem   *bool    `json:"readOnlyRootFilesystem,omitempty"`
 	AllowPrivilegeEscalation *bool    `json:"allowPrivilegeEscalation,omitempty"`
 	Privileged               *bool    `json:"privileged,omitempty"`
-	Capabilities             []string `json:"capabilities,omitempty"`     // added caps
+	Capabilities             []string `json:"capabilities,omitempty"` // added caps
 	DropCapabilities         []string `json:"dropCapabilities,omitempty"`
 }
 

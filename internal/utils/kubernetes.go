@@ -89,33 +89,33 @@ func FilterPodsByNamespace(pods []corev1.Pod, namespace string) []corev1.Pod {
 // FindPodsMatchingSelector returns pods that match the given label selector
 func FindPodsMatchingSelector(selector map[string]string, pods []corev1.Pod) []corev1.Pod {
 	var matchingPods []corev1.Pod
-	
+
 	selectorLabels := labels.Set(selector)
-	
+
 	for _, pod := range pods {
 		if selectorLabels.AsSelector().Matches(labels.Set(pod.Labels)) {
 			matchingPods = append(matchingPods, pod)
 		}
 	}
-	
+
 	return matchingPods
 }
 
 // FindPodsMatchingLabelSelector returns pods that match the given metav1.LabelSelector
 func FindPodsMatchingLabelSelector(labelSelector *metav1.LabelSelector, pods []corev1.Pod) ([]corev1.Pod, error) {
 	var matchingPods []corev1.Pod
-	
+
 	selector, err := metav1.LabelSelectorAsSelector(labelSelector)
 	if err != nil {
 		return matchingPods, err
 	}
-	
+
 	for _, pod := range pods {
 		if selector.Matches(labels.Set(pod.Labels)) {
 			matchingPods = append(matchingPods, pod)
 		}
 	}
-	
+
 	return matchingPods, nil
 }
 
