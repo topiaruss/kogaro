@@ -426,6 +426,66 @@ body {
 .code-key { color: #06b6d4; }
 .code-value { color: #a3e635; }
 
+/* Problem / Solution Section */
+.problem-solution {
+    padding: var(--section-padding);
+    background: var(--bg-secondary);
+    transition: var(--transition-theme);
+}
+
+.problem-solution-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+}
+
+.problem,
+.solution {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
+    padding: 28px;
+    transition: var(--transition), var(--transition-theme);
+}
+
+.problem h2,
+.solution h2 {
+    font-size: 24px;
+    margin-bottom: 18px;
+    color: var(--text-primary);
+}
+
+.crisis-list,
+.solution-list {
+    list-style: none;
+    display: grid;
+    gap: 12px;
+}
+
+.crisis-list li,
+.solution-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    color: var(--text-secondary);
+}
+
+.list-icon {
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+.list-icon svg {
+    width: 18px;
+    height: 18px;
+}
+
 /* Features Section */
 .features {
     padding: var(--section-padding);
@@ -490,9 +550,18 @@ body {
 }
 
 .feature-icon {
-    font-size: 48px;
-    margin-bottom: 20px;
-    display: block;
+    width: 34px;
+    height: 34px;
+    margin-bottom: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+}
+
+.feature-icon svg {
+    width: 34px;
+    height: 34px;
 }
 
 .feature-card h3 {
@@ -769,6 +838,15 @@ body {
     
     .hero-description {
         font-size: 18px;
+    }
+
+    .problem-solution-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .problem h2,
+    .solution h2 {
+        font-size: 22px;
     }
     
     .features-grid {

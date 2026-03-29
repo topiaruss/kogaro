@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -124,19 +124,87 @@
                     <div class="problem">
                         <h2>Silent Failures Kill Production</h2>
                         <ul class="crisis-list">
-                            <li>🚨 CI/CD passes, production fails</li>
-                            <li>💥 Dangling references cause outages</li>
-                            <li>🔍 Issues hidden until customers complain</li>
-                            <li>⏰ Hours debugging, seconds detecting</li>
+                            <li>
+                                <span class="list-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                                    </svg>
+                                </span>
+                                <span>CI/CD passes, production fails</span>
+                            </li>
+                            <li>
+                                <span class="list-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="3 6 5 6 21 6"></polyline>
+                                        <path d="M19 6l-1 14H6L5 6"></path>
+                                        <path d="M10 11v6"></path>
+                                        <path d="M14 11v6"></path>
+                                        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+                                    </svg>
+                                </span>
+                                <span>Dangling references cause outages</span>
+                            </li>
+                            <li>
+                                <span class="list-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="11" cy="11" r="8"></circle>
+                                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                    </svg>
+                                </span>
+                                <span>Issues hidden until customers complain</span>
+                            </li>
+                            <li>
+                                <span class="list-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <polyline points="12 6 12 12 16 14"></polyline>
+                                    </svg>
+                                </span>
+                                <span>Hours debugging, seconds detecting</span>
+                            </li>
                         </ul>
                     </div>
                     <div class="solution">
                         <h2>Kogaro Prevents the Crisis</h2>
                         <ul class="solution-list">
-                            <li>✅ Catches failures before users affected</li>
-                            <li>🐳 Validates images, architecture + registry</li>
-                            <li>🎯 Structured codes for automation</li>
-                            <li>🚀 CI/CD + runtime monitoring</li>
+                            <li>
+                                <span class="list-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                </span>
+                                <span>Catches failures before users affected</span>
+                            </li>
+                            <li>
+                                <span class="list-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M3 16V8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v8"></path>
+                                        <rect x="1" y="16" width="22" height="5" rx="2"></rect>
+                                        <circle cx="8" cy="18.5" r="0.5"></circle>
+                                        <circle cx="16" cy="18.5" r="0.5"></circle>
+                                    </svg>
+                                </span>
+                                <span>Validates images, architecture + registry</span>
+                            </li>
+                            <li>
+                                <span class="list-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="8"></circle>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg>
+                                </span>
+                                <span>Structured codes for automation</span>
+                            </li>
+                            <li>
+                                <span class="list-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M4.5 16.5c-1.5 0-1.5-2.5 0-2.5h5l2-6h3l-1.5 4H18a2 2 0 0 1 0 4h-5l-2 5h-3l1.5-4.5z"></path>
+                                    </svg>
+                                </span>
+                                <span>CI/CD + runtime monitoring</span>
+                            </li>
                         </ul>
                     </div>
                 </div>
@@ -148,32 +216,62 @@
                 <h2 class="section-title">Why Choose Kogaro Over Alternatives?</h2>
                 <div class="features-grid">
                     <div class="feature-card comparison">
-                        <div class="feature-icon">🎯</div>
+                        <div class="feature-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="8"></circle>
+                                <circle cx="12" cy="12" r="4"></circle>
+                                <circle cx="12" cy="12" r="1"></circle>
+                            </svg>
+                        </div>
                         <h3>vs. Policy Engines</h3>
                         <p><strong>Them:</strong> Complex rule languages<br><strong>Kogaro:</strong> Simple, focused validations</p>
                     </div>
                     <div class="feature-card comparison">
-                        <div class="feature-icon">🔍</div>
+                        <div class="feature-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                            </svg>
+                        </div>
                         <h3>vs. Security Scanners</h3>
                         <p><strong>Them:</strong> Point-in-time reports<br><strong>Kogaro:</strong> Continuous operational monitoring</p>
                     </div>
                     <div class="feature-card comparison">
-                        <div class="feature-icon">📊</div>
+                        <div class="feature-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="18" y1="20" x2="18" y2="10"></line>
+                                <line x1="12" y1="20" x2="12" y2="4"></line>
+                                <line x1="6" y1="20" x2="6" y2="14"></line>
+                            </svg>
+                        </div>
                         <h3>vs. Monitoring Tools</h3>
                         <p><strong>Them:</strong> Runtime metrics only<br><strong>Kogaro:</strong> Configuration hygiene focus</p>
                     </div>
                     <div class="feature-card unique">
-                        <div class="feature-icon">⚡</div>
+                        <div class="feature-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                            </svg>
+                        </div>
                         <h3>Operational Intelligence</h3>
                         <p>The only tool designed for operational configuration hygiene - catching silent failures others miss</p>
                     </div>
                     <div class="feature-card unique">
-                        <div class="feature-icon">🏷️</div>
+                        <div class="feature-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20.59 13.41l-7.18 7.18a2 2 0 0 1-2.82 0L2 12V3h9l9.59 9.59a2 2 0 0 1 0 2.82z"></path>
+                                <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                            </svg>
+                        </div>
                         <h3>Structured Error Codes</h3>
                         <p>KOGARO-XXX-YYY format enables automated processing, filtering, and trend analysis</p>
                     </div>
                     <div class="feature-card unique">
-                        <div class="feature-icon">🚀</div>
+                        <div class="feature-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M4.5 16.5c-1.5 0-1.5-2.5 0-2.5h5l2-6h3l-1.5 4H18a2 2 0 0 1 0 4h-5l-2 5h-3l1.5-4.5z"></path>
+                            </svg>
+                        </div>
                         <h3>Production Ready</h3>
                         <p>Leader election, health checks, HA support - built by ops teams, for ops teams</p>
                     </div>
