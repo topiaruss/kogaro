@@ -12,6 +12,12 @@
 
 Kogaro transforms Kubernetes cluster hygiene from reactive debugging to proactive intelligence. While other tools generate compliance noise, Kogaro delivers actionable signals that production teams actually trust and act upon.
 
+## Project Components
+
+- Core Kubernetes validator/agent: repository root (`main.go`, `internal/`, `charts/`)
+- Desktop app (Wails + Svelte): `ui/`
+- Public website (deployed separately): `website/`
+
 ## 🚨 The Problem We Solve
 
 Production Kubernetes clusters suffer from **silent configuration failures**:
