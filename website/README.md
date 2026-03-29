@@ -70,7 +70,25 @@ kubectl delete -f k8s/
 
 ## Production Deployment
 
-For production deployment to your cluster, update the image reference in `k8s/deployment.yaml` to point to your container registry.
+Use the scripted production flow from `website/`:
+
+```bash
+./scripts/deploy-production.sh
+```
+
+This flow now enforces:
+
+- Multi-arch image build and push (`linux/amd64` + `linux/arm64`)
+- Immutable image tags (git-sha + timestamp) for rollout
+- Pre-deploy architecture verification with `scripts/check-image-arch.sh`
+
+You can also run the Make targets:
+
+```bash
+make website-all
+```
+
+`website-all` performs `website-push`, image architecture checks, and production deploy with the immutable `$(VERSION)` image tag.
 
 ## File Structure
 

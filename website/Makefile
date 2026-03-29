@@ -11,7 +11,7 @@ WEBSITE_CLUSTER=kogaro-website
 WEBSITE_CONTEXT=kind-$(WEBSITE_CLUSTER)
 WEBSITE_NAMESPACE=kogaro-website
 
-.PHONY: website-build website-push website-deploy website-all website-kind help
+.PHONY: website-build website-push website-check-image-arch website-deploy website-all website-kind help
 
 # Default target
 all: website-all
@@ -26,6 +26,11 @@ website-push:
 	@echo "Building and pushing multi-arch website image..."
 	docker buildx build --platform linux/amd64,linux/arm64 --no-cache -t $(WEBSITE_IMAGE):$(VERSION) -t $(WEBSITE_IMAGE):latest $(WEBSITE_DIR) --push
 
+# Verify pushed image supports required architectures
+website-check-image-arch:
+	@echo "Checking image architecture support..."
+	./scripts/check-image-arch.sh $(WEBSITE_IMAGE):$(VERSION) linux/amd64 linux/arm64
+
 # Package and push Helm chart
 website-helm:
 	@echo "Packaging and updating Helm chart..."
@@ -38,12 +43,16 @@ website-deploy:
 	kubectl config use-context $(PRODUCTION_CONTEXT)
 	@echo "Current context: $$(kubectl config current-context)"
 	@read -p "Are you sure you want to deploy to PRODUCTION? (y/N): " confirm && [ "$$confirm" = "y" ]
-	helm upgrade kogaro-website . --namespace $(WEBSITE_NAMESPACE) --create-namespace
-	@echo "Restarting deployment to pull latest image..."
-	kubectl rollout restart deployment/kogaro-website -n $(WEBSITE_NAMESPACE)
+	helm upgrade kogaro-website . --namespace $(WEBSITE_NAMESPACE) --create-namespace \
+		--set image.repository=$(WEBSITE_IMAGE) \
+		--set image.tag=$(VERSION) \
+		--set image.pullPolicy=Always \
+		--set-string ingress.annotations.nginx\\.ingress\\.kubernetes\\.io/ssl-redirect=true \
+		--set-string ingress.annotations.nginx\\.ingress\\.kubernetes\\.io/force-ssl-redirect=true
+	kubectl rollout status deployment/kogaro-website -n $(WEBSITE_NAMESPACE) --timeout=300s
 
 # Full build, push, and deploy pipeline
-website-all: website-push website-deploy
+website-all: website-push website-check-image-arch website-deploy
 	@echo "Website build and deployment complete!"
 
 # Local kind testing
@@ -78,6 +87,7 @@ help:
 	@echo "Remote Production Deployment:"
 	@echo "  website-build   - Build multi-arch website Docker image"
 	@echo "  website-push    - Build and push multi-arch website image"
+	@echo "  website-check-image-arch - Verify required image platforms are present"
 	@echo "  website-helm    - Package Helm chart"
 	@echo "  website-deploy  - Deploy website to REMOTE production cluster"
 	@echo "  website-all     - Full pipeline: build, push, deploy to PRODUCTION"
