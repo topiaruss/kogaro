@@ -7,23 +7,30 @@ import (
 
 // DecisionResult is the output of running an error code through a decision tree.
 type DecisionResult struct {
-	TreePath   string     `json:"treePath"`   // e.g. "SEC-002/known-image/uid-1001"
+	TreePath   string      `json:"treePath"` // e.g. "SEC-002/known-image/uid-1001"
 	Options    []FixOption `json:"options"`
-	Warnings   []string   `json:"warnings,omitempty"`
-	KBInsights []string   `json:"kbInsights,omitempty"`
+	Warnings   []string    `json:"warnings,omitempty"`
+	KBInsights []string    `json:"kbInsights,omitempty"`
 }
 
 // Decide runs the appropriate decision tree for an error code against a workload profile.
 // Returns nil if no decision tree exists for the error code.
+// If profile is nil, generates generic options using the "unknown image" path.
 func Decide(errorCode string, profile *WorkloadProfile, containerName string) *DecisionResult {
 	if profile == nil {
+		// No profile — can't generate workload-specific fixes
 		return nil
 	}
 
 	// Find the target container
 	cp := findContainer(profile, containerName)
 	if cp == nil {
-		return nil
+		// Synthesize a minimal container profile so decision trees can still run
+		cp = &ContainerProfile{
+			Name:      containerName,
+			Image:     "unknown",
+			ImageBase: "unknown",
+		}
 	}
 
 	switch errorCode {
@@ -261,7 +268,7 @@ func decideSEC006(profile *WorkloadProfile, cp *ContainerProfile) *DecisionResul
 			}
 
 			r.Options = append(r.Options, FixOption{
-				Label:       fmt.Sprintf("Enable readOnlyRootFilesystem with emptyDir volumes for writable paths"),
+				Label:       "Enable readOnlyRootFilesystem with emptyDir volumes for writable paths",
 				Description: fmt.Sprintf("Adds emptyDir volumes for %s's known writable paths (%s), then enables readOnlyRootFilesystem.", cp.ImageBase, strings.Join(cp.KnownTraits.WritablePaths, ", ")),
 				Risk:        "medium",
 				Commands: []FixCmd{{

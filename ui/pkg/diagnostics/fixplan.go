@@ -134,12 +134,16 @@ func BuildFixPlan(fg *graph.FaultGraph, incident graph.Incident, diagnostics []D
 			var dr *adaptive.DecisionResult
 
 			// SEC/RES codes use container-level profiles
-			if profileMap != nil {
-				if prof, ok := profileMap[string(nid)]; ok {
-					step.Profile = prof
-					cName := containerName(node, nodeDiags)
-					dr = adaptive.Decide(code, prof, cName)
+			if strings.HasPrefix(code, "KOGARO-SEC-") || strings.HasPrefix(code, "KOGARO-RES-") {
+				var prof *adaptive.WorkloadProfile
+				if profileMap != nil {
+					prof = profileMap[string(nid)]
 				}
+				if prof != nil {
+					step.Profile = prof
+				}
+				cName := containerName(node, nodeDiags)
+				dr = adaptive.Decide(code, prof, cName)
 			}
 
 			// NET/REF codes use node-level context
@@ -310,7 +314,7 @@ func generateCommands(node *graph.Node, errs []graph.ErrorDetail, diags []Diagno
 		})
 	}
 
-	// Missing resources: suggest get to confirm, then a stub create
+	// Missing resources: confirm non-existence, then let decision trees handle the fix
 	if node.Health == graph.HealthMissing {
 		if ns != "" {
 			cmds = append(cmds, FixCommand{
@@ -319,7 +323,7 @@ func generateCommands(node *graph.Node, errs []graph.ErrorDetail, diags []Diagno
 				Safe:    true,
 			})
 		}
-		// Don't generate a create command — we can't know the spec
+		// Return investigation commands — decision trees will provide actual fix options
 		return cmds
 	}
 
@@ -483,10 +487,10 @@ func buildNodeContext(node *graph.Node, code string, errs []graph.ErrorDetail, d
 		Details:   make(map[string]string),
 	}
 
-	// Extract selector from diagnostic findings
+	// Extract selector and target from diagnostic findings
 	for _, d := range diags {
 		for _, f := range d.Findings {
-			// Selector labels (from service diagnostics)
+			// Selector labels (from service diagnostics — category "labels")
 			if f.Category == "labels" {
 				for k, v := range f.Details {
 					if k != "source" && k != "target" && k != "target_kind" && k != "count" && k != "status" {
@@ -498,6 +502,16 @@ func buildNodeContext(node *graph.Node, code string, errs []graph.ErrorDetail, d
 					}
 				}
 			}
+			// Selector from "selector" category (used by some runbooks)
+			if f.Category == "selector" {
+				for k, v := range f.Details {
+					if nc.Selector == "" {
+						nc.Selector = fmt.Sprintf("%s=%s", k, v)
+					} else {
+						nc.Selector += fmt.Sprintf(",%s=%s", k, v)
+					}
+				}
+			}
 			// Target resource info
 			if target, ok := f.Details["target"]; ok && target != "" {
 				nc.TargetName = target
@@ -505,6 +519,13 @@ func buildNodeContext(node *graph.Node, code string, errs []graph.ErrorDetail, d
 			if targetKind, ok := f.Details["target_kind"]; ok && targetKind != "" {
 				nc.TargetKind = targetKind
 			}
+		}
+	}
+
+	// Also try node's own labels as selector source (for Service nodes)
+	if nc.Selector == "" && node.Labels != nil {
+		if sel, ok := node.Labels["selector"]; ok && sel != "" {
+			nc.Selector = sel
 		}
 	}
 
@@ -657,5 +678,5 @@ func buildRemediation(errs []graph.ErrorDetail, node *graph.Node, willAutoResolv
 		return strings.Join(hints, ". ")
 	}
 
-	return "Run the commands below to investigate and apply fixes"
+	return "Review the fix options below and apply the appropriate fix"
 }

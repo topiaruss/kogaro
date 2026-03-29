@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { selectedIncidentId } from '../../lib/stores/graphStore';
   import { fetchFixPlan, runCommand, runScan, recordFixAttempt, postCheck } from '../../lib/api/wailsBridge';
   import type { PostCheckResult } from '../../lib/types/diagnostics';
@@ -185,12 +185,12 @@
             </details>
           {/if}
 
-          <!-- Fix Options (from decision engine) -->
+          <!-- Fix Options (from decision engine) — shown open, front and center -->
           {#if step.options?.length > 0}
             <div class="options-section">
               <div class="options-label">Fix options</div>
               {#each step.options as option, optIdx}
-                <details class="option-card" class:option-low={option.risk === 'low'} class:option-medium={option.risk === 'medium'} class:option-high={option.risk === 'high'}>
+                <details class="option-card" class:option-low={option.risk === 'low'} class:option-medium={option.risk === 'medium'} class:option-high={option.risk === 'high'} open={optIdx === 0}>
                   <summary>
                     <span class="option-risk risk-{option.risk}">{option.risk}</span>
                     {option.label}
@@ -264,42 +264,82 @@
             </div>
           {/if}
 
-          <!-- Legacy commands (when no options from decision engine) -->
-          {#if (!step.options || step.options.length === 0) && step.commands?.length > 0}
-            <div class="cmd-list">
-              {#each step.commands as cmd}
-                <div class="cmd-item">
-                  <div class="cmd-label">
-                    {cmd.label}
-                    {#if cmd.destructive}<span class="destructive-tag">modifies cluster</span>{/if}
-                  </div>
-                  <div class="cmd-row">
-                    <code class="cmd-text">{cmd.command}</code>
-                    <button class="copy-btn" on:click={() => copyCmd(cmd.command)} title="Copy">&#x2398;</button>
-                    <button
-                      class="run-btn"
-                      class:destructive={cmd.destructive}
-                      on:click={() => runCmd(cmd.command, stepErrorCodes(step), step, cmd.destructive)}
-                      disabled={runningCmds[cmd.command]}
-                      title={cmd.destructive ? 'Apply (modifies cluster)' : 'Run'}
-                    >
-                      {#if runningCmds[cmd.command]}...{:else}&#x25B6;{/if}
-                    </button>
-                  </div>
-                  {#if cmdResults[cmd.command]}
-                    {#if cmdResults[cmd.command].suggestion?.insight}
-                      <div class="insight">{cmdResults[cmd.command].suggestion.insight}</div>
+          <!-- Action commands — fix commands shown prominently, investigation commands collapsed -->
+          {#if step.commands?.length > 0}
+            {@const fixCmds = step.commands.filter(c => c.destructive)}
+            {@const investigateCmds = step.commands.filter(c => !c.destructive)}
+
+            <!-- Direct fix commands (always visible) -->
+            {#if fixCmds.length > 0 && (!step.options || step.options.length === 0)}
+              <div class="cmd-list">
+                {#each fixCmds as cmd}
+                  <div class="cmd-item">
+                    <div class="cmd-label">
+                      {cmd.label}
+                      <span class="destructive-tag">modifies cluster</span>
+                    </div>
+                    <div class="cmd-row">
+                      <code class="cmd-text">{cmd.command}</code>
+                      <button class="copy-btn" on:click={() => copyCmd(cmd.command)} title="Copy">&#x2398;</button>
+                      <button
+                        class="run-btn destructive"
+                        on:click={() => runCmd(cmd.command, stepErrorCodes(step), step, true)}
+                        disabled={runningCmds[cmd.command]}
+                      >
+                        {#if runningCmds[cmd.command]}...{:else}&#x25B6;{/if}
+                      </button>
+                    </div>
+                    {#if cmdResults[cmd.command]}
+                      {#if cmdResults[cmd.command].suggestion?.insight}
+                        <div class="insight">{cmdResults[cmd.command].suggestion.insight}</div>
+                      {/if}
+                      <details class="cmd-output">
+                        <summary>Output ({cmdResults[cmd.command].success ? 'ok' : 'error'})</summary>
+                        <div class="cmd-result" class:cmd-error={!cmdResults[cmd.command].success}>
+                          <pre>{cmdResults[cmd.command].output || cmdResults[cmd.command].error || 'No output'}</pre>
+                        </div>
+                      </details>
                     {/if}
-                    <details class="cmd-output">
-                      <summary>Output ({cmdResults[cmd.command].success ? 'ok' : 'error'})</summary>
-                      <div class="cmd-result" class:cmd-error={!cmdResults[cmd.command].success}>
-                        <pre>{cmdResults[cmd.command].output || cmdResults[cmd.command].error || 'No output'}</pre>
+                  </div>
+                {/each}
+              </div>
+            {/if}
+
+            <!-- Investigation commands (collapsible) -->
+            {#if investigateCmds.length > 0}
+              <details class="investigate-section">
+                <summary>Investigate ({investigateCmds.length} commands)</summary>
+                <div class="cmd-list">
+                  {#each investigateCmds as cmd}
+                    <div class="cmd-item">
+                      <div class="cmd-label">{cmd.label}</div>
+                      <div class="cmd-row">
+                        <code class="cmd-text">{cmd.command}</code>
+                        <button class="copy-btn" on:click={() => copyCmd(cmd.command)} title="Copy">&#x2398;</button>
+                        <button
+                          class="run-btn"
+                          on:click={() => runCmd(cmd.command, stepErrorCodes(step))}
+                          disabled={runningCmds[cmd.command]}
+                        >
+                          {#if runningCmds[cmd.command]}...{:else}&#x25B6;{/if}
+                        </button>
                       </div>
-                    </details>
-                  {/if}
+                      {#if cmdResults[cmd.command]}
+                        {#if cmdResults[cmd.command].suggestion?.insight}
+                          <div class="insight">{cmdResults[cmd.command].suggestion.insight}</div>
+                        {/if}
+                        <details class="cmd-output">
+                          <summary>Output ({cmdResults[cmd.command].success ? 'ok' : 'error'})</summary>
+                          <div class="cmd-result" class:cmd-error={!cmdResults[cmd.command].success}>
+                            <pre>{cmdResults[cmd.command].output || cmdResults[cmd.command].error || 'No output'}</pre>
+                          </div>
+                        </details>
+                      {/if}
+                    </div>
+                  {/each}
                 </div>
-              {/each}
-            </div>
+              </details>
+            {/if}
           {/if}
 
           <!-- Dependencies -->
@@ -812,6 +852,20 @@
   .risk-low { background: color-mix(in srgb, #22c55e 20%, transparent); color: #22c55e; }
   .risk-medium { background: color-mix(in srgb, #f59e0b 20%, transparent); color: #f59e0b; }
   .risk-high { background: color-mix(in srgb, #ef4444 20%, transparent); color: #ef4444; }
+
+  .investigate-section {
+    margin-top: 4px;
+    margin-bottom: 8px;
+  }
+  .investigate-section summary {
+    font-size: 12px;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px 0;
+  }
+  .investigate-section summary:hover {
+    color: var(--text-secondary);
+  }
 
   .rollback-section { margin-top: 8px; }
   .rollback-section summary {

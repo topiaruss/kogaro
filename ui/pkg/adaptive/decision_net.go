@@ -8,16 +8,16 @@ import (
 // NodeContext provides node-level information for decision trees that don't
 // operate on container profiles (e.g., NET and REF error codes).
 type NodeContext struct {
-	Kind         string            // "Service", "Ingress", "ConfigMap", etc.
-	Name         string            // resource name
-	Namespace    string            // resource namespace
-	ErrorCode    string            // the KOGARO error code
-	OwnerKind    string            // parent workload kind (e.g., "Deployment")
-	OwnerName    string            // parent workload name
-	Selector     string            // label selector (for services)
-	TargetName   string            // name of the missing/broken target resource
-	TargetKind   string            // kind of the missing/broken target resource
-	Details      map[string]string // additional context from diagnostics
+	Kind       string            // "Service", "Ingress", "ConfigMap", etc.
+	Name       string            // resource name
+	Namespace  string            // resource namespace
+	ErrorCode  string            // the KOGARO error code
+	OwnerKind  string            // parent workload kind (e.g., "Deployment")
+	OwnerName  string            // parent workload name
+	Selector   string            // label selector (for services)
+	TargetName string            // name of the missing/broken target resource
+	TargetKind string            // kind of the missing/broken target resource
+	Details    map[string]string // additional context from diagnostics
 }
 
 // DecideForNode runs decision trees for error codes that operate on
@@ -160,14 +160,42 @@ func decideNET003(nc *NodeContext) *DecisionResult {
 		"Traffic will not reach the container — fix the targetPort or container port",
 	)
 
+	// Build investigation commands
+	cmds := []FixCmd{
+		{Label: "Show service ports and selector", Command: fmt.Sprintf("kubectl get svc %s -n %s -o yaml", name, ns)},
+		{Label: "Show endpoints (reveals actual pod IPs and ports)", Command: fmt.Sprintf("kubectl get endpoints %s -n %s -o yaml", name, ns)},
+	}
+	if nc.Selector != "" {
+		cmds = append(cmds, FixCmd{
+			Label:   "Show pod container ports",
+			Command: fmt.Sprintf("kubectl get pods -n %s -l %s -o jsonpath='{range .items[*]}{.metadata.name}{\"\\t\"}{range .spec.containers[*]}{.name}:{.ports[*].containerPort}{\" \"}{end}{\"\\n\"}{end}'", ns, nc.Selector),
+		})
+	}
+
 	r.Options = append(r.Options, FixOption{
 		Label:       "Compare service ports with container ports",
 		Description: "Show the service's targetPort and the pods' containerPort values side by side to identify the mismatch.",
 		Risk:        "low",
+		Commands:    cmds,
+	})
+
+	// Option 2: Patch the service targetPort to a numeric port
+	r.Options = append(r.Options, FixOption{
+		Label:       "Patch service targetPort to match container port",
+		Description: "After identifying the correct container port from the investigation above, patch the service to use it. Replace PORT with the actual container port number.",
+		Risk:        "medium",
+		Warnings:    []string{"Replace PORT below with the actual container port number from the investigation"},
 		Commands: []FixCmd{
-			{Label: "Show service ports", Command: fmt.Sprintf("kubectl get svc %s -n %s -o jsonpath='{.spec.ports}'", name, ns)},
-			{Label: "Show pod container ports", Command: fmt.Sprintf("kubectl get pods -n %s -l %s -o jsonpath='{range .items[0].spec.containers[*]}{.name}: {.ports}{\"\\n\"}{end}'", ns, nc.Selector)},
+			{
+				Label:       "Patch service targetPort (replace PORT with actual value)",
+				Command:     fmt.Sprintf(`kubectl patch svc %s -n %s --type=json -p '[{"op":"replace","path":"/spec/ports/0/targetPort","value":PORT}]'`, name, ns),
+				Destructive: true,
+			},
 		},
+		Rollback: []FixCmd{{
+			Label:   "Show current service config to verify",
+			Command: fmt.Sprintf("kubectl get svc %s -n %s -o yaml", name, ns),
+		}},
 	})
 
 	return r
