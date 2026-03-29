@@ -65,3 +65,4 @@ Thumbs.db
 # Local deployment values (contains sensitive information)
 deploy-values-local.yaml
 helm/charts/monitoring/values.yaml
+private_docs/**
